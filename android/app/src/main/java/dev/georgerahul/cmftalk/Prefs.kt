@@ -1,0 +1,16 @@
+package dev.georgerahul.cmftalk
+
+import android.content.Context
+
+class Prefs(ctx: Context) {
+    private val p = ctx.applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    var enabled: Boolean
+        get() = p.getBoolean("enabled", true)
+        set(v) = p.edit().putBoolean("enabled", v).apply()
+
+    /** Music volume while talking, in percent of max. */
+    var talkVolume: Int
+        get() = p.getInt("talkVolume", 10)
+        set(v) = p.edit().putInt("talkVolume", v).apply()
+}
