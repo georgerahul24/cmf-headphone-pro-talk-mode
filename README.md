@@ -21,7 +21,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Set your own talk volume.** 10% by default. Pick anything from 0% to 100%.
 - **Turn it off any time.** One switch puts the button back to normal Spatial Audio.
 - **Built to stay running on Android.** Runs as a foreground service, asks for unrestricted battery use, starts after a reboot and reconnects when your headphones connect. Made to hold up on custom ROMs like Evolution X.
-- **Opens at login on macOS.** Lives in the menu bar, uses almost no resources.
+- **Opens at login on macOS.** Lives in the menu bar, uses almost no resources, and macOS restarts it if it ever crashes.
 - **Safe for your headphones.** It only sends the same settings commands the official Nothing X app sends. It never touches firmware or the update channel, so your warranty and future firmware updates are not affected.
 
 ## How it works
@@ -63,7 +63,7 @@ Get the latest build from the [Releases page](../../releases):
 2. The app is not signed with a paid Apple account. The first time, right-click the app and pick **Open**. Or run:
    `xattr -dr com.apple.quarantine "/Applications/CMF Talk Mode.app"`
 3. Allow Bluetooth when macOS asks.
-4. Click the headphones icon in the menu bar and turn on **Open at login**.
+4. Click the **speech bubbles** icon in the menu bar and turn on **Open at login**. The icon fills in while talk mode is on.
 
 ## FAQ
 
@@ -72,6 +72,12 @@ No. The app only uses normal settings commands (noise mode, Spatial Audio, batte
 
 **I hear "concert mode" (a voice prompt) when I press the button.**
 That prompt plays inside the headphones the moment Spatial Audio switches on, before the app gets the message. There is no known setting to turn it off yet.
+
+**Does it drain my battery?**
+No. While connected, the app just waits for the headphones to send a message. There is no polling. While the headphones are off, it waits for the system's "device connected" event and only checks again every few minutes as a backup.
+
+**Does it start again if it is closed?**
+On Android, it starts after a reboot and after updates, and Android restarts the service if it gets killed. Swiping it away from recent apps does not stop it. Only "Force stop" stops it, until you open the app again. On macOS, it opens at login and restarts after a crash. Picking Quit keeps it closed until you open it again.
 
 **Can I still use Spatial Audio?**
 Yes. Turn off the "Talk mode button" switch in the app, and the button works as normal Spatial Audio again.

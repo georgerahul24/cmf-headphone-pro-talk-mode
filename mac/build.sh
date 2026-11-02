@@ -12,6 +12,8 @@ done
 lipo -create build/CMFTalkMode-arm64 build/CMFTalkMode-x86_64 -output "$APP/Contents/MacOS/CMFTalkMode"
 rm build/CMFTalkMode-*
 cp Info.plist "$APP/Contents/Info.plist"
+mkdir -p "$APP/Contents/Library/LaunchAgents"
+cp LaunchAgent.plist "$APP/Contents/Library/LaunchAgents/dev.georgerahul.cmftalkmode.agent.plist"
 codesign --force --deep -s - "$APP"
 if [ "$1" = "--dmg" ]; then
   hdiutil create -volname "CMF Talk Mode" -srcfolder "$APP" -ov -format UDZO "build/CMF-Talk-Mode.dmg"

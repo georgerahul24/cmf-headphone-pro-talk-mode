@@ -4,11 +4,23 @@ import SwiftUI
 struct TalkModeApp: App {
     @StateObject private var talk = TalkMode()
 
+    init() {
+        // Only one copy may run. The copy started by launchd (login agent) wins,
+        // so it can be restarted after a crash.
+        let me = ProcessInfo.processInfo.processIdentifier
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .filter { $0.processIdentifier != me }
+        let fromLaunchd = ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] == "dev.georgerahul.cmftalkmode.agent"
+        if !others.isEmpty {
+            if fromLaunchd { others.forEach { $0.terminate() } } else { exit(0) }
+        }
+    }
+
     var body: some Scene {
         MenuBarExtra {
             MenuContent(talk: talk)
         } label: {
-            Image(systemName: talk.active ? "person.wave.2.fill" : "headphones")
+            Image(systemName: talk.active ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
         }
         .menuBarExtraStyle(.window)
     }

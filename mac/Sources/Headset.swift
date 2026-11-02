@@ -18,7 +18,7 @@ final class Headset: NSObject, IOBluetoothRFCOMMChannelDelegate {
     func start() {
         connectNote = IOBluetoothDevice.register(forConnectNotifications: self,
                                                  selector: #selector(deviceConnected(_:device:)))
-        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             self?.tryConnect()
         }
         tryConnect()
@@ -40,6 +40,8 @@ final class Headset: NSObject, IOBluetoothRFCOMMChannelDelegate {
         return paired.first { isTarget($0) && $0.isConnected() }
     }
 
+    // Called on start, on the system "device connected" event, and once a minute
+    // as a fallback. Returns at once when already connected.
     func tryConnect() {
         if connected { return }
         guard let dev = findDevice() else { onState?("Headphones not connected"); return }

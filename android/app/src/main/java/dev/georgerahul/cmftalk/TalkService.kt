@@ -171,7 +171,8 @@ class TalkService : Service() {
             val dev = findHeadphones()
             if (dev == null || !isConnected(dev)) {
                 setStatus(if (dev == null) "Headphones not paired / Bluetooth off" else "Headphones not connected")
-                sleep(30_000)
+                // Woken early by the "headphones connected" broadcast; this is just a fallback.
+                sleep(5 * 60_000)
                 continue
             }
             try {

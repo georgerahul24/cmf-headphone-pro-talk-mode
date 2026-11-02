@@ -20,13 +20,18 @@ final class TalkMode: ObservableObject {
     @Published private(set) var ancMode: UInt8?
     @Published private(set) var battery: Int?
 
-    @Published var launchAtLogin = SMAppService.mainApp.status == .enabled {
+    /// Login item as a launch agent: starts at login and is restarted by macOS
+    /// if it crashes. Choosing Quit is a clean exit, so it stays quit.
+    static let agent = SMAppService.agent(plistName: "dev.georgerahul.cmftalkmode.agent.plist")
+
+    @Published var launchAtLogin = TalkMode.agent.status == .enabled {
         didSet {
-            guard launchAtLogin != (SMAppService.mainApp.status == .enabled) else { return }
+            guard launchAtLogin != (TalkMode.agent.status == .enabled) else { return }
             do {
-                if launchAtLogin { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                if launchAtLogin { try TalkMode.agent.register() } else { try TalkMode.agent.unregister() }
             } catch {
-                DispatchQueue.main.async { self.launchAtLogin = SMAppService.mainApp.status == .enabled }
+                log("login item: \(error)")
+                DispatchQueue.main.async { self.launchAtLogin = TalkMode.agent.status == .enabled }
             }
         }
     }
