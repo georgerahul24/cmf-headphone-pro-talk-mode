@@ -9,7 +9,7 @@ import java.util.Calendar
 import java.util.concurrent.Executors
 
 /**
- * A small log of what the headphones did, kept on the phone for 30 days:
+ * A log of what the headphones did, kept on the phone for good (never deleted):
  * connected / disconnected, noise mode changes and battery level changes.
  * One line per event: "time,kind,value" (kind C = connected 1/0, A = noise mode, B = battery).
  */
@@ -17,7 +17,6 @@ object History {
     const val CONNECTED = 'C'
     const val ANC = 'A'
     const val BATTERY = 'B'
-    private const val KEEP_MS = 30L * 24 * 3600_000
 
     class Event(val t: Long, val kind: Char, val v: Int)
 
@@ -33,13 +32,10 @@ object History {
         if (file != null) return
         val f = File(ctx.filesDir, "history.log")
         file = f
-        // Drop old lines, and close a connection left open by a killed app.
+        // Close a connection left open by a killed app, at the last thing it recorded.
         val events = read(f)
-        val cut = System.currentTimeMillis() - KEEP_MS
-        val keep = events.filter { it.t >= cut }.toMutableList()
-        val lastConn = keep.lastOrNull { it.kind == CONNECTED }
-        if (lastConn != null && lastConn.v == 1) keep += Event(keep.last().t, CONNECTED, 0)
-        if (keep.size != events.size) runCatching { f.writeText(keep.joinToString("") { "${it.t},${it.kind},${it.v}\n" }) }
+        val lastConn = events.lastOrNull { it.kind == CONNECTED }
+        if (lastConn != null && lastConn.v == 1) runCatching { f.appendText("${events.last().t},$CONNECTED,0\n") }
     }
 
     /** Records a value if it changed. Main thread. */
@@ -54,6 +50,26 @@ object History {
     }
 
     fun load(): List<Event> = file?.let(::read) ?: emptyList()
+
+    /** The log as a CSV file to share: time, event, value. */
+    fun exportCsv(ctx: Context): File {
+        val out = File(ctx.cacheDir, "export/cmf-headphone-history.csv")
+        out.parentFile?.mkdirs()
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+        out.writeText(buildString {
+            append("time,unix_ms,event,value\n")
+            for (e in load()) {
+                val (name, value) = when (e.kind) {
+                    CONNECTED -> "connected" to (if (e.v == 1) "yes" else "no")
+                    ANC -> "noise_mode" to Proto.ancName(e.v).replace(" · ", " ")
+                    BATTERY -> "battery" to e.v.toString()
+                    else -> e.kind.toString() to e.v.toString()
+                }
+                append("${fmt.format(java.util.Date(e.t))},${e.t},$name,$value\n")
+            }
+        })
+        return out
+    }
 
     private fun read(f: File): List<Event> = runCatching {
         f.readLines().mapNotNull { line ->

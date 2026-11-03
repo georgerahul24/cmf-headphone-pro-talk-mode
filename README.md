@@ -19,7 +19,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **No voice assistant pop-up.** It does not hijack Siri or Google Assistant.
 - **A full control app on Android.** Switch noise control (Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive) and Spatial Audio, and see your battery, in a clean dark dot-matrix design. For these everyday controls, you don't need Nothing X.
 - **Battery saver for noise cancelling.** If nothing plays for 10 minutes (you can pick 5 to 60), the app turns noise control Off so ANC or Transparency stops draining the battery. When music, a video or a call starts, your old mode comes back on its own. You can turn this off in the app. A live countdown shows how long until it kicks in.
-- **Headphone history.** See how long you wore your headphones each day, a 24 hour strip of when you used noise cancelling, Transparency or Off, and a battery chart for each day. Kept for 30 days, on your device only.
+- **Headphone history.** See how long you wore your headphones each day, a 24 hour strip of when you used noise cancelling, Transparency or Off, and a battery chart for each day. Kept forever on your device, never deleted. Export it as a CSV (Android) or open the log file (Mac) to dig into your own listening patterns.
 - **Usage stats.** See how many times you used talk mode, how long you talked, how often the battery saver turned ANC off and how long ANC rested. Stats stay on your device.
 - **Works on Android and Mac.** A small menu bar app on macOS and a background app on Android.
 - **Set your own talk volume.** 10% by default. Pick anything from 0% to 100%.

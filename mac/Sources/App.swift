@@ -405,6 +405,8 @@ struct Panel: View {
             }
             Stepper("Music while talking: \(talk.talkVolumePercent)%", value: $talk.talkVolumePercent, in: 0...100, step: 5)
             Toggle("Open at login", isOn: $talk.launchAtLogin)
+            Button("Show history file") { NSWorkspace.shared.activateFileViewerSelecting([History.shared.url]) }
+                .buttonStyle(.plain).foregroundStyle(Pal.sub)
             HStack {
                 Text("Unofficial app").font(.system(size: 10)).foregroundStyle(Pal.faint)
                 Spacer()

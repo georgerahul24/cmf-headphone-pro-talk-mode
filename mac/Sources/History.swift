@@ -1,13 +1,13 @@
 import Foundation
 
-/// A small log of what the headphones did, kept on this Mac for 30 days:
+/// A log of what the headphones did, kept on this Mac for good (never deleted):
 /// connected / disconnected, noise mode changes and battery level changes.
 /// One line per event: "time,kind,value" (time in ms; kind C = connected 1/0, A = noise mode, B = battery).
 final class History {
     struct Event { let t: Date; let kind: Character; let v: Int }
 
     static let shared = History()
-    private let url: URL
+    let url: URL
     private var last: [Character: Int] = [:]
     private let io = DispatchQueue(label: "history")
     private(set) var version = 0
@@ -17,14 +17,11 @@ final class History {
             .appendingPathComponent("CMF Talk Mode", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("history.log")
-        // Drop old lines, and close a connection left open by a crash.
+        // Close a connection left open by a crash, at the last thing it recorded.
         let events = load()
-        var keep = events.filter { $0.t > Date().addingTimeInterval(-30 * 86400) }
-        if let c = keep.last(where: { $0.kind == "C" }), c.v == 1, let end = keep.last?.t {
-            keep.append(Event(t: end, kind: "C", v: 0))
-        }
-        if keep.count != events.count {
-            try? keep.map(Self.line).joined().write(to: url, atomically: true, encoding: .utf8)
+        if let c = events.last(where: { $0.kind == "C" }), c.v == 1, let end = events.last?.t,
+           let h = try? FileHandle(forWritingTo: url) {
+            h.seekToEndOfFile(); h.write(Self.line(Event(t: end, kind: "C", v: 0)).data(using: .utf8)!); try? h.close()
         }
     }
 

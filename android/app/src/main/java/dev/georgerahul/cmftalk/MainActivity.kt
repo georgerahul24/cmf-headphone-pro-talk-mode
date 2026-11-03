@@ -663,6 +663,22 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
     }
     Reveal(4) {
         Panel {
+            Label("Your data")
+            Text("Every connection, noise mode change and battery reading is kept on this phone and never deleted.",
+                color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
+            GradientButton("Export history (CSV)") {
+                runCatching {
+                    val f = History.exportCsv(ctx)
+                    val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "dev.georgerahul.cmftalk.files", f)
+                    val send = Intent(Intent.ACTION_SEND).setType("text/csv")
+                        .putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    ctx.startActivity(Intent.createChooser(send, "Export history"))
+                }
+            }
+        }
+    }
+    Reveal(5) {
+        Panel {
             Label("Good to know")
             Text("Force stop Nothing X. Only one app can talk to the headphones at a time.",
                 color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
