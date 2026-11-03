@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -1111,7 +1112,7 @@ private fun BatteryCard(hv: HistoryView, day: Int) {
                         addPath(path)
                         lineTo(x(run.last().first), h); lineTo(x(run.first().first), h); close()
                     }
-                    androidx.compose.ui.graphics.drawscope.clipRect(right = clipX) {
+                    clipRect(right = clipX) {
                         drawPath(area, Brush.verticalGradient(listOf(line.copy(alpha = 0.28f), line.copy(alpha = 0f))))
                         drawPath(path, line, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                     }
