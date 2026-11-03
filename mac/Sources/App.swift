@@ -186,7 +186,7 @@ struct Panel: View {
 
     private var spatialCard: some View {
         Card(title: "Spatial audio") {
-            Seg(options: [(0, "Off"), (2, "Concert"), (3, "Mode 2")], selected: talk.spatial, enabled: talk.connected) {
+            Seg(options: [(0, "Off"), (2, "Concert"), (3, "Cinema")], selected: talk.spatial, enabled: talk.connected) {
                 talk.setSpatial($0)
             }
         }

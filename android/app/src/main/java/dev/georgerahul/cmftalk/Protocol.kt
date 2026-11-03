@@ -73,7 +73,7 @@ object Proto {
 }
 
 object Spatial {
-    val MODES = listOf(0 to "Off", 2 to "Concert", 3 to "Mode 2")
+    val MODES = listOf(0 to "Off", 2 to "Concert", 3 to "Cinema")
 }
 
 class Frame(val type: Int, val seq: Int, val payload: IntArray)
