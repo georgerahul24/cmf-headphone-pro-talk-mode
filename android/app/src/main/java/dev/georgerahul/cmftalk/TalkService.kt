@@ -27,8 +27,6 @@ object TalkState {
     var ancMode: Int? = null
     var battery: Int? = null
     var active = false
-    /** Current action per button slot, keyed by ButtonSlot.id. */
-    var buttons: Map<Int, Int> = emptyMap()
     val listeners = mutableSetOf<() -> Unit>()
     fun changed() = listeners.forEach { it() }
 }
@@ -50,9 +48,6 @@ class TalkService : Service() {
     companion object {
         const val TAG = "CMFTalk"
         const val ACTION_TOGGLE = "dev.georgerahul.cmftalk.TOGGLE"
-        const val ACTION_SET_TRIGGER = "dev.georgerahul.cmftalk.SET_TRIGGER"
-        const val ACTION_RESTORE_TRIGGER = "dev.georgerahul.cmftalk.RESTORE_TRIGGER"
-        const val EXTRA_SLOT = "slot"
         const val CHANNEL = "status"
         private const val HEADPHONE_NAME = "CMF Headphone Pro"
 
@@ -101,11 +96,7 @@ class TalkService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         goForeground()
-        when (intent?.action) {
-            ACTION_TOGGLE -> toggle()
-            ACTION_SET_TRIGGER -> ButtonSlot.byKey(intent.getStringExtra(EXTRA_SLOT))?.let { setTrigger(it) }
-            ACTION_RESTORE_TRIGGER -> restoreTrigger()
-        }
+        if (intent?.action == ACTION_TOGGLE) toggle()
         return START_STICKY
     }
 
@@ -153,7 +144,7 @@ class TalkService : Service() {
         Log.i(TAG, "status: $s")
         main.post {
             TalkState.status = s
-            if (s != "Connected") { TalkState.ancMode = null; TalkState.battery = null; TalkState.buttons = emptyMap() }
+            if (s != "Connected") { TalkState.ancMode = null; TalkState.battery = null }
             publish()
         }
     }
@@ -193,7 +184,6 @@ class TalkService : Service() {
                 send(Proto.ANC_GET)
                 send(Proto.SPATIAL_GET)
                 send(Proto.BATTERY_GET)
-                send(Proto.GESTURES_GET)
                 readLoop(s)
             } catch (e: Exception) {
                 Log.w(TAG, "connection failed: $e")
@@ -246,20 +236,6 @@ class TalkService : Service() {
             Proto.BATTERY_NOTIFY, Proto.BATTERY_REPLY -> if (f.payload.size >= 3) {
                 TalkState.battery = f.payload[2] and 0x7F; publish()
             }
-            Proto.GESTURES_REPLY -> {
-                // payload: count, then (device, button, gesture, action) groups
-                val p = f.payload
-                val n = p.firstOrNull() ?: return
-                val map = HashMap<Int, Int>()
-                for (i in 0 until n) {
-                    val o = 1 + i * 4
-                    if (o + 3 >= p.size) break
-                    map[(p[o] shl 16) or (p[o + 1] shl 8) or p[o + 2]] = p[o + 3]
-                }
-                TalkState.buttons = map
-                publish()
-            }
-            Proto.GESTURES_SET_ACK -> send(Proto.GESTURES_GET)
             Proto.SPATIAL_NOTIFY -> {
                 val v = f.payload.firstOrNull() ?: return
                 if (v == 0 || !prefs.enabled) return
@@ -267,30 +243,6 @@ class TalkService : Service() {
                 if (f.seq == Proto.UNSOLICITED_SEQ) pressed()
             }
         }
-    }
-
-    // ---- talk button setup ----
-
-    /** Makes `slot` the talk button: remembers what it did, sets it to Spatial Audio. */
-    private fun setTrigger(slot: ButtonSlot) {
-        ButtonSlot.byKey(prefs.triggerSlot)?.takeIf { it != slot }?.let { restoreButton(it) }
-        val cur = TalkState.buttons[slot.id]
-        if (cur != null && cur != Proto.ACTION_SPATIAL && prefs.original(slot) == null) prefs.setOriginal(slot, cur)
-        send(Proto.GESTURES_SET, 0x01, slot.device, slot.button, slot.gesture, Proto.ACTION_SPATIAL)
-        prefs.triggerSlot = slot.key
-        publish()
-    }
-
-    private fun restoreTrigger() {
-        ButtonSlot.byKey(prefs.triggerSlot)?.let { restoreButton(it) }
-        prefs.triggerSlot = null
-        publish()
-    }
-
-    private fun restoreButton(slot: ButtonSlot) {
-        val orig = prefs.original(slot) ?: return
-        send(Proto.GESTURES_SET, 0x01, slot.device, slot.button, slot.gesture, orig)
-        prefs.setOriginal(slot, null)
     }
 
     private fun pressed() {

@@ -19,7 +19,6 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **No voice assistant pop-up.** It does not hijack Siri or Google Assistant.
 - **Works on Android and Mac.** A small menu bar app on macOS and a background app on Android.
 - **Set your own talk volume.** 10% by default. Pick anything from 0% to 100%.
-- **Pick the button in the app.** Choose press and hold or single press. The app sets it on your headphones and can put the old action back with one tap.
 - **Turn it off any time.** One switch puts the button back to normal Spatial Audio.
 - **Built to stay running on Android.** Runs as a foreground service, asks for unrestricted battery use, starts after a reboot and reconnects when your headphones connect. Made to hold up on custom ROMs like Evolution X.
 - **Opens at login on macOS.** Lives in the menu bar, uses almost no resources, and macOS restarts it if it ever crashes.
@@ -29,7 +28,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 
 The CMF Headphone Pro has no "run my app" button action. So CMF Talk Mode borrows one you probably don't use: **Spatial Audio**.
 
-1. You pick a button in the app, and the app sets it to **Spatial Audio** on the headphones.
+1. In Nothing X, you set the action button's **press and hold** to **Spatial Audio**.
 2. When you press it, the headphones tell your phone or Mac "Spatial Audio changed".
 3. CMF Talk Mode catches that message, switches Spatial Audio straight back off, and toggles talk mode.
 
@@ -44,15 +43,11 @@ Get the latest build from the [Releases page](../../releases):
 
 ## Setup
 
-### 1. Pick your talk button (one time)
+### 1. Set the button (one time)
 
-Do this in CMF Talk Mode itself. No Nothing X needed.
-
-1. Open the app (on Android, or from the menu bar on Mac).
-2. Under **Talk button**, tap **Use** next to **press and hold** or **single press**.
-3. The app sets that button to Spatial Audio on your headphones and remembers what it did before. **Restore button** puts it back any time.
-
-You can also set it yourself in Nothing X: Controls, action button, then **Spatial Audio**.
+1. Open **Nothing X** on your phone.
+2. Go to your CMF Headphone Pro, then **Controls**, then the **action button**.
+3. Set **press and hold** to **Spatial Audio**.
 
 ### 2. Android
 

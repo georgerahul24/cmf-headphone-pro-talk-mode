@@ -40,31 +40,8 @@ struct MenuContent: View {
             .font(.callout).foregroundStyle(.secondary)
 
             Divider()
-            Text("Talk button").font(.subheadline.bold())
-            ForEach(ButtonSlot.all, id: \.self) { slot in
-                let mine = talk.triggerKey == slot.key
-                HStack {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(slot.name)
-                        Text(ButtonAction.name(talk.action(of: slot)))
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if mine {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    } else {
-                        Button("Use") { talk.setTrigger(slot) }
-                            .disabled(talk.status != "Connected")
-                    }
-                }
-            }
-            if let slot = ButtonSlot.byKey(talk.triggerKey), talk.originalName(slot) != nil {
-                Button("Restore button (\(talk.originalName(slot) ?? "as before"))") { talk.restoreTrigger() }
-                    .disabled(talk.status != "Connected")
-            }
-
-            Toggle("Talk mode on", isOn: $talk.enabled)
-            Text("When off, the talk button works as normal Spatial Audio.")
+            Toggle("Talk mode button", isOn: $talk.enabled)
+            Text("When on, pressing the button set to Spatial Audio toggles talk mode. When off, the button works as normal Spatial Audio.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
 
             Stepper("Talk volume: \(talk.talkVolumePercent)%", value: $talk.talkVolumePercent, in: 0...100, step: 5)

@@ -16,11 +16,6 @@ object Proto {
     const val SPATIAL_GET = 0xC04F
     const val SPATIAL_SET = 0xF052
     const val BATTERY_GET = 0xC007
-    const val GESTURES_GET = 0xC018
-    const val GESTURES_SET = 0xF003
-    const val GESTURES_REPLY = 0x4018
-    const val GESTURES_SET_ACK = 0x7003
-    const val ACTION_SPATIAL = 0x1B
 
     const val ANC_NOTIFY = 0xE003
     const val ANC_REPLY = 0x401E
@@ -63,35 +58,6 @@ object Proto {
         0x04 -> "Noise cancelling (adaptive)"
         else -> "Mode 0x%02X".format(m)
     }
-}
-
-/** Headphone buttons that can be the talk-mode trigger. */
-data class ButtonSlot(val key: String, val name: String, val device: Int, val button: Int, val gesture: Int) {
-    val id: Int get() = (device shl 16) or (button shl 8) or gesture
-
-    companion object {
-        val ALL = listOf(
-            ButtonSlot("hold", "Action button: press and hold", 0x06, 0x0A, 0x07),
-            ButtonSlot("single", "Action button: single press", 0x06, 0x0A, 0x01),
-        )
-        fun byKey(k: String?) = ALL.firstOrNull { it.key == k }
-    }
-}
-
-fun actionName(a: Int?): String = when (a) {
-    null -> "-"
-    0x01 -> "No action"
-    0x0B -> "Voice assistant"
-    0x1B -> "Spatial Audio"
-    0x1D -> "Mic on/off"
-    0x1F -> "News"
-    0x20 -> "Switch device"
-    0x22 -> "EQ preset"
-    0x0A -> "Noise control (all modes)"
-    0x14 -> "Noise control (Off / ANC)"
-    0x15 -> "Noise control (Off / Transparency)"
-    0x16 -> "Noise control (ANC / Transparency)"
-    else -> "Action 0x%02X".format(a)
 }
 
 class Frame(val type: Int, val seq: Int, val payload: IntArray)

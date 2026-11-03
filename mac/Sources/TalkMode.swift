@@ -4,8 +4,7 @@ import ServiceManagement
 
 /// The talk-mode logic.
 ///
-/// Trigger: one headphone button is set to "Spatial Audio" (the app can do this
-/// itself, see `setTrigger`). A press
+/// Trigger: the headphone button is set to "Spatial Audio" in Nothing X. A press
 /// makes the headphones report Spatial Audio as on (seq 0xFF = from the
 /// headphones). We switch Spatial Audio back off and toggle talk mode. Reports of
 /// Spatial Audio being off are ignored, so our own switch-back never triggers.
@@ -20,10 +19,6 @@ final class TalkMode: ObservableObject {
     @Published private(set) var status = "Starting..."
     @Published private(set) var ancMode: UInt8?
     @Published private(set) var battery: Int?
-    /// Current action for each button slot, keyed by ButtonSlot.id.
-    @Published private(set) var buttons: [UInt32: UInt8] = [:]
-    /// Which slot the app set up as the talk button ("" = none).
-    @Published private(set) var triggerKey: String = UserDefaults.standard.string(forKey: "triggerSlot") ?? ""
 
     /// Login item as a launch agent: starts at login and is restarted by macOS
     /// if it crashes. Choosing Quit is a clean exit, so it stays quit.
@@ -54,7 +49,7 @@ final class TalkMode: ObservableObject {
             DispatchQueue.main.async {
                 log("state: \(s)")
                 self?.status = s
-                if s != "Connected" { self?.ancMode = nil; self?.battery = nil; self?.buttons = [:] }
+                if s != "Connected" { self?.ancMode = nil; self?.battery = nil }
             }
         }
         headset.onFrame = { [weak self] f in DispatchQueue.main.async { self?.handle(f) } }
@@ -69,19 +64,6 @@ final class TalkMode: ObservableObject {
         case Proto.batteryNotify, Proto.batteryReply:
             // payload: count, then (id, level) pairs; level bit 7 = charging
             if f.payload.count >= 3 { battery = Int(f.payload[2] & 0x7F) }
-        case Proto.gesturesReply:
-            // payload: count, then (device, button, gesture, action) groups
-            guard let n = f.payload.first else { return }
-            var map: [UInt32: UInt8] = [:]
-            for i in 0..<Int(n) {
-                let o = 1 + i * 4
-                guard o + 3 < f.payload.count else { break }
-                let p = f.payload
-                map[UInt32(p[o]) << 16 | UInt32(p[o + 1]) << 8 | UInt32(p[o + 2])] = p[o + 3]
-            }
-            buttons = map
-        case Proto.gesturesSetAck:
-            headset.send(Proto.gesturesGet)
         case Proto.spatialNotify:
             guard let v = f.payload.first, v != 0 else { return }
             guard enabled else { return }
@@ -98,45 +80,6 @@ final class TalkMode: ObservableObject {
         lastPress = Date()
         toggle()
     }
-
-    // ---- talk button setup ----
-
-    func action(of slot: ButtonSlot) -> UInt8? { buttons[slot.id] }
-
-    private func originalKey(_ slot: ButtonSlot) -> String { "original.\(slot.key)" }
-
-    /// Makes `slot` the talk button: remembers what it did, sets it to Spatial
-    /// Audio. Puts the previous talk button back first.
-    func setTrigger(_ slot: ButtonSlot) {
-        if let old = ButtonSlot.byKey(triggerKey), old != slot { restoreButton(old) }
-        let d = UserDefaults.standard
-        if let cur = action(of: slot), cur != ButtonAction.spatialAudio, d.object(forKey: originalKey(slot)) == nil {
-            d.set(Int(cur), forKey: originalKey(slot))
-        }
-        headset.send(Proto.gesturesSet, [0x01, slot.device, slot.button, slot.gesture, ButtonAction.spatialAudio])
-        triggerKey = slot.key
-        d.set(slot.key, forKey: "triggerSlot")
-    }
-
-    /// Puts the talk button back to what it did before.
-    func restoreTrigger() {
-        if let slot = ButtonSlot.byKey(triggerKey) { restoreButton(slot) }
-        triggerKey = ""
-        UserDefaults.standard.removeObject(forKey: "triggerSlot")
-    }
-
-    private func restoreButton(_ slot: ButtonSlot) {
-        let d = UserDefaults.standard
-        guard let orig = d.object(forKey: originalKey(slot)) as? Int else { return }
-        headset.send(Proto.gesturesSet, [0x01, slot.device, slot.button, slot.gesture, UInt8(orig)])
-        d.removeObject(forKey: originalKey(slot))
-    }
-
-    func originalName(_ slot: ButtonSlot) -> String? {
-        (UserDefaults.standard.object(forKey: originalKey(slot)) as? Int).map { ButtonAction.name(UInt8($0)) }
-    }
-
-    // ---- talk mode ----
 
     func toggle() {
         if active { stop() } else { start() }

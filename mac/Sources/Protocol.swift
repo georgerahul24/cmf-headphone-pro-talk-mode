@@ -18,10 +18,6 @@ enum Proto {
     static let spatialGet: UInt16 = 0xC04F
     static let spatialSet: UInt16 = 0xF052
     static let batteryGet: UInt16 = 0xC007
-    static let gesturesGet: UInt16 = 0xC018
-    static let gesturesSet: UInt16 = 0xF003
-    static let gesturesReply: UInt16 = 0x4018
-    static let gesturesSetAck: UInt16 = 0x7003
 
     // Replies / notifications
     static let ancNotify: UInt16 = 0xE003
@@ -54,45 +50,6 @@ enum Proto {
         let c = crc16(p)
         p += [UInt8(c & 0xFF), UInt8(c >> 8)]
         return p
-    }
-}
-
-/// Headphone buttons that can be the talk-mode trigger.
-struct ButtonSlot: Hashable {
-    let key: String
-    let name: String
-    let device: UInt8
-    let button: UInt8
-    let gesture: UInt8
-
-    static let all = [
-        ButtonSlot(key: "hold", name: "Action button: press and hold", device: 0x06, button: 0x0A, gesture: 0x07),
-        ButtonSlot(key: "single", name: "Action button: single press", device: 0x06, button: 0x0A, gesture: 0x01),
-    ]
-    static func byKey(_ k: String) -> ButtonSlot? { all.first { $0.key == k } }
-
-    var id: UInt32 { UInt32(device) << 16 | UInt32(button) << 8 | UInt32(gesture) }
-}
-
-enum ButtonAction {
-    static let spatialAudio: UInt8 = 0x1B
-
-    static func name(_ a: UInt8?) -> String {
-        switch a {
-        case nil: return "-"
-        case 0x01: return "No action"
-        case 0x0B: return "Voice assistant"
-        case 0x1B: return "Spatial Audio"
-        case 0x1D: return "Mic on/off"
-        case 0x1F: return "News"
-        case 0x20: return "Switch device"
-        case 0x22: return "EQ preset"
-        case 0x0A: return "Noise control (all modes)"
-        case 0x14: return "Noise control (Off / ANC)"
-        case 0x15: return "Noise control (Off / Transparency)"
-        case 0x16: return "Noise control (ANC / Transparency)"
-        case let x?: return String(format: "Action 0x%02X", x)
-        }
     }
 }
 

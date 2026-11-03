@@ -23,7 +23,6 @@ class MainActivity : Activity() {
     private lateinit var toggleBtn: Button
     private lateinit var batteryBtn: Button
     private lateinit var permBtn: Button
-    private lateinit var slotsBox: LinearLayout
     private val listener: () -> Unit = { render() }
 
     private val perms = arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.POST_NOTIFICATIONS)
@@ -53,19 +52,15 @@ class MainActivity : Activity() {
         }
         col.addView(batteryBtn)
 
-        col.addView(pad(TextView(this).apply { text = "Talk button"; textSize = 18f }))
-        slotsBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        col.addView(slotsBox)
-
         col.addView(pad(Switch(this).apply {
-            text = "Talk mode on"
+            text = "Talk mode button"
             textSize = 16f
             isChecked = prefs.enabled
             setOnCheckedChangeListener { _, on -> prefs.enabled = on }
         }))
         col.addView(TextView(this).apply {
-            text = "Pick a button above and tap Use. The app sets it to Spatial Audio on your headphones, " +
-                "and a press then toggles talk mode. When this switch is off, the button works as normal Spatial Audio."
+            text = "When on, pressing the button you set to Spatial Audio in Nothing X toggles talk mode. " +
+                "When off, that button works as normal Spatial Audio."
             textSize = 13f
             alpha = 0.7f
         })
@@ -95,7 +90,7 @@ class MainActivity : Activity() {
 
         col.addView(pad(TextView(this).apply {
             text = "Tip: Nothing X keeps its own link to the headphones. If this app says it can't connect, " +
-                "force stop Nothing X (or turn off its background use)."
+                "force stop Nothing X (or turn off its background use) after you set up the button."
             textSize = 13f
             alpha = 0.7f
             gravity = Gravity.START
@@ -124,38 +119,6 @@ class MainActivity : Activity() {
         render()
     }
 
-    private fun service(action: String, slot: String? = null) {
-        startService(Intent(this, TalkService::class.java).setAction(action).apply {
-            slot?.let { putExtra(TalkService.EXTRA_SLOT, it) }
-        })
-    }
-
-    private fun renderSlots() {
-        slotsBox.removeAllViews()
-        val connected = TalkState.status == "Connected"
-        val trigger = prefs.triggerSlot
-        for (slot in ButtonSlot.ALL) {
-            val mine = trigger == slot.key
-            slotsBox.addView(Button(this).apply {
-                isAllCaps = false
-                text = "${slot.name}\nNow: ${actionName(TalkState.buttons[slot.id])}" +
-                    if (mine) "  (talk button)" else ""
-                isEnabled = connected && !mine
-                setOnClickListener { service(TalkService.ACTION_SET_TRIGGER, slot.key) }
-            })
-        }
-        val cur = ButtonSlot.byKey(trigger)
-        val orig = cur?.let { prefs.original(it) }
-        if (cur != null && orig != null) {
-            slotsBox.addView(Button(this).apply {
-                isAllCaps = false
-                text = "Restore button (${actionName(orig)})"
-                isEnabled = connected
-                setOnClickListener { service(TalkService.ACTION_RESTORE_TRIGGER) }
-            })
-        }
-    }
-
     private fun hasPerms() = checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
     private fun batteryOk() = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
@@ -180,7 +143,6 @@ class MainActivity : Activity() {
             s.battery?.let { append("\nBattery: $it%") }
             append(if (s.active) "\nTalk mode is ON" else "")
         }
-        renderSlots()
         toggleBtn.text = if (s.active) "End talk mode" else "Start talk mode"
         toggleBtn.isEnabled = s.status == "Connected"
     }
