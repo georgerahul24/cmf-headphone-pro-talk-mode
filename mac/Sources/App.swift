@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 @main
 struct TalkModeApp: App {
@@ -42,6 +43,14 @@ enum Pal {
     static let violet = Color(hex: 0xB46CF7)
     static let pink = Color(hex: 0xEC5C9A)
     static let teal = Color(hex: 0x35D0B2)
+    // Noise mode chart colors (checked for color-blind separation on the card color).
+    static func mode(_ m: ModeGroup) -> Color {
+        switch m {
+        case .anc: return Color(hex: 0x9466F5)
+        case .transparency: return Color(hex: 0xC0832B)
+        case .off: return Color(hex: 0x2BA88F)
+        }
+    }
 }
 
 extension Color {
@@ -68,6 +77,7 @@ struct Panel: View {
                     noiseCard
                     spatialCard
                     saverCard(now)
+                    historyCard(now)
                     statsCard(now)
                     settingsCard
                 }
@@ -222,6 +232,141 @@ struct Panel: View {
                     Text(small).font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func dayName(_ hv: HistoryView, _ i: Int) -> String {
+        i == 6 ? "Today" : i == 5 ? "Yesterday" : hv.days[i].formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+    }
+
+    private func historyCard(_ now: Date) -> some View {
+        let hv = talk.history(now: now)
+        let day = talk.historyDay
+        let top = max(hv.usage.max() ?? 0, 60)
+        let spans = hv.spansOn(day)
+        let totals = hv.totals(day)
+        let all = max(totals.values.reduce(0, +), 1)
+        let start = hv.days[day], len = hv.dayEnd(day).timeIntervalSince(start)
+        let pts = hv.batteryOn(day)
+        let hover = talk.batteryHover.flatMap { t in pts.min { abs($0.0.timeIntervalSince(t)) < abs($1.0.timeIntervalSince(t)) } }
+
+        return Card(title: "Headphone time") {
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(dur(hv.usage[day])).font(.system(size: 20, weight: .semibold)).monospacedDigit()
+                        .contentTransition(.numericText())
+                    Text(dayName(hv, day)).font(.system(size: 11)).foregroundStyle(Pal.sub)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(dur(hv.usage.reduce(0, +))).font(.system(size: 12, weight: .medium)).monospacedDigit()
+                    Text("last 7 days").font(.system(size: 10)).foregroundStyle(Pal.sub)
+                }
+            }
+            // Seven bars; click one to pick the day.
+            HStack(alignment: .bottom, spacing: 6) {
+                ForEach(0..<7, id: \.self) { i in
+                    VStack(spacing: 4) {
+                        Spacer(minLength: 0)
+                        UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4)
+                            .fill(Pal.mode(.anc).opacity(i == day ? 1 : 0.35))
+                            .frame(height: max(2, 70 * hv.usage[i] / top))
+                            .help("\(dayName(hv, i)): \(dur(hv.usage[i]))")
+                        Text(hv.days[i].formatted(.dateTime.weekday(.narrow)))
+                            .font(.system(size: 9, weight: .medium)).foregroundStyle(i == day ? Pal.text : Pal.faint)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture { withAnimation(spring) { talk.historyDay = i } }
+                }
+            }
+            .frame(height: 90)
+            .animation(spring, value: hv.usage)
+
+            Divider().overlay(Pal.card2)
+            Text("Noise control").font(.system(size: 12, weight: .medium)).foregroundStyle(Pal.sub)
+            // 24 hour strip; hover a block to see its times.
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4).fill(Pal.card2)
+                    ForEach(spans) { s in
+                        let x0 = s.start.timeIntervalSince(start) / len * g.size.width
+                        let w = max(1.5, s.end.timeIntervalSince(s.start) / len * g.size.width - 2)
+                        RoundedRectangle(cornerRadius: 4).fill(Pal.mode(s.mode))
+                            .frame(width: w).offset(x: x0 + 1)
+                            .help("\(s.mode.rawValue) · \(s.start.formatted(date: .omitted, time: .shortened)) to \(s.end.formatted(date: .omitted, time: .shortened))")
+                    }
+                }
+            }
+            .frame(height: 20)
+            HStack {
+                ForEach(["00", "06", "12", "18", "24"], id: \.self) { h in
+                    Text(h).font(.system(size: 9)).foregroundStyle(Pal.faint).monospacedDigit()
+                    if h != "24" { Spacer() }
+                }
+            }
+            if spans.isEmpty { Text("No data for this day yet.").font(.system(size: 11)).foregroundStyle(Pal.sub) }
+            ForEach(ModeGroup.allCases) { m in
+                let t = totals[m] ?? 0
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 2).fill(Pal.mode(m)).frame(width: 9, height: 9)
+                    Text(m.rawValue).font(.system(size: 12))
+                    Spacer()
+                    Text(dur(t)).font(.system(size: 12, weight: .medium)).monospacedDigit()
+                    Text("\(Int(t * 100 / all))%").font(.system(size: 10)).foregroundStyle(Pal.sub)
+                        .monospacedDigit().frame(width: 32, alignment: .trailing)
+                }
+            }
+
+            Divider().overlay(Pal.card2)
+            HStack {
+                Text("Battery").font(.system(size: 12, weight: .medium)).foregroundStyle(Pal.sub)
+                Spacer()
+                if let h = hover {
+                    Text("\(h.0.formatted(date: .omitted, time: .shortened)) · \(h.1)%")
+                        .font(.system(size: 11)).monospacedDigit()
+                }
+            }
+            if pts.count < 2 {
+                Text("No battery readings for this day yet.").font(.system(size: 11)).foregroundStyle(Pal.sub)
+            } else {
+                Chart {
+                    ForEach(pts.indices, id: \.self) { i in
+                        AreaMark(x: .value("Time", pts[i].0), y: .value("Battery", pts[i].1))
+                            .foregroundStyle(LinearGradient(colors: [Pal.blue2.opacity(0.3), Pal.blue2.opacity(0)],
+                                                            startPoint: .top, endPoint: .bottom))
+                        LineMark(x: .value("Time", pts[i].0), y: .value("Battery", pts[i].1))
+                            .foregroundStyle(Pal.blue2).lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+                    }
+                    if let h = hover {
+                        RuleMark(x: .value("Time", h.0)).foregroundStyle(Pal.sub.opacity(0.5)).lineStyle(StrokeStyle(lineWidth: 1))
+                        PointMark(x: .value("Time", h.0), y: .value("Battery", h.1)).foregroundStyle(Pal.blue2).symbolSize(40)
+                    }
+                }
+                .chartXScale(domain: start...hv.dayEnd(day))
+                .chartYScale(domain: 0...100)
+                .chartYAxis {
+                    AxisMarks(values: [0, 50, 100]) { v in
+                        AxisGridLine().foregroundStyle(Pal.card2)
+                        AxisValueLabel { Text("\(v.as(Int.self) ?? 0)").font(.system(size: 9)).foregroundStyle(Pal.faint) }
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .hour, count: 6)) { _ in
+                        AxisValueLabel(format: .dateTime.hour(.twoDigits(amPM: .omitted))).font(.system(size: 9)).foregroundStyle(Pal.faint)
+                    }
+                }
+                .chartOverlay { proxy in
+                    Rectangle().fill(.clear).contentShape(Rectangle())
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active(let p): talk.batteryHover = proxy.value(atX: p.x, as: Date.self)
+                            case .ended: talk.batteryHover = nil
+                            }
+                        }
+                }
+                .frame(height: 110)
             }
         }
     }

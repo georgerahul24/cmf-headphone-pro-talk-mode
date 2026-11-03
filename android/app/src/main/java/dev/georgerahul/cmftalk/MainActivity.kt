@@ -45,6 +45,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import java.text.SimpleDateFormat
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -80,6 +84,11 @@ private object C {
     val Violet = Color(0xFFB46CF7)
     val Pink = Color(0xFFEC5C9A)
     val Teal = Color(0xFF35D0B2)
+
+    // Noise mode chart colors (checked for color-blind separation on the card color).
+    val ModeAnc = Color(0xFF9466F5)
+    val ModeTrans = Color(0xFFC0832B)
+    val ModeOff = Color(0xFF2BA88F)
 }
 
 private val Accent = Brush.linearGradient(listOf(C.Purple, C.Violet))
@@ -515,6 +524,13 @@ private fun StatsTab() {
     val liveIdle = st.idleOffSince?.let { now - it } ?: 0L
     val since = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(Stats.since))
     Reveal(0) { Title("Statistics", "Since $since") }
+    // Re-read the log when something new is recorded, and once a minute.
+    val hv = remember(History.version, now / 60_000) { HistoryView(History.load(), System.currentTimeMillis()) }
+    var day by rememberSaveable { mutableIntStateOf(6) }
+    Reveal(1) { UsageCard(hv, day) { day = it } }
+    Reveal(2) { ModesCard(hv, day) }
+    Reveal(3) { BatteryCard(hv, day) }
+    Reveal(4) { Label("Talk mode and battery saver") }
     Reveal(1) {
         Panel {
             val top = maxOf(Stats.talkCount, Stats.idleOffCount, Stats.restoreCount, 1).toFloat()
@@ -896,3 +912,221 @@ private fun ancShort(m: Int?): String = when (m) {
 }
 
 private fun spatialName(v: Int?): String = Spatial.MODES.firstOrNull { it.first == v }?.second ?: "-"
+
+// ---------- history charts ----------
+
+private fun modeColor(m: ModeGroup) = when (m) {
+    ModeGroup.ANC -> C.ModeAnc
+    ModeGroup.TRANSPARENCY -> C.ModeTrans
+    ModeGroup.OFF -> C.ModeOff
+}
+
+private fun modeLabel(m: ModeGroup) = when (m) {
+    ModeGroup.ANC -> "Noise cancelling"
+    ModeGroup.TRANSPARENCY -> "Transparency"
+    ModeGroup.OFF -> "Off"
+}
+
+private val timeFmt: DateFormat get() = DateFormat.getTimeInstance(DateFormat.SHORT)
+
+private fun dayName(hv: HistoryView, i: Int): String = when (i) {
+    6 -> "Today"
+    5 -> "Yesterday"
+    else -> SimpleDateFormat("EEE d MMM").format(Date(hv.days[i]))
+}
+
+/** Seven bars of time with the headphones connected. Tap a bar to pick the day. */
+@Composable
+private fun UsageCard(hv: HistoryView, day: Int, onDay: (Int) -> Unit) {
+    val top = maxOf(hv.usage.maxOrNull() ?: 0L, 60_000L).toFloat()
+    val week = hv.usage.sum()
+    val haptic = LocalHapticFeedback.current
+    Panel {
+        Label("Headphone time")
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                AnimatedContent(dur(hv.usage[day]), transitionSpec = {
+                    (slideInVertically { it / 2 } + fadeIn()).togetherWith(slideOutVertically { -it / 2 } + fadeOut())
+                }, label = "usage") { Text(it, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, style = tnum()) }
+                Text(dayName(hv, day), color = C.Sub, fontSize = 13.sp)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(dur(week), fontSize = 15.sp, fontWeight = FontWeight.Medium, style = tnum())
+                Text("last 7 days", color = C.Sub, fontSize = 12.sp)
+            }
+        }
+        Row(Modifier.fillMaxWidth().height(130.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            hv.usage.forEachIndexed { i, ms ->
+                val h = remember { Animatable(0f) }
+                LaunchedEffect(ms) { h.animateTo(ms / top, tween(700, delayMillis = i * 40, easing = EaseOutCubic)) }
+                val sel = i == day
+                val color by animateColorAsState(if (sel) C.ModeAnc else C.ModeAnc.copy(alpha = 0.35f), tween(250), label = "bar")
+                Column(
+                    Modifier.weight(1f).fillMaxHeight()
+                        .clickable(interactionSource = null, indication = null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onDay(i)
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                        Box(
+                            Modifier.fillMaxWidth(0.7f).fillMaxHeight(h.value.coerceIn(0.02f, 1f))
+                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)).background(color)
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(SimpleDateFormat("EEEEE").format(Date(hv.days[i])),
+                        color = if (sel) C.Text else C.Faint, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+    }
+}
+
+/** When each noise mode was used on the picked day, as a 24 hour strip. */
+@Composable
+private fun ModesCard(hv: HistoryView, day: Int) {
+    val spans = remember(hv, day) { hv.spansOn(day) }
+    val totals = remember(hv, day) { hv.modeTotals(day) }
+    val all = totals.values.sum().coerceAtLeast(1)
+    var picked by remember(hv, day) { mutableStateOf<HistoryView.Span?>(null) }
+    val start = hv.days[day]
+    val span = (hv.dayEnd(day) - start).toFloat()
+    val grow = remember(day) { Animatable(0f) }
+    LaunchedEffect(day) { grow.animateTo(1f, tween(700, easing = EaseOutCubic)) }
+    Panel {
+        Row {
+            Label("Noise control")
+            Spacer(Modifier.weight(1f))
+            Text(dayName(hv, day), color = C.Faint, fontSize = 12.sp)
+        }
+        Canvas(
+            Modifier.fillMaxWidth().height(26.dp).pointerInput(spans) {
+                detectTapGestures { o ->
+                    val t = start + (o.x / size.width * span).toLong()
+                    picked = spans.firstOrNull { t in it.start..it.end }
+                }
+            }
+        ) {
+            val r = CornerRadius(4.dp.toPx())
+            drawRoundRect(C.Card2, cornerRadius = r)
+            val gap = 2.dp.toPx()
+            val reveal = size.width * grow.value
+            for (sp in spans) {
+                var x0 = (sp.start - start) / span * size.width
+                var x1 = (sp.end - start) / span * size.width
+                if (x1 - x0 > gap * 2) { x0 += gap / 2; x1 -= gap / 2 }
+                x1 = minOf(x1, reveal)
+                if (x1 <= x0) continue
+                val sel = picked == null || picked === sp
+                drawRoundRect(modeColor(sp.mode).copy(alpha = if (sel) 1f else 0.4f),
+                    Offset(x0, 0f), Size(maxOf(x1 - x0, 1.5f), size.height), r)
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf("00", "06", "12", "18", "24").forEach { Text(it, color = C.Faint, fontSize = 10.sp, style = tnum()) }
+        }
+        AnimatedContent(picked, transitionSpec = { fadeIn(tween(200)).togetherWith(fadeOut(tween(120))) }, label = "pick") { p ->
+            Text(
+                if (p == null) { if (spans.isEmpty()) "No data for this day yet." else "Tap the strip to see times." }
+                else "${modeLabel(p.mode)} · ${timeFmt.format(Date(p.start))} to ${timeFmt.format(Date(p.end))}",
+                color = C.Sub, fontSize = 12.sp,
+            )
+        }
+        ModeGroup.entries.forEach { m ->
+            val ms = totals[m] ?: 0L
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(modeColor(m)))
+                Spacer(Modifier.width(10.dp))
+                Text(modeLabel(m), fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(dur(ms), fontSize = 14.sp, fontWeight = FontWeight.Medium, style = tnum())
+                Text("  ${(ms * 100 / all)}%", color = C.Sub, fontSize = 12.sp, style = tnum(),
+                    modifier = Modifier.width(44.dp), textAlign = TextAlign.End)
+            }
+        }
+    }
+}
+
+/** Battery level across the picked day. Touch and drag to read a point. */
+@Composable
+private fun BatteryCard(hv: HistoryView, day: Int) {
+    val pts = remember(hv, day) { hv.batteryOn(day) }
+    val start = hv.days[day]
+    val span = (hv.dayEnd(day) - start).toFloat()
+    var touchX by remember(day) { mutableStateOf<Float?>(null) }
+    var width by remember { mutableFloatStateOf(1f) }
+    val near = touchX?.let { x ->
+        val t = start + (x / width * span).toLong()
+        pts.minByOrNull { kotlin.math.abs(it.first - t) }
+    }
+    val grow = remember(day) { Animatable(0f) }
+    LaunchedEffect(day) { grow.animateTo(1f, tween(900, easing = EaseOutCubic)) }
+    val line = C.Blue2
+    Panel {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Label("Battery")
+            Spacer(Modifier.weight(1f))
+            Text(
+                near?.let { "${timeFmt.format(Date(it.first))} · ${it.second}%" } ?: dayName(hv, day),
+                color = if (near != null) C.Text else C.Faint, fontSize = 12.sp, style = tnum(),
+            )
+        }
+        if (pts.size < 2) {
+            Text("No battery readings for this day yet.", color = C.Sub, fontSize = 13.sp)
+        } else Row {
+            Column(Modifier.height(140.dp).padding(end = 6.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                listOf("100", "50", "0").forEach { Text(it, color = C.Faint, fontSize = 10.sp, style = tnum()) }
+            }
+            Canvas(
+                Modifier.weight(1f).height(140.dp)
+                    .pointerInput(pts) {
+                        detectTapGestures(onPress = { o -> touchX = o.x; tryAwaitRelease(); touchX = null })
+                    }
+                    .pointerInput(pts) {
+                        detectDragGestures(
+                            onDragStart = { touchX = it.x },
+                            onDragEnd = { touchX = null },
+                            onDragCancel = { touchX = null },
+                        ) { change, _ -> touchX = change.position.x.coerceIn(0f, size.width.toFloat()) }
+                    }
+            ) {
+                width = size.width
+                val h = size.height
+                fun x(t: Long) = (t - start) / span * size.width
+                fun y(v: Int) = h - v / 100f * h
+                listOf(0, 50, 100).forEach { v ->
+                    drawLine(C.Line.copy(alpha = 0.6f), Offset(0f, y(v)), Offset(size.width, y(v)), 1f)
+                }
+                // Break the line where there is no reading for 3 hours.
+                val runs = ArrayList<MutableList<Pair<Long, Int>>>()
+                for (p in pts) {
+                    val cur = runs.lastOrNull()
+                    if (cur == null || p.first - cur.last().first > 3 * 3600_000L) runs += mutableListOf(p) else cur += p
+                }
+                val clipX = size.width * grow.value
+                for (run in runs) {
+                    val path = Path()
+                    run.forEachIndexed { i, p -> if (i == 0) path.moveTo(x(p.first), y(p.second)) else path.lineTo(x(p.first), y(p.second)) }
+                    val area = Path().apply {
+                        addPath(path)
+                        lineTo(x(run.last().first), h); lineTo(x(run.first().first), h); close()
+                    }
+                    androidx.compose.ui.graphics.drawscope.clipRect(right = clipX) {
+                        drawPath(area, Brush.verticalGradient(listOf(line.copy(alpha = 0.28f), line.copy(alpha = 0f))))
+                        drawPath(path, line, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                    }
+                }
+                near?.let { p ->
+                    val px = x(p.first); val py = y(p.second)
+                    drawLine(C.Sub.copy(alpha = 0.6f), Offset(px, 0f), Offset(px, h), 1.dp.toPx())
+                    drawCircle(C.Card, 6.dp.toPx(), Offset(px, py))
+                    drawCircle(line, 4.dp.toPx(), Offset(px, py))
+                }
+            }
+        }
+        if (pts.size >= 2) Row(Modifier.fillMaxWidth().padding(start = 26.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf("00", "06", "12", "18", "24").forEach { Text(it, color = C.Faint, fontSize = 10.sp, style = tnum()) }
+        }
+    }
+}
+

@@ -45,9 +45,9 @@ final class TalkMode: ObservableObject {
     @Published private(set) var talkSince: Date?
     @Published private(set) var status = "Starting..."
     @Published private(set) var connected = false
-    @Published private(set) var ancMode: UInt8?
+    @Published private(set) var ancMode: UInt8? { didSet { if let m = ancMode, connected { History.shared.log("A", Int(m)) } } }
     @Published private(set) var spatial: UInt8?
-    @Published private(set) var battery: Int?
+    @Published private(set) var battery: Int? { didSet { if let b = battery { History.shared.log("B", b) } } }
     @Published private(set) var charging = false
 
     @Published private(set) var playing = false
@@ -127,7 +127,8 @@ final class TalkMode: ObservableObject {
         log("state: \(s)")
         status = s
         let now = s == "Connected"
-        if now && !connected { spatialChosen = nil; timerStart = Date() }
+        if now && !connected { spatialChosen = nil; timerStart = Date(); History.shared.log("C", 1) }
+        if !now && connected { History.shared.log("C", 0) }
         if !now {
             clearIdle(restored: false)
             ancMode = nil; battery = nil; spatial = nil; charging = false; quietSince = nil
@@ -247,6 +248,23 @@ final class TalkMode: ObservableObject {
 
     private func saveStats() {
         if let d = try? JSONEncoder().encode(stats) { UserDefaults.standard.set(d, forKey: "stats") }
+    }
+
+    // MARK: history
+
+    /// Day picked in the history charts (6 = today).
+    @Published var historyDay = 6
+    /// Battery point under the mouse in the battery chart.
+    @Published var batteryHover: Date?
+    private var historyCache: (version: Int, minute: Int, view: HistoryView)?
+
+    /// The history, re-read when something new is logged and once a minute.
+    func history(now: Date) -> HistoryView {
+        let minute = Int(now.timeIntervalSince1970 / 60)
+        if let c = historyCache, c.version == History.shared.version, c.minute == minute { return c.view }
+        let v = HistoryView(History.shared.load(), now: now)
+        historyCache = (History.shared.version, minute, v)
+        return v
     }
 
     // MARK: names
