@@ -140,7 +140,7 @@ private fun Screen(
 
         TalkCard(prefs, ready, st.talkActive) { svc?.toggleTalk() }
 
-        NoiseCard(st.anc, ready) { svc?.setAnc(it) }
+        NoiseCard(prefs, st.anc, st.idleOff, ready, onIdleChanged = { svc?.idleSettingChanged() }) { svc?.setAnc(it) }
 
         SpatialCard(st.spatial, ready) { svc?.setSpatial(it) }
 
@@ -281,8 +281,12 @@ private fun TalkCard(prefs: Prefs, ready: Boolean, active: Boolean, onToggle: ()
 }
 
 @Composable
-private fun NoiseCard(anc: Int?, ready: Boolean, onPick: (Int) -> Unit) {
+private fun NoiseCard(
+    prefs: Prefs, anc: Int?, idleOff: Boolean, ready: Boolean,
+    onIdleChanged: () -> Unit, onPick: (Int) -> Unit,
+) {
     val isAnc = anc in Proto.ANC_LEVELS
+    var idleSaver by remember { mutableStateOf(prefs.idleOff) }
     SectionCard("Noise control") {
         Text(
             when {
@@ -292,6 +296,8 @@ private fun NoiseCard(anc: Int?, ready: Boolean, onPick: (Int) -> Unit) {
             },
             fontFamily = Dot, color = White, fontSize = 26.sp,
         )
+        if (idleOff) Text("Turned off to save battery. Comes back when audio plays.",
+            color = Red, fontSize = 12.sp)
         Segmented(
             listOf(Proto.ANC_OFF to "Off", Proto.ANC_TRANSPARENCY to "Transparency", -1 to "ANC"),
             if (isAnc) -1 else anc, ready,
@@ -305,6 +311,20 @@ private fun NoiseCard(anc: Int?, ready: Boolean, onPick: (Int) -> Unit) {
                     anc, ready, onPick,
                 )
             }
+        }
+        HorizontalDivider(color = CardHi)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Turn off when idle", color = White, fontSize = 15.sp)
+                Text("After 10 min with nothing playing, noise control goes Off to save battery. " +
+                    "It comes back when audio plays.", color = Grey, fontSize = 12.sp)
+            }
+            Spacer(Modifier.width(10.dp))
+            Switch(
+                checked = idleSaver,
+                onCheckedChange = { idleSaver = it; prefs.idleOff = it; onIdleChanged() },
+                colors = SwitchDefaults.colors(checkedTrackColor = Red, checkedThumbColor = White),
+            )
         }
     }
 }

@@ -13,4 +13,9 @@ class Prefs(ctx: Context) {
     var talkVolume: Int
         get() = p.getInt("talkVolume", 10)
         set(v) = p.edit().putInt("talkVolume", v).apply()
+
+    /** Set noise control to Off after a while with nothing playing. */
+    var idleOff: Boolean
+        get() = p.getBoolean("idleOff", true)
+        set(v) = p.edit().putBoolean("idleOff", v).apply()
 }
