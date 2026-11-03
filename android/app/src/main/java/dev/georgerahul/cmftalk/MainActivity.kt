@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Deprecated("Deprecated in Java")
-    override fun onRequestPermissionsResult(code: Int, p: Array<out String>, r: IntArray) {
+    override fun onRequestPermissionsResult(code: Int, p: Array<String>, r: IntArray) {
         super.onRequestPermissionsResult(code, p, r)
         if (hasBt()) {
             TalkService.start(this)
