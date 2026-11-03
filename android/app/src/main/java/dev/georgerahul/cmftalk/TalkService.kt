@@ -19,30 +19,22 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import java.util.concurrent.Executors
 import kotlin.math.roundToInt
 
-/** Shared state between the service and the screen. Main thread only. */
-object TalkState {
-    var status = "Not started"
-    var ancMode: Int? = null
-    var battery: Int? = null
-    var active = false
-    val listeners = mutableSetOf<() -> Unit>()
-    fun changed() = listeners.forEach { it() }
-}
-
 /**
- * Always-on foreground service. Keeps an RFCOMM link to the CMF Headphone Pro
- * and runs the talk-mode logic:
+ * Always-on foreground service. Keeps an RFCOMM link to the CMF Headphone Pro,
+ * mirrors its state into [HeadphoneState], sends settings from the screen, and
+ * runs talk mode.
  *
- * The headphone button is set to "Spatial Audio" in Nothing X. A press makes
- * the headphones report Spatial Audio as on (seq 0xFF). We switch it back off
- * and toggle talk mode. Reports of Spatial Audio being off are ignored, so our
- * own switch-back never triggers anything.
+ * Talk trigger: a headphone button is set to "Spatial Audio". The app keeps a
+ * "chosen" Spatial Audio mode. When the headphones report a different mode on
+ * their own (seq 0xFF), that was a button press: we switch Spatial Audio back
+ * to the chosen mode and toggle talk mode. Our own changes match the chosen
+ * mode, so they never trigger anything.
  *
  * Talk on:  remember noise mode + music volume, set Transparency, volume 10%.
- * Talk off: restore the exact noise mode (Off / Transparency / any ANC level)
- *           and the volume from before.
+ * Talk off: restore the exact noise mode and the volume from before.
  */
 class TalkService : Service() {
     companion object {
@@ -51,28 +43,34 @@ class TalkService : Service() {
         const val CHANNEL = "status"
         private const val HEADPHONE_NAME = "CMF Headphone Pro"
 
+        /** The running service, for the screen to send commands. Main thread only. */
+        var instance: TalkService? = null
+            private set
+
         fun start(ctx: Context) {
             ctx.startForegroundService(Intent(ctx, TalkService::class.java))
         }
     }
 
+    private val st = HeadphoneState
     private val main = Handler(Looper.getMainLooper())
     private lateinit var audio: AudioManager
     private lateinit var prefs: Prefs
 
     @Volatile private var socket: BluetoothSocket? = null
     @Volatile private var running = true
-    private var worker: Thread? = null
     private val wake = Object()
+    private val writer = Executors.newSingleThreadExecutor()
     private var seq = 0
 
+    private var spatialChosen: Int? = null
     private var savedAnc: Int? = null
     private var savedVolume: Int? = null
     private var lastPress = 0L
 
     private val btReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
-            // Headphones connected (or Bluetooth turned on): try right away.
+            // Headphones connected or Bluetooth turned on: try right away.
             synchronized(wake) { wake.notifyAll() }
         }
     }
@@ -81,32 +79,56 @@ class TalkService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         audio = getSystemService(AudioManager::class.java)
         prefs = Prefs(this)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "Talk mode status", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(CHANNEL, "Status", NotificationManager.IMPORTANCE_LOW).apply {
+                setShowBadge(false)
+            }
         )
         goForeground()
         registerReceiver(btReceiver, IntentFilter().apply {
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction("android.bluetooth.adapter.action.STATE_CHANGED")
         }, RECEIVER_EXPORTED)
-        worker = Thread(::connectLoop, "cmf-rfcomm").also { it.start() }
+        Thread(::connectLoop, "cmf-rfcomm").start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         goForeground()
-        if (intent?.action == ACTION_TOGGLE) toggle()
+        if (intent?.action == ACTION_TOGGLE) toggleTalk()
         return START_STICKY
     }
 
     override fun onDestroy() {
+        instance = null
         running = false
         unregisterReceiver(btReceiver)
         runCatching { socket?.close() }
         synchronized(wake) { wake.notifyAll() }
         writer.shutdown()
         super.onDestroy()
+    }
+
+    // ---- commands from the screen ----
+
+    fun setAnc(mode: Int) {
+        send(Proto.ANC_SET, 0x01, mode, 0x00)
+        st.anc = mode
+        // Picking a mode by hand while talking: keep it when talk mode ends.
+        if (st.talkActive && mode != Proto.ANC_TRANSPARENCY) savedAnc = mode
+        refreshNotification()
+    }
+
+    fun setSpatial(mode: Int) {
+        spatialChosen = mode
+        st.spatial = mode
+        send(Proto.SPATIAL_SET, mode)
+    }
+
+    fun toggleTalk() {
+        if (st.talkActive) stopTalk() else startTalk()
     }
 
     // ---- notification ----
@@ -116,16 +138,24 @@ class TalkService : Service() {
             PendingIntent.FLAG_IMMUTABLE)
         val toggle = PendingIntent.getService(this, 1,
             Intent(this, TalkService::class.java).setAction(ACTION_TOGGLE), PendingIntent.FLAG_IMMUTABLE)
-        val text = if (TalkState.active) "Talk mode ON" else
-            "${TalkState.status} · ${Proto.ancName(TalkState.ancMode)}"
+        val text = when {
+            st.talkActive -> "Talk mode on"
+            st.connected -> buildString {
+                append(Proto.ancName(st.anc))
+                st.battery?.let { append(" · $it%") }
+            }
+            else -> st.status
+        }
         return Notification.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_headphones)
-            .setContentTitle("CMF Talk Mode")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("CMF Headphone Pro")
             .setContentText(text)
             .setOngoing(true)
             .setContentIntent(open)
-            .addAction(Notification.Action.Builder(null,
-                if (TalkState.active) "End talk" else "Talk", toggle).build())
+            .apply {
+                if (st.connected) addAction(Notification.Action.Builder(null,
+                    if (st.talkActive) "End talk" else "Talk", toggle).build())
+            }
             .build()
     }
 
@@ -133,19 +163,16 @@ class TalkService : Service() {
         startForeground(1, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
     }
 
-    private fun publish() {
-        main.post {
-            TalkState.changed()
-            getSystemService(NotificationManager::class.java).notify(1, buildNotification())
-        }
+    private fun refreshNotification() {
+        getSystemService(NotificationManager::class.java).notify(1, buildNotification())
     }
 
-    private fun setStatus(s: String) {
+    private fun setStatus(s: String, connected: Boolean = false) {
         Log.i(TAG, "status: $s")
         main.post {
-            TalkState.status = s
-            if (s != "Connected") { TalkState.ancMode = null; TalkState.battery = null }
-            publish()
+            st.status = s
+            if (connected) st.connected = true else st.clear()
+            refreshNotification()
         }
     }
 
@@ -160,7 +187,6 @@ class TalkService : Service() {
         }.getOrNull()
     }
 
-    @SuppressLint("MissingPermission")
     private fun isConnected(d: BluetoothDevice): Boolean = runCatching {
         d.javaClass.getMethod("isConnected").invoke(d) as Boolean
     }.getOrDefault(true)
@@ -170,8 +196,8 @@ class TalkService : Service() {
         while (running) {
             val dev = findHeadphones()
             if (dev == null || !isConnected(dev)) {
-                setStatus(if (dev == null) "Headphones not paired / Bluetooth off" else "Headphones not connected")
-                // Woken early by the "headphones connected" broadcast; this is just a fallback.
+                setStatus(if (dev == null) "Not paired or Bluetooth off" else "Not connected")
+                // Woken early by the "headphones connected" broadcast; this is a fallback.
                 sleep(5 * 60_000)
                 continue
             }
@@ -180,20 +206,22 @@ class TalkService : Service() {
                 val s = dev.createRfcommSocketToServiceRecord(Proto.SERVICE_UUID)
                 s.connect()
                 socket = s
-                setStatus("Connected")
+                main.post { spatialChosen = null }
+                setStatus("Connected", connected = true)
                 send(Proto.ANC_GET)
                 send(Proto.SPATIAL_GET)
                 send(Proto.BATTERY_GET)
                 readLoop(s)
             } catch (e: Exception) {
                 Log.w(TAG, "connection failed: $e")
-                setStatus("Could not connect (is Nothing X open?)")
+                setStatus("Can't connect. Close Nothing X and try again.")
+                sleep(5_000)
             } finally {
                 runCatching { socket?.close() }
                 socket = null
             }
-            if (running) setStatus("Disconnected")
-            sleep(5_000)
+            if (running && st.connected) setStatus("Disconnected")
+            sleep(3_000)
         }
     }
 
@@ -212,9 +240,6 @@ class TalkService : Service() {
         }
     }
 
-    // One writer thread keeps packets in order and off the main thread.
-    private val writer = java.util.concurrent.Executors.newSingleThreadExecutor()
-
     @Synchronized
     private fun send(type: Int, vararg payload: Int) {
         val s = socket ?: return
@@ -226,38 +251,48 @@ class TalkService : Service() {
         }
     }
 
-    // ---- talk-mode logic (main thread) ----
+    // ---- incoming (main thread) ----
 
     private fun handle(f: Frame) {
         when (f.type) {
             Proto.ANC_NOTIFY, Proto.ANC_REPLY -> if (f.payload.size >= 2) {
-                TalkState.ancMode = f.payload[1]; publish()
+                st.anc = f.payload[1]; refreshNotification()
             }
             Proto.BATTERY_NOTIFY, Proto.BATTERY_REPLY -> if (f.payload.size >= 3) {
-                TalkState.battery = f.payload[2] and 0x7F; publish()
+                st.battery = f.payload[2] and 0x7F
+                st.charging = f.payload[2] and 0x80 != 0
+                refreshNotification()
             }
-            Proto.SPATIAL_NOTIFY -> {
-                val v = f.payload.firstOrNull() ?: return
-                if (v == 0 || !prefs.enabled) return
-                send(Proto.SPATIAL_SET, 0x00) // undo the Spatial Audio change
-                if (f.seq == Proto.UNSOLICITED_SEQ) pressed()
+            Proto.SPATIAL_NOTIFY -> f.payload.firstOrNull()?.let { spatialReport(it, f.seq) }
+        }
+    }
+
+    private fun spatialReport(v: Int, seq: Int) {
+        val chosen = spatialChosen
+        when {
+            // Reply to our own question, or first report: that is the chosen mode.
+            seq != Proto.UNSOLICITED_SEQ || chosen == null -> { spatialChosen = v; st.spatial = v }
+            v == chosen -> st.spatial = v
+            // Talk mode off: the button just works as Spatial Audio.
+            !prefs.enabled -> { spatialChosen = v; st.spatial = v }
+            else -> {
+                send(Proto.SPATIAL_SET, chosen) // undo the button's Spatial Audio change
+                pressed()
             }
         }
     }
+
+    // ---- talk mode (main thread) ----
 
     private fun pressed() {
         val now = System.currentTimeMillis()
         if (now - lastPress < 700) return
         lastPress = now
-        toggle()
-    }
-
-    private fun toggle() {
-        if (TalkState.active) stopTalk() else startTalk()
+        toggleTalk()
     }
 
     private fun startTalk() {
-        savedAnc = TalkState.ancMode
+        savedAnc = st.anc
         savedVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
         Log.i(TAG, "talk ON (saved ${Proto.ancName(savedAnc)}, vol $savedVolume)")
         send(Proto.ANC_SET, 0x01, Proto.ANC_TRANSPARENCY, 0x00)
@@ -265,15 +300,15 @@ class TalkService : Service() {
         val target = (max * prefs.talkVolume / 100.0).roundToInt()
             .coerceIn(if (prefs.talkVolume > 0) 1 else 0, max)
         audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
-        TalkState.active = true
-        publish()
+        st.talkActive = true
+        refreshNotification()
     }
 
     private fun stopTalk() {
         Log.i(TAG, "talk OFF (restore ${Proto.ancName(savedAnc)}, vol $savedVolume)")
         savedAnc?.let { send(Proto.ANC_SET, 0x01, it, 0x00) }
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
-        TalkState.active = false
-        publish()
+        st.talkActive = false
+        refreshNotification()
     }
 }

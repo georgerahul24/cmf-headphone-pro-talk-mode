@@ -17,6 +17,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Restores your exact volume.** Not a guess. The same level you had before.
 - **Your normal buttons still work.** Talk mode uses its own button. Your usual noise control buttons stay the way they are and never touch your volume.
 - **No voice assistant pop-up.** It does not hijack Siri or Google Assistant.
+- **A full control app on Android.** Switch noise control (Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive) and Spatial Audio, and see your battery, in a clean dark dot-matrix design. For these everyday controls, you don't need Nothing X.
 - **Works on Android and Mac.** A small menu bar app on macOS and a background app on Android.
 - **Set your own talk volume.** 10% by default. Pick anything from 0% to 100%.
 - **Turn it off any time.** One switch puts the button back to normal Spatial Audio.

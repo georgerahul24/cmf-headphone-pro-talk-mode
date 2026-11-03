@@ -10,8 +10,9 @@
 
     <application
         android:label="CMF Talk Mode"
-        android:icon="@drawable/ic_headphones"
-        android:theme="@android:style/Theme.DeviceDefault.DayNight"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:theme="@style/AppTheme"
         android:allowBackup="false">
 
         <activity

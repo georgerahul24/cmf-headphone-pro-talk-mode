@@ -3,28 +3,40 @@ package dev.georgerahul.cmftalk
 import java.util.UUID
 
 /**
- * Nothing / CMF control protocol (RFCOMM). Same commands the Nothing X app
- * sends for settings. Firmware / OTA services are never touched.
+ * Nothing / CMF control protocol (RFCOMM), as used by the CMF Headphone Pro
+ * (model B175). Only settings commands that Nothing X also sends are used.
+ * Firmware / OTA services are never touched.
  *
  * Frame: 55 60 01 | type lo, hi | len lo, hi | seq | payload | crc lo, hi
+ * Every command below was checked against real headphones.
  */
 object Proto {
     val SERVICE_UUID: UUID = UUID.fromString("aeac4a03-dff5-498f-843a-34487cf133eb")
 
+    // Noise control
     const val ANC_GET = 0xC01E
-    const val ANC_SET = 0xF00F
-    const val SPATIAL_GET = 0xC04F
-    const val SPATIAL_SET = 0xF052
-    const val BATTERY_GET = 0xC007
-
-    const val ANC_NOTIFY = 0xE003
+    const val ANC_SET = 0xF00F          // [01, mode, 00]
+    const val ANC_NOTIFY = 0xE003       // [01, mode, ...]
     const val ANC_REPLY = 0x401E
-    const val SPATIAL_NOTIFY = 0x404F
+
+    // Spatial audio: 0 = off, 2, 3 (modes cycle 0 -> 2 -> 3 -> 0 on the button)
+    const val SPATIAL_GET = 0xC04F
+    const val SPATIAL_SET = 0xF052      // [mode]
+    const val SPATIAL_NOTIFY = 0x404F   // [mode, 00]
+
+    // Battery: [count, (id, level|0x80 charging)...]
+    const val BATTERY_GET = 0xC007
     const val BATTERY_NOTIFY = 0xE001
     const val BATTERY_REPLY = 0x4007
 
     const val ANC_OFF = 0x05
     const val ANC_TRANSPARENCY = 0x07
+    const val ANC_HIGH = 0x01
+    const val ANC_MID = 0x02
+    const val ANC_LOW = 0x03
+    const val ANC_ADAPTIVE = 0x04
+    val ANC_LEVELS = setOf(ANC_HIGH, ANC_MID, ANC_LOW, ANC_ADAPTIVE)
+
     const val UNSOLICITED_SEQ = 0xFF
 
     fun crc16(d: ByteArray, len: Int = d.size): Int {
@@ -50,14 +62,18 @@ object Proto {
 
     fun ancName(m: Int?): String = when (m) {
         null -> "-"
-        0x05 -> "Off"
-        0x07 -> "Transparency"
-        0x01 -> "Noise cancelling (high)"
-        0x02 -> "Noise cancelling (mid)"
-        0x03 -> "Noise cancelling (low)"
-        0x04 -> "Noise cancelling (adaptive)"
+        ANC_OFF -> "Off"
+        ANC_TRANSPARENCY -> "Transparency"
+        ANC_HIGH -> "Noise cancelling · High"
+        ANC_MID -> "Noise cancelling · Mid"
+        ANC_LOW -> "Noise cancelling · Low"
+        ANC_ADAPTIVE -> "Noise cancelling · Adaptive"
         else -> "Mode 0x%02X".format(m)
     }
+}
+
+object Spatial {
+    val MODES = listOf(0 to "Off", 2 to "Concert", 3 to "Mode 2")
 }
 
 class Frame(val type: Int, val seq: Int, val payload: IntArray)
