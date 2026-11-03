@@ -15,7 +15,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
-import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
 import android.os.Handler
@@ -86,7 +85,7 @@ class TalkService : Service() {
             PendingIntent.FLAG_IMMUTABLE)
     }
     private val playbackCb = object : AudioManager.AudioPlaybackCallback() {
-        override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>) = activityChanged()
+        override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>) = playbackChanged()
     }
 
     private val btReceiver = object : BroadcastReceiver() {
@@ -104,6 +103,7 @@ class TalkService : Service() {
         audio = getSystemService(AudioManager::class.java)
         prefs = Prefs(this)
         Stats.init(this)
+        History.init(this)
         alarms = getSystemService(AlarmManager::class.java)
         audio.registerAudioPlaybackCallback(playbackCb, main)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -132,6 +132,7 @@ class TalkService : Service() {
         instance = null
         running = false
         unregisterReceiver(btReceiver)
+        main.removeCallbacks(recheck)
         audio.unregisterAudioPlaybackCallback(playbackCb)
         cancelIdle()
         runCatching { socket?.close() }
@@ -144,7 +145,7 @@ class TalkService : Service() {
 
     fun setAnc(mode: Int) {
         send(Proto.ANC_SET, 0x01, mode, 0x00)
-        st.anc = mode
+        st.anc = mode; History.log(History.ANC, st.anc ?: 0)
         clearIdle()
         activityChanged()
         // Picking a mode by hand while talking: keep it when talk mode ends.
@@ -212,10 +213,12 @@ class TalkService : Service() {
         main.post {
             st.status = s
             if (connected) {
+                if (!st.connected) History.log(History.CONNECTED, 1)
                 st.connected = true
                 cancelIdle()
                 activityChanged() // start the idle timer
             } else {
+                if (st.connected) History.log(History.CONNECTED, 0)
                 clearIdle()
                 st.clear()
                 cancelIdle()
@@ -304,7 +307,7 @@ class TalkService : Service() {
     private fun handle(f: Frame) {
         when (f.type) {
             Proto.ANC_NOTIFY, Proto.ANC_REPLY -> if (f.payload.size >= 2) {
-                st.anc = f.payload[1]
+                st.anc = f.payload[1]; History.log(History.ANC, st.anc ?: 0)
                 // Changed with the headphone button while idle-off: keep the new mode.
                 if (st.anc != Proto.ANC_OFF) { clearIdle(); activityChanged() }
                 refreshNotification()
@@ -312,6 +315,7 @@ class TalkService : Service() {
             Proto.BATTERY_NOTIFY, Proto.BATTERY_REPLY -> if (f.payload.size >= 3) {
                 st.battery = f.payload[2] and 0x7F
                 st.charging = f.payload[2] and 0x80 != 0
+                History.log(History.BATTERY, st.battery!!)
                 refreshNotification()
             }
             Proto.SPATIAL_NOTIFY -> f.payload.firstOrNull()?.let { spatialReport(it, f.seq) }
@@ -371,18 +375,24 @@ class TalkService : Service() {
 
     // ---- idle saver (main thread) ----
 
-    private val quietUsages = setOf(
-        AudioAttributes.USAGE_NOTIFICATION,
-        AudioAttributes.USAGE_NOTIFICATION_EVENT,
-        AudioAttributes.USAGE_ASSISTANCE_SONIFICATION,
-        AudioAttributes.USAGE_ALARM,
-    )
-
-    /** Music, video, games or a call. Short notification sounds don't count. */
+    /**
+     * Sound is going out right now: music, video, games, or a call.
+     * (The list of "active" players also holds paused ones, so it can't be used.)
+     */
     private fun isPlaying(): Boolean =
         audio.isMusicActive ||
-            audio.mode != AudioManager.MODE_NORMAL ||
-            audio.activePlaybackConfigurations.any { it.audioAttributes.usage !in quietUsages }
+            audio.mode == AudioManager.MODE_IN_CALL ||
+            audio.mode == AudioManager.MODE_IN_COMMUNICATION ||
+            audio.mode == AudioManager.MODE_RINGTONE
+
+    /** Android reports music as active for a few seconds after a pause, so check again. */
+    private val recheck = Runnable { activityChanged() }
+
+    private fun playbackChanged() {
+        activityChanged()
+        main.removeCallbacks(recheck)
+        main.postDelayed(recheck, 5_000)
+    }
 
     private val idleMs get() = prefs.idleMinutes * 60_000L
 
@@ -390,6 +400,9 @@ class TalkService : Service() {
         val playing = isPlaying()
         st.playing = playing
         if (playing) {
+            // Keep checking while playing, in case a stop is missed. The phone is awake anyway.
+            main.removeCallbacks(recheck)
+            main.postDelayed(recheck, 30_000)
             st.quietSince = null
             cancelIdle()
             restoreFromIdle()
@@ -423,7 +436,7 @@ class TalkService : Service() {
         Log.i(TAG, "idle: noise control off (was ${Proto.ancName(mode)})")
         idleSavedAnc = mode
         send(Proto.ANC_SET, 0x01, Proto.ANC_OFF, 0x00)
-        st.anc = Proto.ANC_OFF
+        st.anc = Proto.ANC_OFF; History.log(History.ANC, st.anc ?: 0)
         st.idleOff = true
         st.idleOffSince = System.currentTimeMillis()
         Stats.idleTurnedOff()
@@ -436,7 +449,7 @@ class TalkService : Service() {
         if (st.connected && st.anc == Proto.ANC_OFF) {
             Log.i(TAG, "audio back: restore ${Proto.ancName(mode)}")
             send(Proto.ANC_SET, 0x01, mode, 0x00)
-            st.anc = mode
+            st.anc = mode; History.log(History.ANC, st.anc ?: 0)
         }
         refreshNotification()
     }
