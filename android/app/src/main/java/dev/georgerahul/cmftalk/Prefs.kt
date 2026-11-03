@@ -18,4 +18,9 @@ class Prefs(ctx: Context) {
     var idleOff: Boolean
         get() = p.getBoolean("idleOff", true)
         set(v) = p.edit().putBoolean("idleOff", v).apply()
+
+    /** Minutes with nothing playing before the battery saver acts. */
+    var idleMinutes: Int
+        get() = p.getInt("idleMinutes", 10)
+        set(v) = p.edit().putInt("idleMinutes", v).apply()
 }

@@ -202,11 +202,11 @@ struct Panel: View {
             big = "Saving"; small = "Noise control off for \(dur(now.timeIntervalSince(t))). Comes back when audio plays."
             p = 1; colors = [Pal.teal, Pal.blue2]
         } else if talk.active { big = "Talking"; small = "The timer waits until you finish talking." }
-        else if talk.playing { big = "Playing"; small = "The 10 minute timer starts when audio stops." }
+        else if talk.playing { big = "Playing"; small = "The \(talk.idleMinutes) minute timer starts when audio stops." }
         else if let d = talk.idleDeadline {
             let left = max(0, d.timeIntervalSince(now))
             big = clock(left.rounded(.up)); small = "until noise control turns off. Nothing played for \(quiet)."
-            p = 1 - left / TalkMode.idleSeconds; colors = [Pal.purple, Pal.pink]
+            p = 1 - left / talk.idleSeconds; colors = [Pal.purple, Pal.pink]
         } else if talk.ancMode == Proto.ancOff { small = "Nothing played for \(quiet). Noise control is already off." }
 
         return Card(title: "Battery saver") {
@@ -251,7 +251,13 @@ struct Panel: View {
     private var settingsCard: some View {
         Card(title: "Settings") {
             Toggle("Button starts talk mode", isOn: $talk.enabled)
-            Toggle("Battery saver (10 min idle)", isOn: $talk.idleSaver)
+            Toggle("Battery saver", isOn: $talk.idleSaver)
+            if talk.idleSaver {
+                Picker("Turn off after", selection: $talk.idleMinutes) {
+                    ForEach([5, 10, 15, 30, 60], id: \.self) { Text("\($0) min").tag($0) }
+                }
+                .pickerStyle(.menu)
+            }
             Stepper("Music while talking: \(talk.talkVolumePercent)%", value: $talk.talkVolumePercent, in: 0...100, step: 5)
             Toggle("Open at login", isOn: $talk.launchAtLogin)
             HStack {

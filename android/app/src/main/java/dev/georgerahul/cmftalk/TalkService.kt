@@ -40,7 +40,7 @@ import kotlin.math.roundToInt
  * Talk on:  remember noise mode + music volume, set Transparency, volume 10%.
  * Talk off: restore the exact noise mode and the volume from before.
  *
- * Idle saver: after 10 minutes with nothing playing on the phone, noise
+ * Idle saver: after a set time (10 minutes by default) with nothing playing on the phone, noise
  * control is set to Off to save the headphone battery. When audio starts
  * again, the old mode comes back.
  */
@@ -50,7 +50,6 @@ class TalkService : Service() {
         const val ACTION_TOGGLE = "dev.georgerahul.cmftalk.TOGGLE"
         const val ACTION_IDLE = "dev.georgerahul.cmftalk.IDLE"
         const val CHANNEL = "status"
-        const val IDLE_MS = 10 * 60_000L
         private const val HEADPHONE_NAME = "CMF Headphone Pro"
 
         /** The running service, for the screen to send commands. Main thread only. */
@@ -385,6 +384,8 @@ class TalkService : Service() {
             audio.mode != AudioManager.MODE_NORMAL ||
             audio.activePlaybackConfigurations.any { it.audioAttributes.usage !in quietUsages }
 
+    private val idleMs get() = prefs.idleMinutes * 60_000L
+
     private fun activityChanged() {
         val playing = isPlaying()
         st.playing = playing
@@ -398,10 +399,10 @@ class TalkService : Service() {
         if (st.quietSince == null) st.quietSince = System.currentTimeMillis()
         if (!idleScheduled && prefs.idleOff && !st.idleOff) {
             idleScheduled = true
-            st.idleDeadline = System.currentTimeMillis() + IDLE_MS
+            st.idleDeadline = System.currentTimeMillis() + idleMs
             // Inexact alarm that still fires in Doze. Cheaper than keeping the phone awake.
             alarms.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                SystemClock.elapsedRealtime() + IDLE_MS, idleIntent)
+                SystemClock.elapsedRealtime() + idleMs, idleIntent)
         }
     }
 

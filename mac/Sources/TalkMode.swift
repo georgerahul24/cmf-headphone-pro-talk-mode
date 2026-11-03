@@ -22,10 +22,9 @@ struct UsageStats: Codable {
 /// Talk on:  remember noise mode + volume, set Transparency, lower the volume.
 /// Talk off: restore the exact noise mode and the volume from before.
 ///
-/// Battery saver: after 10 minutes with nothing playing, noise control goes Off.
+/// Battery saver: after a set time (10 minutes by default) with nothing playing, noise control goes Off.
 /// When audio plays again, the old mode comes back.
 final class TalkMode: ObservableObject {
-    static let idleSeconds: TimeInterval = 10 * 60
 
     @Published var enabled: Bool { didSet { UserDefaults.standard.set(enabled, forKey: "enabled") } }
     @Published var talkVolumePercent: Int { didSet { UserDefaults.standard.set(talkVolumePercent, forKey: "talkVolume") } }
@@ -35,6 +34,12 @@ final class TalkMode: ObservableObject {
             if idleSaver { timerStart = Date() } else { restoreFromIdle() }
         }
     }
+
+    /// Minutes with nothing playing before the battery saver acts.
+    @Published var idleMinutes: Int {
+        didSet { UserDefaults.standard.set(idleMinutes, forKey: "idleMinutes"); timerStart = Date() }
+    }
+    var idleSeconds: TimeInterval { TimeInterval(idleMinutes * 60) }
 
     @Published private(set) var active = false
     @Published private(set) var talkSince: Date?
@@ -81,6 +86,7 @@ final class TalkMode: ObservableObject {
         enabled = d.object(forKey: "enabled") as? Bool ?? true
         talkVolumePercent = d.object(forKey: "talkVolume") as? Int ?? 10
         idleSaver = d.object(forKey: "idleSaver") as? Bool ?? true
+        idleMinutes = d.object(forKey: "idleMinutes") as? Int ?? 10
         stats = (d.data(forKey: "stats")).flatMap { try? JSONDecoder().decode(UsageStats.self, from: $0) } ?? UsageStats()
         headset.onState = { [weak self] s in DispatchQueue.main.async { self?.stateChanged(s) } }
         headset.onFrame = { [weak self] f in DispatchQueue.main.async { self?.handle(f) } }
@@ -195,7 +201,7 @@ final class TalkMode: ObservableObject {
     var idleDeadline: Date? {
         guard idleSaver, connected, !playing, !active, idleOffSince == nil,
               let m = ancMode, m != Proto.ancOff else { return nil }
-        return max(timerStart, quietSince ?? timerStart).addingTimeInterval(Self.idleSeconds)
+        return max(timerStart, quietSince ?? timerStart).addingTimeInterval(idleSeconds)
     }
 
     private func checkIdle() {

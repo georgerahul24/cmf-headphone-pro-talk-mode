@@ -101,6 +101,7 @@ private class UiPrefs(val p: Prefs) {
     var talkEnabled by mutableStateOf(p.enabled)
     var talkVolume by mutableIntStateOf(p.talkVolume)
     var idleOff by mutableStateOf(p.idleOff)
+    var idleMinutes by mutableIntStateOf(p.idleMinutes)
 }
 
 class MainActivity : ComponentActivity() {
@@ -420,11 +421,11 @@ private fun SaverCard(ui: UiPrefs, now: Long) {
         st.idleOff -> SaverView("Saving", "Noise control off for ${dur(now - (st.idleOffSince ?: now))}. " +
             "It comes back when audio plays.", 1f, listOf(C.Teal, C.Blue2))
         st.talkActive -> SaverView("Talking", "The timer waits until you finish talking.", 0f, listOf(C.Faint, C.Faint))
-        st.playing -> SaverView("Playing", "The 10 minute timer starts when audio stops.", 0f, listOf(C.Faint, C.Faint))
+        st.playing -> SaverView("Playing", "The ${ui.idleMinutes} minute timer starts when audio stops.", 0f, listOf(C.Faint, C.Faint))
         deadline != null -> {
             val left = (deadline - now).coerceAtLeast(0)
             SaverView(clock(left + 999), "until noise control turns off. Nothing played for ${quiet ?: "a while"}.",
-                1f - left.toFloat() / TalkService.IDLE_MS, listOf(C.Purple, C.Pink))
+                1f - left.toFloat() / (ui.idleMinutes * 60_000L), listOf(C.Purple, C.Pink))
         }
         st.anc == Proto.ANC_OFF -> SaverView("Idle", "Nothing played for ${quiet ?: "a while"}. Noise control is already off.",
             0f, listOf(C.Faint, C.Faint))
@@ -629,9 +630,17 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
         Panel {
             Label("Battery saver")
             SwitchRow("Turn off noise control when idle",
-                "After 10 min with nothing playing, ANC or Transparency goes Off. It comes back when audio plays.",
+                "After ${ui.idleMinutes} min with nothing playing, ANC or Transparency goes Off. It comes back when audio plays.",
                 ui.idleOff) {
                 ui.idleOff = it; ui.p.idleOff = it; svc?.idleSettingChanged()
+            }
+            AnimatedVisibility(ui.idleOff, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Wait before turning off", color = C.Sub, fontSize = 13.sp)
+                    Segmented(listOf(5, 10, 15, 30, 60).map { it to "$it min" }, ui.idleMinutes, true) {
+                        ui.idleMinutes = it; ui.p.idleMinutes = it; svc?.idleSettingChanged()
+                    }
+                }
             }
         }
     }

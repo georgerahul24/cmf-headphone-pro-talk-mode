@@ -12,7 +12,7 @@ android {
         applicationId = "dev.georgerahul.cmftalk"
         minSdk = 31
         targetSdk = 36
-        versionCode = 5
+        versionCode = 6
         versionName = "2.2.0"
     }
 
