@@ -50,7 +50,7 @@ class TalkService : Service() {
         const val ACTION_TOGGLE = "dev.georgerahul.cmftalk.TOGGLE"
         const val ACTION_IDLE = "dev.georgerahul.cmftalk.IDLE"
         const val CHANNEL = "status"
-        private const val IDLE_MS = 10 * 60_000L
+        const val IDLE_MS = 10 * 60_000L
         private const val HEADPHONE_NAME = "CMF Headphone Pro"
 
         /** The running service, for the screen to send commands. Main thread only. */
@@ -104,6 +104,7 @@ class TalkService : Service() {
         instance = this
         audio = getSystemService(AudioManager::class.java)
         prefs = Prefs(this)
+        Stats.init(this)
         alarms = getSystemService(AlarmManager::class.java)
         audio.registerAudioPlaybackCallback(playbackCb, main)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -146,6 +147,7 @@ class TalkService : Service() {
         send(Proto.ANC_SET, 0x01, mode, 0x00)
         st.anc = mode
         clearIdle()
+        activityChanged()
         // Picking a mode by hand while talking: keep it when talk mode ends.
         if (st.talkActive && mode != Proto.ANC_TRANSPARENCY) savedAnc = mode
         refreshNotification()
@@ -215,9 +217,9 @@ class TalkService : Service() {
                 cancelIdle()
                 activityChanged() // start the idle timer
             } else {
+                clearIdle()
                 st.clear()
                 cancelIdle()
-                idleSavedAnc = null
             }
             refreshNotification()
         }
@@ -305,7 +307,7 @@ class TalkService : Service() {
             Proto.ANC_NOTIFY, Proto.ANC_REPLY -> if (f.payload.size >= 2) {
                 st.anc = f.payload[1]
                 // Changed with the headphone button while idle-off: keep the new mode.
-                if (st.anc != Proto.ANC_OFF) clearIdle()
+                if (st.anc != Proto.ANC_OFF) { clearIdle(); activityChanged() }
                 refreshNotification()
             }
             Proto.BATTERY_NOTIFY, Proto.BATTERY_REPLY -> if (f.payload.size >= 3) {
@@ -353,6 +355,8 @@ class TalkService : Service() {
             .coerceIn(if (prefs.talkVolume > 0) 1 else 0, max)
         audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
         st.talkActive = true
+        st.talkSince = System.currentTimeMillis()
+        Stats.talkStarted()
         refreshNotification()
     }
 
@@ -361,6 +365,8 @@ class TalkService : Service() {
         savedAnc?.let { send(Proto.ANC_SET, 0x01, it, 0x00) }
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
         st.talkActive = false
+        st.talkSince?.let { Stats.talkEnded(System.currentTimeMillis() - it) }
+        st.talkSince = null
         refreshNotification()
     }
 
@@ -380,11 +386,19 @@ class TalkService : Service() {
             audio.activePlaybackConfigurations.any { it.audioAttributes.usage !in quietUsages }
 
     private fun activityChanged() {
-        if (isPlaying()) {
+        val playing = isPlaying()
+        st.playing = playing
+        if (playing) {
+            st.quietSince = null
             cancelIdle()
             restoreFromIdle()
-        } else if (!idleScheduled && st.connected && prefs.idleOff) {
+            return
+        }
+        if (!st.connected) return
+        if (st.quietSince == null) st.quietSince = System.currentTimeMillis()
+        if (!idleScheduled && prefs.idleOff && !st.idleOff) {
             idleScheduled = true
+            st.idleDeadline = System.currentTimeMillis() + IDLE_MS
             // Inexact alarm that still fires in Doze. Cheaper than keeping the phone awake.
             alarms.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                 SystemClock.elapsedRealtime() + IDLE_MS, idleIntent)
@@ -393,11 +407,13 @@ class TalkService : Service() {
 
     private fun cancelIdle() {
         idleScheduled = false
+        st.idleDeadline = null
         alarms.cancel(idleIntent)
     }
 
     private fun idleCheck() {
         idleScheduled = false
+        st.idleDeadline = null
         if (!st.connected || !prefs.idleOff || isPlaying()) return
         // Talking to someone with no music: leave Transparency on, check again later.
         if (st.talkActive) { activityChanged(); return }
@@ -408,12 +424,14 @@ class TalkService : Service() {
         send(Proto.ANC_SET, 0x01, Proto.ANC_OFF, 0x00)
         st.anc = Proto.ANC_OFF
         st.idleOff = true
+        st.idleOffSince = System.currentTimeMillis()
+        Stats.idleTurnedOff()
         refreshNotification()
     }
 
     private fun restoreFromIdle() {
         val mode = idleSavedAnc ?: return
-        clearIdle()
+        clearIdle(restored = true)
         if (st.connected && st.anc == Proto.ANC_OFF) {
             Log.i(TAG, "audio back: restore ${Proto.ancName(mode)}")
             send(Proto.ANC_SET, 0x01, mode, 0x00)
@@ -422,8 +440,12 @@ class TalkService : Service() {
         refreshNotification()
     }
 
-    private fun clearIdle() {
+    /** The idle turn-off is over: by the app ([restored]) or by the user changing the mode. */
+    private fun clearIdle(restored: Boolean = false) {
+        if (idleSavedAnc == null) return
         idleSavedAnc = null
         st.idleOff = false
+        st.idleOffSince?.let { Stats.idleEnded(System.currentTimeMillis() - it, restored) }
+        st.idleOffSince = null
     }
 }

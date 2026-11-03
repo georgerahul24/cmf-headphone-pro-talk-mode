@@ -15,9 +15,16 @@ object HeadphoneState {
     var talkActive by mutableStateOf(false)
     /** Noise control was turned off by the idle timer. */
     var idleOff by mutableStateOf(false)
+    /** Wall-clock times (ms) for the screen. */
+    var talkSince by mutableStateOf<Long?>(null)
+    var playing by mutableStateOf(false)
+    var quietSince by mutableStateOf<Long?>(null)
+    var idleDeadline by mutableStateOf<Long?>(null)
+    var idleOffSince by mutableStateOf<Long?>(null)
 
     fun clear() {
         connected = false
         anc = null; battery = null; charging = false; spatial = null; idleOff = false
+        quietSince = null; idleDeadline = null; idleOffSince = null
     }
 }
