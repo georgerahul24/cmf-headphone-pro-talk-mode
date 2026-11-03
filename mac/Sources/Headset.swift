@@ -63,6 +63,7 @@ final class Headset: NSObject, IOBluetoothRFCOMMChannelDelegate {
             send(Proto.ancGet)
             send(Proto.spatialGet)
             send(Proto.batteryGet)
+            send(Proto.gesturesGet)
         } else {
             onState?("Could not open control channel (\(r))")
         }
