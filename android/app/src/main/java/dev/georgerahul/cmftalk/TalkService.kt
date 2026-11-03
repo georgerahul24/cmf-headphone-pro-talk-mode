@@ -243,11 +243,25 @@ class TalkService : Service() {
     }.getOrDefault(true)
 
     @SuppressLint("MissingPermission")
+    /** Connect button: try to reach the headphones now, even if Android doesn't list them as connected. */
+    fun connectNow() {
+        forceTry = true
+        failNote = null
+        setStatus("Connecting...")
+        synchronized(wake) { wake.notifyAll() }
+    }
+
+    @Volatile private var forceTry = false
+    /** Shown instead of "Not connected" after a Connect press that failed. */
+    @Volatile private var failNote: String? = null
+
     private fun connectLoop() {
         while (running) {
             val dev = findHeadphones()
-            if (dev == null || !isConnected(dev)) {
-                setStatus(if (dev == null) "Not paired or Bluetooth off" else "Not connected")
+            val force = forceTry
+            forceTry = false
+            if (dev == null || (!force && !isConnected(dev))) {
+                setStatus(if (dev == null) "Not paired or Bluetooth off" else failNote ?: "Not connected")
                 // Woken early by the "headphones connected" broadcast; this is a fallback.
                 sleep(5 * 60_000)
                 continue
@@ -257,6 +271,7 @@ class TalkService : Service() {
                 val s = dev.createRfcommSocketToServiceRecord(Proto.SERVICE_UUID)
                 s.connect()
                 socket = s
+                failNote = null
                 main.post { spatialChosen = null }
                 setStatus("Connected", connected = true)
                 send(Proto.ANC_GET)
@@ -265,6 +280,13 @@ class TalkService : Service() {
                 readLoop(s)
             } catch (e: Exception) {
                 Log.w(TAG, "connection failed: $e")
+                if (force && !isConnected(dev)) {
+                    // Pressed Connect but the headphones didn't answer: off or out of range.
+                    failNote = "Couldn't reach them. Turn the headphones on and try again."
+                    setStatus(failNote!!)
+                    sleep(5 * 60_000)
+                    continue
+                }
                 setStatus("Can't connect. Close Nothing X and try again.")
                 sleep(5_000)
             } finally {

@@ -316,6 +316,11 @@ private fun HomeTab(ui: UiPrefs, setup: Setup, onTab: (Int) -> Unit) {
             AnimatedVisibility(!st.connected) {
                 Text(st.status, color = C.Sub, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
             }
+            AnimatedVisibility(
+                !st.connected && !setup.needed,
+                enter = expandVertically(spring(dampingRatio = 0.8f)) + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) { Box(Modifier.padding(top = 16.dp)) { ConnectCard(st.status) } }
         }
     }
     if (setup.needed) Reveal(2) { SetupCard(setup) }
@@ -1144,6 +1149,41 @@ private fun BatteryCard(hv: HistoryView, day: Int) {
         if (pts.size >= 2) Row(Modifier.fillMaxWidth().padding(start = 26.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             listOf("00", "06", "12", "18", "24").forEach { Text(it, color = C.Faint, fontSize = 10.sp, style = tnum()) }
         }
+    }
+}
+
+/** Shown on Home while the headphones aren't connected. */
+@Composable
+private fun ConnectCard(status: String) {
+    val ctx = LocalContext.current
+    val busy = status.startsWith("Connecting")
+    Panel {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Headphones not connected", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Text("Turn them on, then tap Connect.", color = C.Sub, fontSize = 12.sp)
+            }
+        }
+        Box(
+            Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(16.dp)).background(Accent)
+                .graphicsLayer { alpha = if (busy) 0.6f else 1f }
+                .pressable(enabled = !busy) { TalkService.instance?.connectNow() ?: TalkService.start(ctx) },
+            contentAlignment = Alignment.Center,
+        ) {
+            AnimatedContent(busy, label = "conn") { b ->
+                if (b) Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Connecting", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                } else Text("Connect", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+        Text(
+            "Open Bluetooth settings",
+            color = C.Sub, fontSize = 13.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().clip(CircleShape)
+                .pressable { ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }.padding(8.dp),
+        )
     }
 }
 

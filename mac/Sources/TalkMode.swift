@@ -112,6 +112,8 @@ final class TalkMode: ObservableObject {
         headset.send(Proto.spatialSet, [m])
     }
 
+    func connect() { headset.connectNow() }
+
     func toggle() {
         if active { stop() } else { start() }
     }

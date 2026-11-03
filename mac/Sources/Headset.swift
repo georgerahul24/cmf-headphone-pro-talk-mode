@@ -68,6 +68,27 @@ final class Headset: NSObject, IOBluetoothRFCOMMChannelDelegate {
         }
     }
 
+    /// Connect button: asks macOS to connect the headphones (like Connect in the
+    /// Bluetooth menu). Audio profiles follow, then the control channel opens.
+    func connectNow() {
+        if connected { return }
+        let paired = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []
+        guard let dev = paired.first(where: isTarget) else { onState?("Headphones not paired with this Mac"); return }
+        if dev.isConnected() { tryConnect(); return }
+        onState?("Connecting...")
+        if dev.openConnection(self) != kIOReturnSuccess {
+            onState?("Couldn't reach them. Turn the headphones on and try again.")
+        }
+    }
+
+    @objc func connectionComplete(_ device: IOBluetoothDevice!, status: IOReturn) {
+        if status == kIOReturnSuccess {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.tryConnect() }
+        } else {
+            onState?("Couldn't reach them. Turn the headphones on and try again.")
+        }
+    }
+
     func send(_ type: UInt16, _ payload: [UInt8] = []) {
         guard connected, let channel else { return }
         seq = seq >= 250 ? 1 : seq + 1

@@ -72,6 +72,7 @@ struct Panel: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 12) {
                     header
+                    if !talk.connected { connectCard }
                     hero(now)
                     talkButton(now)
                     noiseCard
@@ -159,6 +160,28 @@ struct Panel: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 22))
         .shadow(color: colors[0].opacity(0.45), radius: 14, y: 6)
+    }
+
+    private var connectCard: some View {
+        let busy = talk.status.hasPrefix("Connecting")
+        return Card(title: "Headphones not connected") {
+            Text(talk.status == "Headphones not connected" ? "Turn them on, then click Connect." : talk.status)
+                .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
+            Button { talk.connect() } label: {
+                HStack(spacing: 8) {
+                    if busy { ProgressView().controlSize(.small).tint(.white) }
+                    Text(busy ? "Connecting" : "Connect").font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity).frame(height: 36)
+                .background(LinearGradient(colors: [Pal.purple, Pal.violet], startPoint: .leading, endPoint: .trailing))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .opacity(busy ? 0.6 : 1)
+            }
+            .buttonStyle(Press())
+            .disabled(busy)
+        }
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private func talkButton(_ now: Date) -> some View {
