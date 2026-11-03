@@ -423,7 +423,7 @@ private fun SaverCard(ui: UiPrefs, now: Long) {
         st.playing -> SaverView("Playing", "The 10 minute timer starts when audio stops.", 0f, listOf(C.Faint, C.Faint))
         deadline != null -> {
             val left = (deadline - now).coerceAtLeast(0)
-            SaverView(clock(left + 999), "until noise control turns off. Nothing played for $quiet.",
+            SaverView(clock(left + 999), "until noise control turns off. Nothing played for ${quiet ?: "a while"}.",
                 1f - left.toFloat() / TalkService.IDLE_MS, listOf(C.Purple, C.Pink))
         }
         st.anc == Proto.ANC_OFF -> SaverView("Idle", "Nothing played for ${quiet ?: "a while"}. Noise control is already off.",

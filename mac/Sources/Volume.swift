@@ -31,4 +31,15 @@ enum SystemVolume {
         var v = Float32(max(0, min(1, value)))
         AudioObjectSetPropertyData(dev, &addr, 0, nil, UInt32(MemoryLayout<Float32>.size), &v)
     }
+
+    /// True while any app is playing through the default output (music, video, calls).
+    static func isPlaying() -> Bool {
+        guard let dev = defaultOutput() else { return false }
+        var running = UInt32(0)
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        var a = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+                                           mScope: kAudioObjectPropertyScopeGlobal,
+                                           mElement: kAudioObjectPropertyElementMain)
+        return AudioObjectGetPropertyData(dev, &a, 0, nil, &size, &running) == noErr && running != 0
+    }
 }

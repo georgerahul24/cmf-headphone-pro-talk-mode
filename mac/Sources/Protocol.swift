@@ -29,6 +29,11 @@ enum Proto {
     // Noise control modes (CMF Headphone Pro, model B175)
     static let ancOff: UInt8 = 0x05
     static let ancTransparency: UInt8 = 0x07
+    static let ancHigh: UInt8 = 0x01
+    static let ancMid: UInt8 = 0x02
+    static let ancLow: UInt8 = 0x03
+    static let ancAdaptive: UInt8 = 0x04
+    static let ancLevels: Set<UInt8> = [0x01, 0x02, 0x03, 0x04]
 
     static let unsolicitedSeq: UInt8 = 0xFF
 

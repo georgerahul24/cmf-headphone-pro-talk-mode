@@ -18,7 +18,8 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Your normal buttons still work.** Talk mode uses its own button. Your usual noise control buttons stay the way they are and never touch your volume.
 - **No voice assistant pop-up.** It does not hijack Siri or Google Assistant.
 - **A full control app on Android.** Switch noise control (Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive) and Spatial Audio, and see your battery, in a clean dark dot-matrix design. For these everyday controls, you don't need Nothing X.
-- **Battery saver for noise cancelling (Android).** If nothing plays for 10 minutes, the app turns noise control Off so ANC or Transparency stops draining the battery. When music, a video or a call starts, your old mode comes back on its own. You can turn this off in the app.
+- **Battery saver for noise cancelling.** If nothing plays for 10 minutes, the app turns noise control Off so ANC or Transparency stops draining the battery. When music, a video or a call starts, your old mode comes back on its own. You can turn this off in the app. A live countdown shows how long until it kicks in.
+- **Usage stats.** See how many times you used talk mode, how long you talked, how often the battery saver turned ANC off and how long ANC rested. Stats stay on your device.
 - **Works on Android and Mac.** A small menu bar app on macOS and a background app on Android.
 - **Set your own talk volume.** 10% by default. Pick anything from 0% to 100%.
 - **Turn it off any time.** One switch puts the button back to normal Spatial Audio.
