@@ -28,6 +28,8 @@ final class TalkMode: ObservableObject {
 
     @Published var enabled: Bool { didSet { UserDefaults.standard.set(enabled, forKey: "enabled") } }
     @Published var talkVolumePercent: Int { didSet { UserDefaults.standard.set(talkVolumePercent, forKey: "talkVolume") } }
+    /// While talking: true = pause the music, false = lower the volume.
+    @Published var talkPause: Bool { didSet { UserDefaults.standard.set(talkPause, forKey: "talkPause") } }
     @Published var idleSaver: Bool {
         didSet {
             UserDefaults.standard.set(idleSaver, forKey: "idleSaver")
@@ -74,6 +76,8 @@ final class TalkMode: ObservableObject {
     let headset = Headset()
     private var savedAnc: UInt8?
     private var savedVolume: Float?
+    /// True if talk mode paused the music, so ending it should play again.
+    private var pausedMusic = false
     private var lastPress = Date.distantPast
     private var spatialChosen: UInt8?
     private var idleSavedAnc: UInt8?
@@ -85,6 +89,7 @@ final class TalkMode: ObservableObject {
         let d = UserDefaults.standard
         enabled = d.object(forKey: "enabled") as? Bool ?? true
         talkVolumePercent = d.object(forKey: "talkVolume") as? Int ?? 10
+        talkPause = d.object(forKey: "talkPause") as? Bool ?? false
         idleSaver = d.object(forKey: "idleSaver") as? Bool ?? true
         idleMinutes = d.object(forKey: "idleMinutes") as? Int ?? 10
         stats = (d.data(forKey: "stats")).flatMap { try? JSONDecoder().decode(UsageStats.self, from: $0) } ?? UsageStats()
@@ -177,10 +182,18 @@ final class TalkMode: ObservableObject {
     private func start() {
         savedAnc = idleSavedAnc ?? ancMode
         clearIdle(restored: false)
-        savedVolume = SystemVolume.get()
-        log("talk ON (saved mode \(savedAnc.map { String(format: "0x%02X", $0) } ?? "-"), volume \(savedVolume ?? -1))")
         headset.send(Proto.ancSet, [0x01, Proto.ancTransparency, 0x00])
-        SystemVolume.set(Float(talkVolumePercent) / 100)
+        if talkPause {
+            savedVolume = nil
+            pausedMusic = SystemVolume.isPlaying()
+            if pausedMusic { NowPlaying.pause() }
+            log("talk ON (saved mode \(savedAnc.map { String(format: "0x%02X", $0) } ?? "-"), paused music: \(pausedMusic))")
+        } else {
+            pausedMusic = false
+            savedVolume = SystemVolume.get()
+            log("talk ON (saved mode \(savedAnc.map { String(format: "0x%02X", $0) } ?? "-"), volume \(savedVolume ?? -1))")
+            SystemVolume.set(Float(talkVolumePercent) / 100)
+        }
         active = true
         talkSince = Date()
         stats.talkCount += 1
@@ -191,6 +204,8 @@ final class TalkMode: ObservableObject {
         log("talk OFF (restoring mode \(savedAnc.map { String(format: "0x%02X", $0) } ?? "-"), volume \(savedVolume ?? -1))")
         if let m = savedAnc { headset.send(Proto.ancSet, [0x01, m, 0x00]); ancMode = m }
         if let v = savedVolume { SystemVolume.set(v) }
+        if pausedMusic { NowPlaying.play() }
+        pausedMusic = false
         active = false
         if let t = talkSince { stats.talkSeconds += Date().timeIntervalSince(t) }
         talkSince = nil

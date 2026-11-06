@@ -14,6 +14,11 @@ class Prefs(ctx: Context) {
         get() = p.getInt("talkVolume", 10)
         set(v) = p.edit().putInt("talkVolume", v).apply()
 
+    /** While talking: true = pause the music, false = lower the volume. */
+    var talkPause: Boolean
+        get() = p.getBoolean("talkPause", false)
+        set(v) = p.edit().putBoolean("talkPause", v).apply()
+
     /** Set noise control to Off after a while with nothing playing. */
     var idleOff: Boolean
         get() = p.getBoolean("idleOff", true)

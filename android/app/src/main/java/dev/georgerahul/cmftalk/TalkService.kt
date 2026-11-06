@@ -22,6 +22,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
+import android.view.KeyEvent
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
 
@@ -74,6 +75,8 @@ class TalkService : Service() {
     private var spatialChosen: Int? = null
     private var savedAnc: Int? = null
     private var savedVolume: Int? = null
+    /** True if talk mode paused the music, so ending it should play again. */
+    private var pausedMusic = false
     private var lastPress = 0L
 
     /** Noise mode from before the idle saver turned it off. */
@@ -372,13 +375,21 @@ class TalkService : Service() {
         // If the idle saver turned noise control off, talk mode ends on the real mode.
         savedAnc = idleSavedAnc ?: st.anc
         clearIdle()
-        savedVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-        Log.i(TAG, "talk ON (saved ${Proto.ancName(savedAnc)}, vol $savedVolume)")
         send(Proto.ANC_SET, 0x01, Proto.ANC_TRANSPARENCY, 0x00)
-        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        val target = (max * prefs.talkVolume / 100.0).roundToInt()
-            .coerceIn(if (prefs.talkVolume > 0) 1 else 0, max)
-        audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+        if (prefs.talkPause) {
+            savedVolume = null
+            pausedMusic = audio.isMusicActive
+            if (pausedMusic) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+            Log.i(TAG, "talk ON (saved ${Proto.ancName(savedAnc)}, paused music: $pausedMusic)")
+        } else {
+            pausedMusic = false
+            savedVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            Log.i(TAG, "talk ON (saved ${Proto.ancName(savedAnc)}, vol $savedVolume)")
+            val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val target = (max * prefs.talkVolume / 100.0).roundToInt()
+                .coerceIn(if (prefs.talkVolume > 0) 1 else 0, max)
+            audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+        }
         st.talkActive = true
         st.talkSince = System.currentTimeMillis()
         Stats.talkStarted()
@@ -389,10 +400,18 @@ class TalkService : Service() {
         Log.i(TAG, "talk OFF (restore ${Proto.ancName(savedAnc)}, vol $savedVolume)")
         savedAnc?.let { send(Proto.ANC_SET, 0x01, it, 0x00) }
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+        if (pausedMusic) mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+        pausedMusic = false
         st.talkActive = false
         st.talkSince?.let { Stats.talkEnded(System.currentTimeMillis() - it) }
         st.talkSince = null
         refreshNotification()
+    }
+
+    /** Sends a play or pause key to whatever app is playing media. */
+    private fun mediaKey(code: Int) {
+        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, code))
+        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
     }
 
     // ---- idle saver (main thread) ----

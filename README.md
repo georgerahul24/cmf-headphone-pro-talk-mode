@@ -22,7 +22,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Headphone history.** See how long you wore your headphones each day, a 24 hour strip of when you used noise cancelling, Transparency or Off, and a battery chart for each day. Kept forever on your device, never deleted. Export it as a CSV (Android) or open the log file (Mac) to dig into your own listening patterns.
 - **Usage stats.** See how many times you used talk mode, how long you talked, how often the battery saver turned ANC off and how long ANC rested. Stats stay on your device.
 - **Works on Android and Mac.** A small menu bar app on macOS and a background app on Android.
-- **Set your own talk volume.** 10% by default. Pick anything from 0% to 100%.
+- **Lower or pause.** Choose what happens to your music while you talk. Lower it to a volume you pick (10% by default), or pause it and have it play again when you are done.
 - **Turn it off any time.** One switch puts the button back to normal Spatial Audio.
 - **Built to stay running on Android.** Runs as a foreground service, asks for unrestricted battery use, starts after a reboot and reconnects when your headphones connect. Made to hold up on custom ROMs like Evolution X.
 - **Opens at login on macOS.** Lives in the menu bar, uses almost no resources, and macOS restarts it if it ever crashes.

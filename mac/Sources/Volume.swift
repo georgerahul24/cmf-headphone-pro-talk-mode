@@ -1,3 +1,4 @@
+import Foundation
 import CoreAudio
 import AudioToolbox
 
@@ -42,4 +43,18 @@ enum SystemVolume {
                                            mElement: kAudioObjectPropertyElementMain)
         return AudioObjectGetPropertyData(dev, &a, 0, nil, &size, &running) == noErr && running != 0
     }
+}
+
+/// Play and pause for whatever app is playing media (Music, Spotify, a browser...),
+/// through the system's Now Playing controls, like the media keys on the keyboard.
+enum NowPlaying {
+    private typealias Send = @convention(c) (UInt32, CFDictionary?) -> Bool
+    private static let send: Send? = {
+        guard let h = dlopen("/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote", RTLD_LAZY),
+              let f = dlsym(h, "MRMediaRemoteSendCommand") else { return nil }
+        return unsafeBitCast(f, to: Send.self)
+    }()
+
+    static func play() { _ = send?(0, nil) }
+    static func pause() { _ = send?(1, nil) }
 }

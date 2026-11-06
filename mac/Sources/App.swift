@@ -133,7 +133,7 @@ struct Panel: View {
                     }
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                Text(talk.active ? "Transparency on · music at \(talk.talkVolumePercent)%"
+                Text(talk.active ? (talk.talkPause ? "Transparency on · music paused" : "Transparency on · music at \(talk.talkVolumePercent)%")
                      : (talk.connected ? talk.ancName : talk.status))
                     .font(.system(size: 11)).opacity(0.85).lineLimit(1)
             }
@@ -426,7 +426,20 @@ struct Panel: View {
                 }
                 .pickerStyle(.menu)
             }
-            Stepper("Music while talking: \(talk.talkVolumePercent)%", value: $talk.talkVolumePercent, in: 0...100, step: 5)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("When you talk").font(.system(size: 11)).foregroundStyle(Pal.sub)
+                Seg(options: [(0, "Lower music"), (1, "Pause music")], selected: talk.talkPause ? 1 : 0,
+                    enabled: true) { v in withAnimation(.snappy) { talk.talkPause = v == 1 } }
+                if talk.talkPause {
+                    Text("Music pauses when talk mode starts and plays again when it ends.")
+                        .font(.system(size: 11)).foregroundStyle(Pal.sub)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                } else {
+                    Stepper("Music while talking: \(talk.talkVolumePercent)%", value: $talk.talkVolumePercent, in: 0...100, step: 5)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
             Toggle("Open at login", isOn: $talk.launchAtLogin)
             Button("Show history file") { NSWorkspace.shared.activateFileViewerSelecting([History.shared.url]) }
                 .buttonStyle(.plain).foregroundStyle(Pal.sub)

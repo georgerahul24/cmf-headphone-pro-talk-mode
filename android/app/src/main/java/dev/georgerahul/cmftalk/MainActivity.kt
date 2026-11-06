@@ -1,3 +1,29 @@
+            Text("When you talk", color = C.Sub, fontSize = 13.sp)
+            Segmented(listOf(0 to "Lower music", 1 to "Pause music"), if (ui.talkPause) 1 else 0, true) {
+                ui.talkPause = it == 1; ui.p.talkPause = it == 1
+            }
+            AnimatedContent(ui.talkPause, transitionSpec = {
+                (fadeIn() + expandVertically()).togetherWith(fadeOut() + shrinkVertically())
+            }, label = "talkMusic") { pause ->
+                if (pause) {
+                    Text("Music pauses when talk mode starts and plays again when it ends. If nothing was playing, nothing changes.",
+                        color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
+                } else Column {
+                    var vol by remember { mutableFloatStateOf(ui.talkVolume.toFloat()) }
+                    Row {
+                        Text("Music volume while talking", fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        Text("${vol.toInt()}%", color = C.Sub, fontSize = 15.sp, style = tnum())
+                    }
+                    Slider(
+                        value = vol,
+                        onValueChange = { vol = (it / 5).toInt() * 5f },
+                        onValueChangeFinished = { ui.talkVolume = vol.toInt(); ui.p.talkVolume = vol.toInt() },
+                        valueRange = 0f..50f,
+                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = C.Purple,
+                            inactiveTrackColor = C.Card2, activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent),
+                    )
+                }
+            }
 package dev.georgerahul.cmftalk
 
 import android.Manifest
@@ -110,6 +136,7 @@ private class SaverView(val big: String, val small: String, val p: Float, val c:
 private class UiPrefs(val p: Prefs) {
     var talkEnabled by mutableStateOf(p.enabled)
     var talkVolume by mutableIntStateOf(p.talkVolume)
+    var talkPause by mutableStateOf(p.talkPause)
     var idleOff by mutableStateOf(p.idleOff)
     var idleMinutes by mutableIntStateOf(p.idleMinutes)
 }
@@ -396,7 +423,7 @@ private fun HeroCard(ui: UiPrefs, now: Long) {
                     }
                 }
                 Text(
-                    if (talk) "Transparency on · music at ${ui.talkVolume}%" else if (st.connected) Proto.ancName(st.anc) else "Not connected",
+                    if (talk) (if (ui.talkPause) "Transparency on · music paused" else "Transparency on · music at ${ui.talkVolume}%") else if (st.connected) Proto.ancName(st.anc) else "Not connected",
                     color = Color.White.copy(alpha = 0.82f), fontSize = 13.sp,
                 )
             }
