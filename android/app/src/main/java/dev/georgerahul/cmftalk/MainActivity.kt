@@ -789,6 +789,12 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
             GradientButton(if (Updater.busy) "Checking..." else "Check for updates") {
                 if (!Updater.busy) Updater.check(ctx, install = true)
             }
+            AnimatedVisibility(Updater.failed) {
+                Text("Open the download page", color = C.Purple, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                    modifier = Modifier.pressable {
+                        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.PAGE))) }
+                    }.padding(vertical = 4.dp))
+            }
         }
     }
     Reveal(5) {

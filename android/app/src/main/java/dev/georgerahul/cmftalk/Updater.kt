@@ -34,6 +34,9 @@ object Updater {
     /** Shown in Settings. */
     var status by mutableStateOf<String?>(null)
     var busy by mutableStateOf(false)
+    /** Set when an update failed, so the screen can offer the download page instead. */
+    var failed by mutableStateOf(false)
+    const val PAGE = "https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases/latest"
     private val main = Handler(Looper.getMainLooper())
 
     fun current(ctx: Context): String =
@@ -56,9 +59,11 @@ object Updater {
     fun check(ctx: Context, install: Boolean) {
         if (busy) return
         busy = true
+        failed = false
         status = "Checking..."
         val app = ctx.applicationContext
         Thread({
+            var step = "reach GitHub"
             try {
                 val c = URL(API).openConnection() as HttpURLConnection
                 c.setRequestProperty("Accept", "application/vnd.github+json")
@@ -77,14 +82,20 @@ object Updater {
                 val dir = File(app.cacheDir, "update").apply { mkdirs() }
                 val f = File(dir, "CMF-Talk-Mode-$tag.apk")
                 dir.listFiles()?.filter { it != f }?.forEach { it.delete() }
+                step = "download $tag"
                 download(asset.getString("browser_download_url"), f, size, tag)
-                if (f.length() != size) { post("Download failed. Will try again later.", true); return@Thread }
+                if (f.length() != size) {
+                    main.post { failed = true }
+                    post("Download stopped at ${f.length() * 100 / size}%. Will try again later.", true); return@Thread
+                }
+                step = "install $tag"
                 post("Installing $tag...")
                 installApk(app, f)
                 post("Installing $tag...", true)
             } catch (e: Exception) {
-                Log.w(TAG, "update check failed: $e")
-                post("Couldn't check for updates. Will try again later.", true)
+                Log.w(TAG, "update: couldn't $step", e)
+                main.post { failed = true }
+                post("Couldn't $step (${e.javaClass.simpleName}: ${e.message ?: "no details"})", true)
             }
         }, "cmf-update").start()
     }
@@ -156,7 +167,10 @@ class UpdateReceiver : BroadcastReceiver() {
                     .setContentIntent(open).setAutoCancel(true).build())
             }
             PackageInstaller.STATUS_SUCCESS -> Updater.status = "Updated"
-            else -> Updater.status = "Update failed: " +
+            else -> Updater.failed = true
+        }
+        if (code != PackageInstaller.STATUS_PENDING_USER_ACTION && code != PackageInstaller.STATUS_SUCCESS) {
+            Updater.status = "Update failed: " +
                 (intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "code $code")
         }
     }
