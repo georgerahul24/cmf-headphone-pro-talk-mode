@@ -19,22 +19,28 @@ enum Eq: String, CaseIterable {
 
     var about: String {
         switch self {
-        case .movie: return "Made for the Energy Slider at full bass. Deep rumble you can feel, without the boom. Dialogue pushed forward so voices stay clear in loud scenes."
-        case .pop: return "Full, clean bass, vocals up front and smooth, with a bit of shine on top."
+        case .movie: return "Made for the Energy Slider at full bass. Big rumble and boom in explosions, with dialogue pushed forward so voices stay clear."
+        case .pop: return "Full, punchy bass, vocals up front and smooth, with a bit of shine on top."
         case .rock: return "Punchy kick drum, less muddy guitars, more crunch and bite, cymbals that sparkle."
         }
     }
 
-    var preamp: Float { self == .movie ? -5 : -4 }
+    var preamp: Float {
+        switch self {
+        case .movie: return -4.5
+        case .pop: return -3
+        case .rock: return -3.5
+        }
+    }
 
     var bands: [Band] {
         switch self {
-        // Tuned for the Energy Slider at full bass (+8-10 dB below ~150 Hz). Adds only a little deep
-        // rumble and cuts 100 and 250 Hz harder, so the slider's bass lands as rumble, not boom.
+        // Tuned for the Energy Slider at full bass (+8-10 dB below ~150 Hz). Keeps the boom and
+        // rumble, adds a bit more of the lowest rumble, and trims the mud so voices stay clear.
         case .movie: return [
-            Band(type: 0, gain: 1, freq: 35, q: 0.7),       // a touch more of the lowest rumble
-            Band(type: 1, gain: -3, freq: 100, q: 0.9),     // pulls back the slider's mid-bass boom
-            Band(type: 1, gain: -3, freq: 250, q: 1),       // clears the mud that covers voices
+            Band(type: 0, gain: 1.5, freq: 35, q: 0.7),     // more of the lowest rumble
+            Band(type: 1, gain: -1, freq: 100, q: 0.9),     // keeps the boom, a little tighter
+            Band(type: 1, gain: -2.5, freq: 250, q: 1),     // clears the mud that covers voices
             Band(type: 1, gain: 1.5, freq: 1800, q: 1.4),   // body of the voice
             Band(type: 1, gain: 3.5, freq: 3000, q: 1.4),   // dialogue clarity, over the heavy bass
             Band(type: 1, gain: 3, freq: 4200, q: 2.5),     // fills the 4 kHz dip
@@ -42,14 +48,14 @@ enum Eq: String, CaseIterable {
             Band(type: 2, gain: 1.5, freq: 13000, q: 0.7),  // air and space
         ]
         case .pop: return [
-            Band(type: 0, gain: -1, freq: 105, q: 0.7),
-            Band(type: 1, gain: 1, freq: 55, q: 1.2),
-            Band(type: 1, gain: -1.5, freq: 250, q: 1),
-            Band(type: 1, gain: 1, freq: 1800, q: 1.4),
-            Band(type: 1, gain: 2.5, freq: 3000, q: 1.4),
-            Band(type: 1, gain: 3, freq: 4200, q: 2.5),
-            Band(type: 1, gain: -3.5, freq: 8000, q: 3),
-            Band(type: 2, gain: 2, freq: 12000, q: 0.7),
+            Band(type: 0, gain: 1, freq: 105, q: 0.7),      // full bass
+            Band(type: 1, gain: 1, freq: 55, q: 1.2),       // deep 808 and synth bass drop
+            Band(type: 1, gain: -1.5, freq: 250, q: 1),     // cleaner low-mids
+            Band(type: 1, gain: 1.5, freq: 1800, q: 1.4),   // vocal body
+            Band(type: 1, gain: 3, freq: 3000, q: 1.4),     // vocals forward
+            Band(type: 1, gain: 2.5, freq: 4200, q: 2.5),   // fills the 4 kHz dip
+            Band(type: 1, gain: -3, freq: 8000, q: 3),      // softer "s" sounds
+            Band(type: 2, gain: 2, freq: 12000, q: 0.7),    // shimmer and air
         ]
         case .rock: return [
             Band(type: 0, gain: -1.5, freq: 35, q: 0.7),

@@ -18,16 +18,15 @@ class Band(val type: Int, val gain: Float, val freq: Float, val q: Float)
  * real pair), so each preset uses all 8 to fix these one by one, instead of plain bass/mid/treble.
  */
 enum class Eq(val id: String, val label: String, val about: String, val preamp: Float, val bands: List<Band>) {
-    // Tuned for the Energy Slider at full bass, as used for movies. The slider adds up to +8-10 dB
-    // below ~150 Hz, which also lifts the boomy 60-150 Hz range. So this preset adds only a little deep
-    // rumble and cuts 100 Hz and 250 Hz harder: the slider's bass lands as low rumble, not boom, and
-    // voices stay clear on top.
+    // Tuned for the Energy Slider at full bass, as used for movies (the slider adds up to +8-10 dB
+    // below ~150 Hz). Keeps the boom and rumble of explosions, adds a bit more of the lowest rumble,
+    // and only trims the low-mid mud so voices stay clear on top.
     MOVIE("movie", "Movie",
-        "Made for the Energy Slider at full bass. Deep rumble you can feel, without the boom. Dialogue pushed forward so voices stay clear in loud scenes.",
-        -5f, listOf(
-            Band(0, 1f, 35f, 0.7f),      // a touch more of the lowest rumble on top of the slider
-            Band(1, -3f, 100f, 0.9f),    // pulls back the slider's mid-bass boom
-            Band(1, -3f, 250f, 1f),      // clears the low-mid mud that covers voices
+        "Made for the Energy Slider at full bass. Big rumble and boom in explosions, with dialogue pushed forward so voices stay clear.",
+        -4.5f, listOf(
+            Band(0, 1.5f, 35f, 0.7f),    // more of the lowest rumble on top of the slider
+            Band(1, -1f, 100f, 0.9f),    // keeps the boom, just a little tighter
+            Band(1, -2.5f, 250f, 1f),    // clears the low-mid mud that covers voices
             Band(1, 1.5f, 1800f, 1.4f),  // body of the voice
             Band(1, 3.5f, 3000f, 1.4f),  // dialogue clarity, over the heavy bass
             Band(1, 3f, 4200f, 2.5f),    // fills the 4 kHz dip: consonants, detail in effects
@@ -35,20 +34,20 @@ enum class Eq(val id: String, val label: String, val about: String, val preamp: 
             Band(2, 1.5f, 13000f, 0.7f), // air and space for effects and score
         )),
     POP("pop", "Pop",
-        "Full, clean bass, vocals up front and smooth, with a bit of shine on top.",
-        -4f, listOf(
-            Band(0, -1f, 105f, 0.7f),    // stock bass is a bit heavy for pop
-            Band(1, 1f, 55f, 1.2f),      // keeps the deep 808 and synth bass drop
+        "Full, punchy bass, vocals up front and smooth, with a bit of shine on top.",
+        -3f, listOf(
+            Band(0, 1f, 105f, 0.7f),     // full bass
+            Band(1, 1f, 55f, 1.2f),      // deep 808 and synth bass drop
             Band(1, -1.5f, 250f, 1f),    // cleaner low-mids
-            Band(1, 1f, 1800f, 1.4f),    // vocal body
-            Band(1, 2.5f, 3000f, 1.4f),  // vocals forward
-            Band(1, 3f, 4200f, 2.5f),    // fills the 4 kHz dip
-            Band(1, -3.5f, 8000f, 3f),   // softer "s" sounds; pop vocals are bright
+            Band(1, 1.5f, 1800f, 1.4f),  // vocal body
+            Band(1, 3f, 3000f, 1.4f),    // vocals forward
+            Band(1, 2.5f, 4200f, 2.5f),  // fills the 4 kHz dip
+            Band(1, -3f, 8000f, 3f),     // softer "s" sounds; pop vocals are bright
             Band(2, 2f, 12000f, 0.7f),   // shimmer and air
         )),
     ROCK("rock", "Rock",
         "Punchy kick drum, less muddy guitars, more crunch and bite, cymbals that sparkle.",
-        -4f, listOf(
+        -3.5f, listOf(
             Band(0, -1.5f, 35f, 0.7f),   // trims deep rumble rock doesn't use
             Band(1, 1f, 90f, 1.2f),      // kick drum punch
             Band(1, -2f, 250f, 1f),      // less bass and rhythm guitar mud
