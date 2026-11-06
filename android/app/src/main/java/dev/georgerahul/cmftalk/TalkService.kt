@@ -210,6 +210,7 @@ class TalkService : Service() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("CMF Headphone Pro")
             .setContentText(text)
+            .apply { if (st.connected) setSubText("EQ ${eqTitle()}") }
             .setOngoing(true)
             .setContentIntent(open)
             .apply {
@@ -438,7 +439,12 @@ class TalkService : Service() {
         if (autoPick != null && autoPick != Eq.MOVIE.id) autoPick = prefs.musicEq
         autoEq()
         applyEq()
+        refreshNotification()
     }
+
+    /** "Auto (Movie)" in Auto mode, else the preset name. */
+    private fun eqTitle(): String =
+        if (prefs.eqMode == EqMode.AUTO) "Auto (${EqMode.label(st.eqNow ?: prefs.musicEq)})" else EqMode.label(prefs.eqMode)
 
     private fun wantedEq(): String =
         if (prefs.eqMode == EqMode.AUTO) autoPick ?: prefs.musicEq else prefs.eqMode
@@ -458,6 +464,7 @@ class TalkService : Service() {
         if (w == eqApplied) return
         eqApplied = w
         st.eqNow = w
+        refreshNotification()
         val eq = Eq.of(w)
         Log.i(TAG, "EQ: $w")
         if (eq == null) {
