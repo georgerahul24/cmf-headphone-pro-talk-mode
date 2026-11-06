@@ -18,14 +18,18 @@ class Band(val type: Int, val gain: Float, val freq: Float, val q: Float)
  * real pair), so each preset uses all 8 to fix these one by one, instead of plain bass/mid/treble.
  */
 enum class Eq(val id: String, val label: String, val about: String, val preamp: Float, val bands: List<Band>) {
+    // Tuned for the Energy Slider at full bass, as used for movies. The slider adds up to +8-10 dB
+    // below ~150 Hz, which also lifts the boomy 60-150 Hz range. So this preset adds only a little deep
+    // rumble and cuts 100 Hz and 250 Hz harder: the slider's bass lands as low rumble, not boom, and
+    // voices stay clear on top.
     MOVIE("movie", "Movie",
-        "Deep rumble you can feel, without the boom. Dialogue pushed forward so voices stay clear in loud scenes.",
+        "Made for the Energy Slider at full bass. Deep rumble you can feel, without the boom. Dialogue pushed forward so voices stay clear in loud scenes.",
         -5f, listOf(
-            Band(0, 4.5f, 40f, 0.7f),    // rumble: shelf for the lowest bass only, so it is felt, not boomy
-            Band(1, -1.5f, 110f, 1f),    // less mid-bass boom, keeps punch
-            Band(1, -2.5f, 250f, 1f),    // clears the low-mid mud that covers voices
+            Band(0, 1f, 35f, 0.7f),      // a touch more of the lowest rumble on top of the slider
+            Band(1, -3f, 100f, 0.9f),    // pulls back the slider's mid-bass boom
+            Band(1, -3f, 250f, 1f),      // clears the low-mid mud that covers voices
             Band(1, 1.5f, 1800f, 1.4f),  // body of the voice
-            Band(1, 3f, 3000f, 1.4f),    // dialogue clarity
+            Band(1, 3.5f, 3000f, 1.4f),  // dialogue clarity, over the heavy bass
             Band(1, 3f, 4200f, 2.5f),    // fills the 4 kHz dip: consonants, detail in effects
             Band(1, -3f, 8000f, 3f),     // tames the 8 kHz peak: less harsh "s" and explosions
             Band(2, 1.5f, 13000f, 0.7f), // air and space for effects and score

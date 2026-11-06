@@ -650,7 +650,7 @@ struct Cards {
     var eqCard: some View {
         let about: String = {
             switch talk.eqMode {
-            case EqMode.auto: return "Movie while you watch something (video apps and browsers), your music preset while you listen. It changes by itself when a different app plays."
+            case EqMode.auto: return "Movie while you watch something (video apps and most browsers; Zen counts as music), your music preset while you listen. It changes by itself when a different app plays."
             case EqMode.stock: return "The headphones' own factory sound."
             default: return Eq(rawValue: talk.eqMode)?.about ?? ""
             }

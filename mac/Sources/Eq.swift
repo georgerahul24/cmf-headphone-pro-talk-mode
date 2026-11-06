@@ -19,7 +19,7 @@ enum Eq: String, CaseIterable {
 
     var about: String {
         switch self {
-        case .movie: return "Deep rumble you can feel, without the boom. Dialogue pushed forward so voices stay clear in loud scenes."
+        case .movie: return "Made for the Energy Slider at full bass. Deep rumble you can feel, without the boom. Dialogue pushed forward so voices stay clear in loud scenes."
         case .pop: return "Full, clean bass, vocals up front and smooth, with a bit of shine on top."
         case .rock: return "Punchy kick drum, less muddy guitars, more crunch and bite, cymbals that sparkle."
         }
@@ -29,12 +29,14 @@ enum Eq: String, CaseIterable {
 
     var bands: [Band] {
         switch self {
+        // Tuned for the Energy Slider at full bass (+8-10 dB below ~150 Hz). Adds only a little deep
+        // rumble and cuts 100 and 250 Hz harder, so the slider's bass lands as rumble, not boom.
         case .movie: return [
-            Band(type: 0, gain: 4.5, freq: 40, q: 0.7),     // rumble: lowest bass only, felt, not boomy
-            Band(type: 1, gain: -1.5, freq: 110, q: 1),     // less mid-bass boom, keeps punch
-            Band(type: 1, gain: -2.5, freq: 250, q: 1),     // clears the mud that covers voices
+            Band(type: 0, gain: 1, freq: 35, q: 0.7),       // a touch more of the lowest rumble
+            Band(type: 1, gain: -3, freq: 100, q: 0.9),     // pulls back the slider's mid-bass boom
+            Band(type: 1, gain: -3, freq: 250, q: 1),       // clears the mud that covers voices
             Band(type: 1, gain: 1.5, freq: 1800, q: 1.4),   // body of the voice
-            Band(type: 1, gain: 3, freq: 3000, q: 1.4),     // dialogue clarity
+            Band(type: 1, gain: 3.5, freq: 3000, q: 1.4),   // dialogue clarity, over the heavy bass
             Band(type: 1, gain: 3, freq: 4200, q: 2.5),     // fills the 4 kHz dip
             Band(type: 1, gain: -3, freq: 8000, q: 3),      // tames the 8 kHz peak
             Band(type: 2, gain: 1.5, freq: 13000, q: 0.7),  // air and space
@@ -95,12 +97,13 @@ enum PlayingApps {
     private static let music: Set<String> = [
         "com.apple.Music", "com.spotify.client", "com.tidal.desktop", "com.apple.podcasts", "com.deezer.deezer-desktop",
         "com.amazon.music", "com.github.th-ch.youtube-music", "com.coppertino.Vox", "com.qobuz.QobuzDesktop",
-        "com.apple.iTunes", "io.cider", "com.audirvana.Audirvana-Studio", "com.roon.Roon",
+        "com.apple.iTunes", "io.cider", "com.audirvana.Audirvana-Studio", "com.roon.Roon", "app.zen-browser.zen",
     ]
     /// Browsers count as video: on a Mac, sound from a browser is usually a show or a video.
+    /// Zen is the exception: it's used mostly for music, so it counts as music.
     private static let browsers = [
         "com.apple.WebKit", "com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox", "company.thebrowser",
-        "com.microsoft.edgemac", "com.brave.Browser", "app.zen-browser", "com.operasoftware", "com.vivaldi",
+        "com.microsoft.edgemac", "com.brave.Browser", "com.operasoftware", "com.vivaldi",
     ]
 
     /// true = video, false = music, with the app's name. Nil = nothing we can tell.
