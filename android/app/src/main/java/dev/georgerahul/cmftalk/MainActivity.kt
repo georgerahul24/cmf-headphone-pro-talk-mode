@@ -113,9 +113,19 @@ private class UiPrefs(val p: Prefs) {
     var talkPause by mutableStateOf(p.talkPause)
     var idleOff by mutableStateOf(p.idleOff)
     var idleMinutes by mutableIntStateOf(p.idleMinutes)
+    var eqMode by mutableStateOf(p.eqMode)
+    var musicEq by mutableStateOf(p.musicEq)
+    var autoUpdate by mutableStateOf(p.autoUpdate)
 }
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        /** The screen is open: the update installer can show its Install screen directly. */
+        var visible = false
+        /** Bumped on every return to the app, to re-check things like Notification access. */
+        var resumes by mutableIntStateOf(0)
+    }
+
     private val perms = arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.POST_NOTIFICATIONS)
     private var permTick by mutableIntStateOf(0)
 
@@ -139,8 +149,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        visible = false
+    }
+
     override fun onResume() {
         super.onResume()
+        visible = true
+        resumes++
         if (hasBt()) TalkService.start(this)
     }
 
@@ -205,7 +222,7 @@ private fun App(ui: UiPrefs, setup: Setup) {
                 ) {
                     when (t) {
                         0 -> HomeTab(ui, setup) { tab = it }
-                        1 -> SoundTab(ready)
+                        1 -> SoundTab(ui, ready)
                         3 -> StatsTab()
                         else -> SettingsTab(ui, setup)
                     }
@@ -329,7 +346,7 @@ private fun HomeTab(ui: UiPrefs, setup: Setup, onTab: (Int) -> Unit) {
     Reveal(4) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MiniTile(Modifier.weight(1f), "Noise control", ancShort(st.anc), Brush.linearGradient(listOf(C.Blue1, C.Blue2))) { onTab(1) }
-            MiniTile(Modifier.weight(1f), "Spatial audio", spatialName(st.spatial), Accent) { onTab(1) }
+            MiniTile(Modifier.weight(1f), "EQ", eqTitle(ui, st.eqNow), Accent) { onTab(1) }
         }
     }
     Reveal(5) { Label("Battery saver") }
@@ -480,7 +497,7 @@ private fun SetupCard(setup: Setup) {
 // ---------- sound ----------
 
 @Composable
-private fun SoundTab(ready: Boolean) {
+private fun SoundTab(ui: UiPrefs, ready: Boolean) {
     val st = HeadphoneState
     val svc = TalkService.instance
     val isAnc = st.anc in Proto.ANC_LEVELS
@@ -517,6 +534,72 @@ private fun SoundTab(ready: Boolean) {
             Segmented(Spatial.MODES, st.spatial, ready) { svc?.setSpatial(it) }
             Text("Your talk button stays on Spatial Audio. The mode you pick here is kept.",
                 color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
+        }
+    }
+    Reveal(3) { EqCard(ui) }
+}
+
+private val EqModes = listOf(EqMode.AUTO, Eq.MOVIE.id, Eq.POP.id, Eq.ROCK.id, EqMode.STOCK)
+
+/** "Auto (Movie)" in Auto mode, else the preset name. */
+private fun eqTitle(ui: UiPrefs, now: String?): String =
+    if (ui.eqMode == EqMode.AUTO) "Auto (${EqMode.label(now ?: ui.musicEq)})" else EqMode.label(ui.eqMode)
+
+@Composable
+private fun EqCard(ui: UiPrefs) {
+    val st = HeadphoneState
+    val ctx = LocalContext.current
+    val svc = TalkService.instance
+    Panel {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Label("EQ")
+            Spacer(Modifier.weight(1f))
+            AnimatedContent(eqTitle(ui, st.eqNow), transitionSpec = {
+                (fadeIn(tween(250)) + slideInVertically { it / 2 }).togetherWith(fadeOut(tween(120)))
+            }, label = "eqNow") { Text(it, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
+        }
+        Segmented(EqModes.mapIndexed { i, id -> i to EqMode.label(id) }, EqModes.indexOf(ui.eqMode), true) {
+            ui.eqMode = EqModes[it]; ui.p.eqMode = EqModes[it]; svc?.eqSettingChanged()
+        }
+        AnimatedContent(ui.eqMode, transitionSpec = {
+            (fadeIn() + expandVertically()).togetherWith(fadeOut() + shrinkVertically())
+        }, label = "eqAbout") { mode ->
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val about = when (mode) {
+                    EqMode.AUTO -> "Movie while you watch something, your music preset while you listen. " +
+                        "It changes by itself when a different app starts playing."
+                    EqMode.STOCK -> "The headphones' own factory sound."
+                    else -> Eq.of(mode)?.about ?: ""
+                }
+                Text(about, color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
+                if (mode == EqMode.AUTO) {
+                    Text("Music plays with", color = C.Sub, fontSize = 13.sp)
+                    Segmented(listOf(0 to "Pop", 1 to "Rock"), if (ui.musicEq == Eq.ROCK.id) 1 else 0, true) {
+                        val id = if (it == 1) Eq.ROCK.id else Eq.POP.id
+                        ui.musicEq = id; ui.p.musicEq = id; svc?.eqSettingChanged()
+                    }
+                    st.eqApp?.let { Text("Last playing: $it", color = C.Faint, fontSize = 12.sp) }
+                    MainActivity.resumes
+                    val access = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(ctx)
+                        .contains(ctx.packageName)
+                    if (!access) {
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.Card2)
+                                .pressable {
+                                    runCatching {
+                                        ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                                    }
+                                }.padding(14.dp),
+                        ) {
+                            Text("Let Auto see which app is playing", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text("Turn on CMF Talk Mode under Notification access. It only checks which app plays, " +
+                                "it doesn't read your notifications. Without it, Auto goes by what the app says it plays. " +
+                                "If Android says it's restricted: App info, three dots, Allow restricted settings.",
+                                color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -693,6 +776,18 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
                         .putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     ctx.startActivity(Intent.createChooser(send, "Export history"))
                 }
+            }
+        }
+    }
+    Reveal(5) {
+        Panel {
+            Label("Updates")
+            SwitchRow("Update automatically",
+                "Checks GitHub twice a day and installs new versions. The first time, Android asks you to tap Install.",
+                ui.autoUpdate) { ui.autoUpdate = it; ui.p.autoUpdate = it }
+            Updater.status?.let { Text(it, color = C.Sub, fontSize = 13.sp) }
+            GradientButton(if (Updater.busy) "Checking..." else "Check for updates") {
+                if (!Updater.busy) Updater.check(ctx, install = true)
             }
         }
     }

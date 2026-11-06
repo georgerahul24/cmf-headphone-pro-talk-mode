@@ -11,12 +11,16 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -79,6 +83,16 @@ class TalkService : Service() {
     private var pausedMusic = false
     private var lastPress = 0L
 
+    /** EQ preset sent to the headphones since they connected, and what Auto picked last. */
+    private var eqApplied: String? = null
+    private var autoPick: String? = null
+    private val updateTick = object : Runnable {
+        override fun run() {
+            if (prefs.autoUpdate && !st.talkActive) Updater.check(this@TalkService, install = true)
+            main.postDelayed(this, 12 * 3600_000L)
+        }
+    }
+
     /** Noise mode from before the idle saver turned it off. */
     private var idleSavedAnc: Int? = null
     private var idleScheduled = false
@@ -120,6 +134,7 @@ class TalkService : Service() {
             addAction("android.bluetooth.adapter.action.STATE_CHANGED")
         }, RECEIVER_EXPORTED)
         Thread(::connectLoop, "cmf-rfcomm").start()
+        main.postDelayed(updateTick, 2 * 60_000L)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -136,6 +151,7 @@ class TalkService : Service() {
         running = false
         unregisterReceiver(btReceiver)
         main.removeCallbacks(recheck)
+        main.removeCallbacks(updateTick)
         audio.unregisterAudioPlaybackCallback(playbackCb)
         cancelIdle()
         runCatching { socket?.close() }
@@ -277,6 +293,7 @@ class TalkService : Service() {
                 failNote = null
                 main.post { spatialChosen = null }
                 setStatus("Connected", connected = true)
+                main.post { eqApplied = null; applyEq() }
                 send(Proto.ANC_GET)
                 send(Proto.SPATIAL_GET)
                 send(Proto.BATTERY_GET)
@@ -414,6 +431,62 @@ class TalkService : Service() {
         audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
     }
 
+    // ---- EQ (main thread) ----
+
+    /** EQ choice changed on the screen. */
+    fun eqSettingChanged() {
+        if (autoPick != null && autoPick != Eq.MOVIE.id) autoPick = prefs.musicEq
+        autoEq()
+        applyEq()
+    }
+
+    private fun wantedEq(): String =
+        if (prefs.eqMode == EqMode.AUTO) autoPick ?: prefs.musicEq else prefs.eqMode
+
+    /** Auto: Movie while a video app plays, the music preset while music plays. Nothing playing: no change. */
+    private fun autoEq() {
+        if (prefs.eqMode != EqMode.AUTO || !isPlaying()) return
+        val (video, app) = playingKind() ?: return
+        st.eqApp = app
+        autoPick = if (video) Eq.MOVIE.id else prefs.musicEq
+        applyEq()
+    }
+
+    private fun applyEq() {
+        if (!st.connected) return
+        val w = wantedEq()
+        if (w == eqApplied) return
+        eqApplied = w
+        st.eqNow = w
+        val eq = Eq.of(w)
+        Log.i(TAG, "EQ: $w")
+        if (eq == null) {
+            send(Proto.EQ_PRESET_SET, Proto.EQ_STOCK, 0x00)
+        } else {
+            send(Proto.EQ_CUSTOM_SET, *eq.payload())
+            send(Proto.EQ_PRESET_SET, Proto.EQ_CUSTOM, 0x00)
+        }
+    }
+
+    /** true = video, false = music, with the app's name if known. Null = can't tell. */
+    private fun playingKind(): Pair<Boolean, String?>? {
+        val pkg = playingPackage()
+        val label = pkg?.let { EqApps.label(this, it) }
+        if (pkg != null) EqApps.isVideo(this, pkg)?.let { return it to label }
+        // What the playing apps say they play. (May include a paused app, so it comes second.)
+        val attrs = runCatching { audio.activePlaybackConfigurations.map { it.audioAttributes } }.getOrDefault(emptyList())
+        if (attrs.any { it.contentType == AudioAttributes.CONTENT_TYPE_MOVIE }) return true to label
+        if (attrs.any { it.contentType == AudioAttributes.CONTENT_TYPE_MUSIC }) return false to label
+        return if (pkg != null) false to label else null
+    }
+
+    /** The app that is playing, if Notification access is on for this app. */
+    private fun playingPackage(): String? = runCatching {
+        getSystemService(MediaSessionManager::class.java)
+            .getActiveSessions(ComponentName(this, MediaListener::class.java))
+            .firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }?.packageName
+    }.getOrNull()
+
     // ---- idle saver (main thread) ----
 
     /**
@@ -447,6 +520,7 @@ class TalkService : Service() {
             st.quietSince = null
             cancelIdle()
             restoreFromIdle()
+            autoEq()
             return
         }
         if (!st.connected) return

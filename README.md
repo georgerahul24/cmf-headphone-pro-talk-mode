@@ -23,6 +23,10 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Usage stats.** See how many times you used talk mode, how long you talked, how often the battery saver turned ANC off and how long ANC rested. Stats stay on your device.
 - **Works on Android and Mac.** A small menu bar app on macOS and a background app on Android.
 - **Lower or pause.** Choose what happens to your music while you talk. Lower it to a volume you pick (10% by default), or pause it and have it play again when you are done.
+- **EQ tuned for these headphones.** Movie (deep rumble you can feel, clear dialogue), Pop and Rock. Each uses all 8 EQ bands the headphones support, tuned from measurements and community feedback instead of the factory presets. Stock brings back the factory sound.
+- **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows which one it picked, like "Auto (Movie)".
+- **Updates itself.** Checks GitHub Releases and installs new versions. On Android, the first update asks you to tap Install.
+- **Full Mac app.** The menu bar keeps the quick controls. Open the full window for EQ, history, stats and settings.
 - **Turn it off any time.** One switch puts the button back to normal Spatial Audio.
 - **Built to stay running on Android.** Runs as a foreground service, asks for unrestricted battery use, starts after a reboot and reconnects when your headphones connect. Made to hold up on custom ROMs like Evolution X.
 - **Opens at login on macOS.** Lives in the menu bar, uses almost no resources, and macOS restarts it if it ever crashes.

@@ -30,6 +30,15 @@ final class TalkMode: ObservableObject {
     @Published var talkVolumePercent: Int { didSet { UserDefaults.standard.set(talkVolumePercent, forKey: "talkVolume") } }
     /// While talking: true = pause the music, false = lower the volume.
     @Published var talkPause: Bool { didSet { UserDefaults.standard.set(talkPause, forKey: "talkPause") } }
+    /// EQ: "auto", "movie", "pop", "rock" or "stock".
+    @Published var eqMode: String { didSet { UserDefaults.standard.set(eqMode, forKey: "eqMode"); eqSettingChanged() } }
+    /// Preset Auto uses for music: "pop" or "rock".
+    @Published var musicEq: String { didSet { UserDefaults.standard.set(musicEq, forKey: "musicEq"); eqSettingChanged() } }
+    /// Check GitHub for new versions and install them.
+    @Published var autoUpdate: Bool { didSet { UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate") } }
+    /// EQ preset on the headphones now (an `Eq` raw value or "stock"), and the app Auto saw playing.
+    @Published private(set) var eqNow: String?
+    @Published private(set) var eqApp: String?
     @Published var idleSaver: Bool {
         didSet {
             UserDefaults.standard.set(idleSaver, forKey: "idleSaver")
@@ -74,6 +83,8 @@ final class TalkMode: ObservableObject {
     }
 
     let headset = Headset()
+    /// Posted by a second copy of the app (opened from Applications) to show the window.
+    static let showWindow = Notification.Name("dev.georgerahul.cmftalkmode.show")
     private var savedAnc: UInt8?
     private var savedVolume: Float?
     /// True if talk mode paused the music, so ending it should play again.
@@ -84,6 +95,9 @@ final class TalkMode: ObservableObject {
     /// When the 10 minute countdown started (last audio, or noise control turned on).
     private var timerStart = Date()
     private var tick: Timer?
+    private var updateTimer: Timer?
+    private var eqApplied: String?
+    private var autoPick: String?
 
     init() {
         let d = UserDefaults.standard
@@ -92,13 +106,27 @@ final class TalkMode: ObservableObject {
         talkPause = d.object(forKey: "talkPause") as? Bool ?? false
         idleSaver = d.object(forKey: "idleSaver") as? Bool ?? true
         idleMinutes = d.object(forKey: "idleMinutes") as? Int ?? 10
+        eqMode = d.string(forKey: "eqMode") ?? EqMode.auto
+        musicEq = d.string(forKey: "musicEq") ?? Eq.pop.rawValue
+        autoUpdate = d.object(forKey: "autoUpdate") as? Bool ?? true
         stats = (d.data(forKey: "stats")).flatMap { try? JSONDecoder().decode(UsageStats.self, from: $0) } ?? UsageStats()
         headset.onState = { [weak self] s in DispatchQueue.main.async { self?.stateChanged(s) } }
         headset.onFrame = { [weak self] f in DispatchQueue.main.async { self?.handle(f) } }
         headset.start()
+        MainWindowController.shared.talk = self
+        DistributedNotificationCenter.default().addObserver(forName: Self.showWindow, object: nil, queue: .main) { _ in
+            MainWindowController.shared.show()
+        }
         // Checking "is audio playing" every 2 s costs next to nothing.
         tick = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.checkIdle() }
         tick?.tolerance = 1
+        // Updates: first check a minute after start, then every 6 hours.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in self?.updateCheck() }
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in self?.updateCheck() }
+    }
+
+    private func updateCheck() {
+        if autoUpdate && !active { Updater.shared.check(install: true) }
     }
 
     // MARK: commands from the menu
@@ -136,11 +164,13 @@ final class TalkMode: ObservableObject {
         let now = s == "Connected"
         if now && !connected { spatialChosen = nil; timerStart = Date(); History.shared.log("C", 1) }
         if !now && connected { History.shared.log("C", 0) }
+        let fresh = now && !connected
         if !now {
             clearIdle(restored: false)
-            ancMode = nil; battery = nil; spatial = nil; charging = false; quietSince = nil
+            ancMode = nil; battery = nil; spatial = nil; charging = false; quietSince = nil; eqNow = nil
         }
         connected = now
+        if fresh { eqApplied = nil; applyEq() }
     }
 
     private func handle(_ f: Frame) {
@@ -213,6 +243,44 @@ final class TalkMode: ObservableObject {
         saveStats()
     }
 
+    // MARK: EQ
+
+    private func eqSettingChanged() {
+        if let a = autoPick, a != Eq.movie.rawValue { autoPick = musicEq }
+        autoEq()
+        applyEq()
+    }
+
+    private var wantedEq: String { eqMode == EqMode.auto ? (autoPick ?? musicEq) : eqMode }
+
+    /// Auto: Movie while a video app (or a browser) plays, the music preset while music plays. Nothing playing: no change.
+    private func autoEq() {
+        guard eqMode == EqMode.auto, playing, let (video, app) = PlayingApps.kind() else { return }
+        if eqApp != app { eqApp = app }
+        autoPick = video ? Eq.movie.rawValue : musicEq
+        applyEq()
+    }
+
+    private func applyEq() {
+        guard connected else { return }
+        let w = wantedEq
+        guard w != eqApplied else { return }
+        eqApplied = w
+        eqNow = w
+        log("EQ: \(w)")
+        if let eq = Eq(rawValue: w) {
+            headset.send(Proto.eqCustomSet, eq.payload)
+            headset.send(Proto.eqPresetSet, [Proto.eqCustom, 0x00])
+        } else {
+            headset.send(Proto.eqPresetSet, [Proto.eqStock, 0x00])
+        }
+    }
+
+    /// "Auto (Movie)" in Auto mode, else the preset name.
+    var eqTitle: String {
+        eqMode == EqMode.auto ? "Auto (\(EqMode.label(eqNow ?? musicEq)))" : EqMode.label(eqMode)
+    }
+
     // MARK: battery saver
 
     /// When noise control will be turned off, if the countdown is running.
@@ -228,6 +296,7 @@ final class TalkMode: ObservableObject {
         if p {
             quietSince = nil
             restoreFromIdle()
+            autoEq()
             return
         }
         guard connected else { return }

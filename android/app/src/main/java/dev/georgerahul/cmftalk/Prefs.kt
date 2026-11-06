@@ -28,4 +28,19 @@ class Prefs(ctx: Context) {
     var idleMinutes: Int
         get() = p.getInt("idleMinutes", 10)
         set(v) = p.edit().putInt("idleMinutes", v).apply()
+
+    /** EQ: "auto", "movie", "pop", "rock" or "stock". */
+    var eqMode: String
+        get() = p.getString("eqMode", EqMode.AUTO) ?: EqMode.AUTO
+        set(v) = p.edit().putString("eqMode", v).apply()
+
+    /** Preset Auto uses for music: "pop" or "rock". */
+    var musicEq: String
+        get() = p.getString("musicEq", "pop") ?: "pop"
+        set(v) = p.edit().putString("musicEq", v).apply()
+
+    /** Check GitHub for new versions and install them. */
+    var autoUpdate: Boolean
+        get() = p.getBoolean("autoUpdate", true)
+        set(v) = p.edit().putBoolean("autoUpdate", v).apply()
 }

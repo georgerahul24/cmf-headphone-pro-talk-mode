@@ -29,6 +29,17 @@ object Proto {
     const val BATTERY_NOTIFY = 0xE001
     const val BATTERY_REPLY = 0x4007
 
+    // EQ. Preset: 1 Rock, 2 Electronic, 3 Pop (factory default), 4 Enhance vocals, 5 Classical, 6 Custom.
+    // Custom EQ: count, preamp f32, then per band type (0 low shelf, 1 peak, 2 high shelf), gain, freq, Q
+    // as float32 little-endian. Up to 8 bands; checked on a real pair by reading it back.
+    const val EQ_PRESET_GET = 0xC050
+    const val EQ_PRESET_SET = 0xF01D    // [preset, 00]
+    const val EQ_PRESET_REPLY = 0x4050
+    const val EQ_CUSTOM_GET = 0xC044
+    const val EQ_CUSTOM_SET = 0xF041
+    const val EQ_STOCK = 3
+    const val EQ_CUSTOM = 6
+
     const val ANC_OFF = 0x05
     const val ANC_TRANSPARENCY = 0x07
     const val ANC_HIGH = 0x01

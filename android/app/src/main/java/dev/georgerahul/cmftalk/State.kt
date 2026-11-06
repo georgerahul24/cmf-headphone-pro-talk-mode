@@ -21,10 +21,13 @@ object HeadphoneState {
     var quietSince by mutableStateOf<Long?>(null)
     var idleDeadline by mutableStateOf<Long?>(null)
     var idleOffSince by mutableStateOf<Long?>(null)
+    /** EQ preset on the headphones now (an [Eq] id or "stock"), and the app Auto saw playing. */
+    var eqNow by mutableStateOf<String?>(null)
+    var eqApp by mutableStateOf<String?>(null)
 
     fun clear() {
         connected = false
         anc = null; battery = null; charging = false; spatial = null; idleOff = false
-        quietSince = null; idleDeadline = null; idleOffSince = null
+        quietSince = null; idleDeadline = null; idleOffSince = null; eqNow = null
     }
 }

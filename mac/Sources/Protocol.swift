@@ -27,6 +27,16 @@ enum Proto {
     static let batteryReply: UInt16 = 0x4007
 
     // Noise control modes (CMF Headphone Pro, model B175)
+    // EQ. Preset: 1 Rock, 2 Electronic, 3 Pop (factory default), 4 Enhance vocals, 5 Classical, 6 Custom.
+    // Custom EQ: count, preamp f32, then per band type (0 low shelf, 1 peak, 2 high shelf), gain, freq, Q
+    // as float32 little-endian. Up to 8 bands; checked on a real pair by reading it back.
+    static let eqPresetGet: UInt16 = 0xC050
+    static let eqPresetSet: UInt16 = 0xF01D   // [preset, 00]
+    static let eqCustomGet: UInt16 = 0xC044
+    static let eqCustomSet: UInt16 = 0xF041
+    static let eqStock: UInt8 = 3
+    static let eqCustom: UInt8 = 6
+
     static let ancOff: UInt8 = 0x05
     static let ancTransparency: UInt8 = 0x07
     static let ancHigh: UInt8 = 0x01

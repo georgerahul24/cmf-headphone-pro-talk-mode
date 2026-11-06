@@ -13,13 +13,18 @@ struct TalkModeApp: App {
             .filter { $0.processIdentifier != me }
         let fromLaunchd = ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] == "dev.georgerahul.cmftalkmode.agent"
         if !others.isEmpty {
-            if fromLaunchd { others.forEach { $0.terminate() } } else { exit(0) }
+            if fromLaunchd { others.forEach { $0.terminate() } } else {
+                // Opened again from Applications: ask the running copy to show its window.
+                DistributedNotificationCenter.default().postNotificationName(TalkMode.showWindow, object: nil,
+                                                                             deliverImmediately: true)
+                exit(0)
+            }
         }
     }
 
     var body: some Scene {
         MenuBarExtra {
-            Panel(talk: talk)
+            MenuPanel(talk: talk)
         } label: {
             Image(systemName: talk.active ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
         }
@@ -61,31 +66,26 @@ extension Color {
 
 private let spring = Animation.spring(response: 0.4, dampingFraction: 0.8)
 
-// MARK: - panel
+// MARK: - menu bar
 
-struct Panel: View {
+/// The small popover: noise control, spatial audio and the battery saver timer.
+struct MenuPanel: View {
     @ObservedObject var talk: TalkMode
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
-            let now = ctx.date
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 12) {
-                    header
-                    if !talk.connected { connectCard }
-                    hero(now)
-                    talkButton(now)
-                    noiseCard
-                    spatialCard
-                    saverCard(now)
-                    historyCard(now)
-                    statsCard(now)
-                    settingsCard
-                }
-                .padding(14)
+            let c = Cards(talk: talk)
+            VStack(spacing: 12) {
+                c.header
+                if talk.connected { c.compactTalk(ctx.date) } else { c.connectCard }
+                c.noiseCard
+                c.spatialCard
+                c.saverCard(ctx.date)
+                c.openAppRow
             }
+            .padding(14)
         }
-        .frame(width: 340, height: 640)
+        .frame(width: 320)
         .background(LinearGradient(stops: [.init(color: Pal.bgTop, location: 0), .init(color: Pal.bg, location: 0.45)],
                                    startPoint: .top, endPoint: .bottom))
         .foregroundStyle(Pal.text)
@@ -94,8 +94,180 @@ struct Panel: View {
         .animation(spring, value: talk.ancMode)
         .animation(spring, value: talk.connected)
     }
+}
 
-    private var header: some View {
+// MARK: - full window
+
+/// The full app window, opened from the menu bar.
+final class MainWindowController: NSObject, NSWindowDelegate {
+    static let shared = MainWindowController()
+    weak var talk: TalkMode?
+    private var window: NSWindow?
+
+    func show() {
+        guard let talk else { return }
+        if window == nil {
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: 700),
+                             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+                             backing: .buffered, defer: false)
+            w.title = "CMF Talk Mode"
+            w.titlebarAppearsTransparent = true
+            w.titleVisibility = .hidden
+            w.isReleasedWhenClosed = false
+            w.appearance = NSAppearance(named: .darkAqua)
+            w.backgroundColor = NSColor(Pal.bg)
+            w.minSize = NSSize(width: 780, height: 560)
+            w.contentView = NSHostingView(rootView: MainWindow(talk: talk))
+            w.center()
+            w.setFrameAutosaveName("MainWindow")
+            w.delegate = self
+            window = w
+        }
+        // Show in the Dock and app switcher while the window is open.
+        NSApp.setActivationPolicy(.regular)
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+    }
+}
+
+struct MainWindow: View {
+    @ObservedObject var talk: TalkMode
+    @ObservedObject private var updater = Updater.shared
+    @StateObject private var nav = Nav()
+    private var page: Page { nav.page }
+
+    final class Nav: ObservableObject { @Published var page = Page.home }
+    @Namespace private var ns
+
+    enum Page: String, CaseIterable {
+        case home = "Home", sound = "Sound", activity = "Activity", settings = "Settings"
+        var icon: String {
+            switch self {
+            case .home: return "house.fill"
+            case .sound: return "slider.horizontal.3"
+            case .activity: return "chart.bar.fill"
+            case .settings: return "gearshape.fill"
+            }
+        }
+    }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+            let c = Cards(talk: talk)
+            HStack(spacing: 0) {
+                sidebar(c)
+                ScrollView(showsIndicators: false) {
+                    content(c, ctx.date)
+                        .id(page)
+                        .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 14)), removal: .opacity))
+                        .frame(maxWidth: 820)
+                        .padding(.horizontal, 28).padding(.top, 34).padding(.bottom, 28)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .background(LinearGradient(stops: [.init(color: Pal.bgTop, location: 0), .init(color: Pal.bg, location: 0.5)],
+                                   startPoint: .topTrailing, endPoint: .bottomLeading).ignoresSafeArea())
+        .foregroundStyle(Pal.text)
+        .environment(\.colorScheme, .dark)
+        .animation(spring, value: talk.active)
+        .animation(spring, value: talk.ancMode)
+        .animation(spring, value: talk.connected)
+    }
+
+    private func sidebar(_ c: Cards) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(LinearGradient(colors: [Pal.purple, Pal.violet], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 32, height: 32)
+                    .overlay(Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 13)).foregroundStyle(.white))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("talk mode").font(.system(size: 14, weight: .semibold))
+                    Text("Headphone Pro").font(.system(size: 11)).foregroundStyle(Pal.sub)
+                }
+            }
+            .padding(.bottom, 22)
+            ForEach(Page.allCases, id: \.self) { p in
+                Button { withAnimation(spring) { nav.page = p } } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: p.icon).font(.system(size: 13)).frame(width: 18)
+                        Text(p.rawValue).font(.system(size: 13, weight: .medium))
+                        Spacer()
+                    }
+                    .foregroundStyle(page == p ? Pal.text : Pal.sub)
+                    .padding(.horizontal, 12).frame(height: 36)
+                    .background {
+                        if page == p {
+                            RoundedRectangle(cornerRadius: 10).fill(Pal.card2).matchedGeometryEffect(id: "sel", in: ns)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+            HStack(spacing: 7) {
+                Circle().fill(talk.connected ? Pal.teal : Pal.faint).frame(width: 7, height: 7)
+                Text(talk.connected ? "Connected" : "Not connected").font(.system(size: 11, weight: .medium)).foregroundStyle(Pal.sub)
+                Spacer()
+                if let b = talk.battery {
+                    Text("\(b)%").font(.system(size: 11, weight: .medium)).monospacedDigit().foregroundStyle(Pal.sub)
+                }
+            }
+            .padding(.horizontal, 12)
+        }
+        .padding(.horizontal, 14).padding(.top, 44).padding(.bottom, 18)
+        .frame(width: 210)
+        .frame(maxHeight: .infinity)
+        .background(Pal.bg.opacity(0.6))
+    }
+
+    private let grid = [GridItem(.flexible(), spacing: 16, alignment: .top), GridItem(.flexible(), spacing: 16, alignment: .top)]
+
+    @ViewBuilder private func content(_ c: Cards, _ now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(page.rawValue).font(.system(size: 28, weight: .semibold))
+            switch page {
+            case .home:
+                if !talk.connected { c.connectCard }
+                c.hero(now)
+                c.talkButton(now)
+                LazyVGrid(columns: grid, spacing: 16) {
+                    c.saverCard(now)
+                    c.eqSummary
+                }
+            case .sound:
+                LazyVGrid(columns: grid, spacing: 16) {
+                    VStack(spacing: 16) { c.noiseCard; c.spatialCard }
+                    c.eqCard
+                }
+            case .activity:
+                LazyVGrid(columns: grid, spacing: 16) {
+                    c.historyCard(now)
+                    c.statsCard(now)
+                }
+            case .settings:
+                LazyVGrid(columns: grid, spacing: 16) {
+                    c.settingsCard
+                    c.updatesCard
+                }
+            }
+        }
+    }
+}
+
+// MARK: - cards
+
+/// Every card, shared by the menu bar popover and the full window.
+struct Cards {
+    @ObservedObject var talk: TalkMode
+
+    var header: some View {
         HStack(spacing: 9) {
             RoundedRectangle(cornerRadius: 9)
                 .fill(LinearGradient(colors: [Pal.purple, Pal.violet], startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -113,7 +285,7 @@ struct Panel: View {
         }
     }
 
-    private func hero(_ now: Date) -> some View {
+    func hero(_ now: Date) -> some View {
         let colors = talk.active ? [Pal.purple, Pal.pink] : [Pal.blue1, Pal.blue2]
         return HStack {
             VStack(alignment: .leading, spacing: 6) {
@@ -162,7 +334,7 @@ struct Panel: View {
         .shadow(color: colors[0].opacity(0.45), radius: 14, y: 6)
     }
 
-    private var connectCard: some View {
+    var connectCard: some View {
         let busy = talk.status.hasPrefix("Connecting")
         return Card(title: "Headphones not connected") {
             Text(talk.status == "Headphones not connected" ? "Turn them on, then click Connect." : talk.status)
@@ -184,7 +356,7 @@ struct Panel: View {
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 
-    private func talkButton(_ now: Date) -> some View {
+    func talkButton(_ now: Date) -> some View {
         Button { talk.toggle() } label: {
             HStack(spacing: 8) {
                 Image(systemName: talk.active ? "xmark" : "bubble.left.and.bubble.right.fill")
@@ -202,7 +374,7 @@ struct Panel: View {
         .disabled(!talk.connected)
     }
 
-    private var noiseCard: some View {
+    var noiseCard: some View {
         let isAnc = talk.ancMode.map { Proto.ancLevels.contains($0) } ?? false
         return Card(title: "Noise control") {
             Seg(options: [(Proto.ancOff, "Off"), (Proto.ancTransparency, "Transparency"), (0xFF, "ANC")],
@@ -217,7 +389,7 @@ struct Panel: View {
         }
     }
 
-    private var spatialCard: some View {
+    var spatialCard: some View {
         Card(title: "Spatial audio") {
             Seg(options: [(0, "Off"), (2, "Concert"), (3, "Cinema")], selected: talk.spatial, enabled: talk.connected) {
                 talk.setSpatial($0)
@@ -225,7 +397,7 @@ struct Panel: View {
         }
     }
 
-    private func saverCard(_ now: Date) -> some View {
+    func saverCard(_ now: Date) -> some View {
         let quiet = talk.quietSince.map { dur(now.timeIntervalSince($0)) } ?? "a while"
         var big = "Idle", small = "Nothing played for \(quiet).", p = 0.0
         var colors = [Pal.faint, Pal.faint]
@@ -259,11 +431,11 @@ struct Panel: View {
         }
     }
 
-    private func dayName(_ hv: HistoryView, _ i: Int) -> String {
+    func dayName(_ hv: HistoryView, _ i: Int) -> String {
         i == 6 ? "Today" : i == 5 ? "Yesterday" : hv.days[i].formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
     }
 
-    private func historyCard(_ now: Date) -> some View {
+    func historyCard(_ now: Date) -> some View {
         let hv = talk.history(now: now)
         let day = talk.historyDay
         let top = max(hv.usage.max() ?? 0, 60)
@@ -394,7 +566,7 @@ struct Panel: View {
         }
     }
 
-    private func statsCard(_ now: Date) -> some View {
+    func statsCard(_ now: Date) -> some View {
         let s = talk.stats
         let talkSecs = s.talkSeconds + (talk.talkSince.map { now.timeIntervalSince($0) } ?? 0)
         let restSecs = s.idleOffSeconds + (talk.idleOffSince.map { now.timeIntervalSince($0) } ?? 0)
@@ -416,7 +588,7 @@ struct Panel: View {
         }
     }
 
-    private var settingsCard: some View {
+    var settingsCard: some View {
         Card(title: "Settings") {
             Toggle("Button starts talk mode", isOn: $talk.enabled)
             Toggle("Battery saver", isOn: $talk.idleSaver)
@@ -443,14 +615,99 @@ struct Panel: View {
             Toggle("Open at login", isOn: $talk.launchAtLogin)
             Button("Show history file") { NSWorkspace.shared.activateFileViewerSelecting([History.shared.url]) }
                 .buttonStyle(.plain).foregroundStyle(Pal.sub)
+            Text("Unofficial app. Not made by Nothing or CMF.").font(.system(size: 10)).foregroundStyle(Pal.faint)
+        }
+        .toggleStyle(.switch).tint(Pal.purple).controlSize(.small).font(.system(size: 12))
+    }
+
+    /// Menu bar: one line with battery and a talk button.
+    func compactTalk(_ now: Date) -> some View {
+        Button { talk.toggle() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: talk.active ? "xmark" : "bubble.left.and.bubble.right.fill")
+                Text(talk.active ? "End talk · \(clock(now.timeIntervalSince(talk.talkSince ?? now)))" : "Start talking")
+                    .font(.system(size: 13, weight: .semibold)).monospacedDigit()
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity).frame(height: 38)
+            .background(LinearGradient(colors: talk.active ? [Pal.pink, Pal.violet] : [Pal.blue1, Pal.blue2],
+                                       startPoint: .leading, endPoint: .trailing))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(Press())
+    }
+
+    var eqSummary: some View {
+        Card(title: "EQ") {
+            Text(talk.eqTitle).font(.system(size: 20, weight: .semibold)).contentTransition(.opacity)
+            Text(talk.eqMode == EqMode.auto
+                 ? (talk.eqApp.map { "Picked for \($0)." } ?? "Changes by itself with what you play.")
+                 : "Change it on the Sound page.")
+                .font(.system(size: 11)).foregroundStyle(Pal.sub)
+        }
+    }
+
+    var eqCard: some View {
+        let about: String = {
+            switch talk.eqMode {
+            case EqMode.auto: return "Movie while you watch something (video apps and browsers), your music preset while you listen. It changes by itself when a different app plays."
+            case EqMode.stock: return "The headphones' own factory sound."
+            default: return Eq(rawValue: talk.eqMode)?.about ?? ""
+            }
+        }()
+        return Card(title: "EQ") {
+            Text(talk.eqTitle).font(.system(size: 18, weight: .semibold)).contentTransition(.opacity)
+            Seg(options: EqMode.all.indices.map { (UInt8($0), EqMode.label(EqMode.all[$0])) },
+                selected: EqMode.all.firstIndex(of: talk.eqMode).map { UInt8($0) }, enabled: true) { v in
+                withAnimation(spring) { talk.eqMode = EqMode.all[Int(v)] }
+            }
+            Text(about).font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
+            if talk.eqMode == EqMode.auto {
+                Text("Music plays with").font(.system(size: 11)).foregroundStyle(Pal.sub)
+                Seg(options: [(0, "Pop"), (1, "Rock")], selected: talk.musicEq == Eq.rock.rawValue ? 1 : 0, enabled: true) { v in
+                    talk.musicEq = v == 1 ? Eq.rock.rawValue : Eq.pop.rawValue
+                }
+                if let app = talk.eqApp {
+                    Text("Last playing: \(app)").font(.system(size: 10)).foregroundStyle(Pal.faint)
+                }
+            }
+        }
+    }
+
+    var updatesCard: some View {
+        let u = Updater.shared
+        return Card(title: "Updates") {
+            Toggle("Update automatically", isOn: $talk.autoUpdate)
+            Text("Checks GitHub every 6 hours. When there is a new version, the app replaces itself and restarts.")
+                .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
             HStack {
-                Text("Unofficial app").font(.system(size: 10)).foregroundStyle(Pal.faint)
+                Text(u.status ?? "Version \(Updater.current)").font(.system(size: 11)).foregroundStyle(Pal.sub)
                 Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }.buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .medium)).foregroundStyle(Pal.sub)
+                Button(u.busy ? "Checking..." : "Check now") { u.check(install: true) }.disabled(u.busy)
             }
         }
         .toggleStyle(.switch).tint(Pal.purple).controlSize(.small).font(.system(size: 12))
+    }
+
+    var openAppRow: some View {
+        HStack(spacing: 8) {
+            Button { MainWindowController.shared.show() } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "macwindow")
+                    Text("Open app").font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity).frame(height: 36)
+                .background(LinearGradient(colors: [Pal.purple, Pal.violet], startPoint: .leading, endPoint: .trailing))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(Press())
+            Button { NSApplication.shared.terminate(nil) } label: {
+                Image(systemName: "power").font(.system(size: 13, weight: .semibold)).foregroundStyle(Pal.sub)
+                    .frame(width: 36, height: 36).background(RoundedRectangle(cornerRadius: 12).fill(Pal.card))
+            }
+            .buttonStyle(Press()).help("Quit")
+        }
     }
 }
 
