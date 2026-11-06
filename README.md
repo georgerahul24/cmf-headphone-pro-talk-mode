@@ -29,6 +29,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Usage stats.** Times you talked, time talking, how often the battery saver turned ANC off and how long it rested.
 
 **Apps**
+- **Phone and Mac sync.** History, stats and every setting sync over your Wi-Fi, encrypted, with no cloud. Pair once with a 6-digit code. Settings shows what is synced and what is still waiting. [More below](#sync).
 - **Android:** a clean dark app with Home, Sound, Stats and Settings tabs. Runs in the background, starts after a reboot and reconnects on its own. Made to hold up on custom ROMs like Evolution X.
 - **Mac:** quick controls in the menu bar (talk, noise control, Spatial Audio, battery saver), plus a full window with Home, Sound, Activity and Settings. Opens at login and restarts if it crashes.
 - **Updates itself.** Both apps check GitHub Releases and install new versions. On Android, the first update asks you to tap Install.
@@ -51,6 +52,18 @@ Out of the box, measurements show these headphones have strong bass, a dip aroun
 **Auto** picks Movie for video apps (Netflix, Prime Video, JioHotstar, YouTube, VLC and more) and for web browsers on Mac. It picks your music preset for music apps (Spotify, YouTube Music, JioSaavn, Apple Music and more). On Mac, the Zen browser counts as music. Nothing playing means no change.
 
 The presets play at the same level as the factory sound. Sources for the tuning: SoundGuys measurements, RTINGS, Kuulokenurkka, Pragmatic Audio (which measured the factory presets), Harman research on listener preferences, and Sound on Sound on how Bollywood mixes are made.
+
+## Sync
+
+The phone and the Mac keep each other up to date over your home Wi-Fi. No account, no cloud.
+
+- **What syncs:** headphone history, usage stats, and every setting: talk mode on or off, talk volume, lower or pause, battery saver and its wait time, EQ mode and music preset, and auto-update. ("Open at login" is Mac only.)
+- **Pairing:** on the Mac, open the app, go to Settings, and click **Pair a phone**. On the phone, go to Settings, then Sync with your Mac, and type the code. Do it once.
+- **When:** while both are on the same Wi-Fi, the phone keeps a link open and changes go across within seconds. If you were apart, everything that piled up goes across as soon as they meet again.
+- **What's left:** each side tracks exactly how much of the other's history it has. Settings shows "Everything is synced" or what is waiting, like "34 history events and 2 settings waiting to sync".
+- **Merging:** charts and stats show both devices together. Time when the headphones were connected to both counts once. For a setting changed on both, the newest change wins. Resetting stats resets both.
+- **Security:** pairing uses an X25519 key exchange checked with the code, and every message after that is encrypted with AES-GCM.
+- **Mac permission:** macOS asks to allow CMF Talk Mode to find devices on your local network. Allow it, or sync can't work.
 
 ## How it works
 
@@ -85,7 +98,8 @@ Get the latest build from the [Releases page](../../releases):
 4. **Force stop Nothing X** (Settings, Apps, Nothing X, Force stop), or turn off its background use. Only one app can hold the headphones' control link at a time. Open Nothing X again only when you want to change settings.
 5. Done. You will see a small "CMF Talk Mode" notification. It keeps the app alive, shows your noise mode, battery and EQ, and has a **Talk** button.
 6. Optional, for Auto EQ: on the Sound tab, tap **Let Auto see which app is playing** and turn on Notification access. It only checks which app plays and never reads your notifications. If Android says it's a restricted setting: App info, three dots, **Allow restricted settings**.
-7. For updates: allow the app to use the internet. Some ROMs (like Evolution X) block this per app under App info, **Mobile data & Wi-Fi** or **Network access**.
+7. Optional, to sync with the Mac app: Settings, **Sync with your Mac**, then type the code the Mac shows.
+8. For updates and sync: allow the app to use the network. Some ROMs (like Evolution X) block this per app under App info, **Mobile data & Wi-Fi** or **Network access**.
 
 ### 3. macOS
 
@@ -114,6 +128,9 @@ No. While connected, the app just waits for the headphones to send a message. Th
 
 **Does it start again if it is closed?**
 On Android, it starts after a reboot and after updates, and Android restarts the service if it gets killed. Swiping it away from recent apps does not stop it. Only "Force stop" stops it, until you open the app again. On macOS, it opens at login and restarts after a crash. Picking Quit keeps it closed until you open it again.
+
+**Does sync need the internet?**
+No. It only uses your local Wi-Fi, directly between the phone and the Mac. Guest networks that keep devices apart block it.
 
 **How do updates work?**
 Both apps check GitHub Releases (Android twice a day, Mac every 6 hours) and install new versions. You can also check by hand in Settings. See the [changelog](CHANGELOG.md) for what changed.

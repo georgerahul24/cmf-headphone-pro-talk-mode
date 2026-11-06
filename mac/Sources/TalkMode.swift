@@ -26,16 +26,16 @@ struct UsageStats: Codable {
 /// When audio plays again, the old mode comes back.
 final class TalkMode: ObservableObject {
 
-    @Published var enabled: Bool { didSet { UserDefaults.standard.set(enabled, forKey: "enabled") } }
-    @Published var talkVolumePercent: Int { didSet { UserDefaults.standard.set(talkVolumePercent, forKey: "talkVolume") } }
+    @Published var enabled: Bool { didSet { UserDefaults.standard.set(enabled, forKey: "enabled"); synced("talk.enabled") } }
+    @Published var talkVolumePercent: Int { didSet { UserDefaults.standard.set(talkVolumePercent, forKey: "talkVolume"); synced("talk.volume") } }
     /// While talking: true = pause the music, false = lower the volume.
-    @Published var talkPause: Bool { didSet { UserDefaults.standard.set(talkPause, forKey: "talkPause") } }
+    @Published var talkPause: Bool { didSet { UserDefaults.standard.set(talkPause, forKey: "talkPause"); synced("talk.pause") } }
     /// EQ: "auto", "movie", "pop", "rock" or "stock".
-    @Published var eqMode: String { didSet { UserDefaults.standard.set(eqMode, forKey: "eqMode"); eqSettingChanged() } }
+    @Published var eqMode: String { didSet { UserDefaults.standard.set(eqMode, forKey: "eqMode"); eqSettingChanged(); synced("eq.mode") } }
     /// Preset Auto uses for music: "pop" or "rock".
-    @Published var musicEq: String { didSet { UserDefaults.standard.set(musicEq, forKey: "musicEq"); eqSettingChanged() } }
+    @Published var musicEq: String { didSet { UserDefaults.standard.set(musicEq, forKey: "musicEq"); eqSettingChanged(); synced("eq.music") } }
     /// Check GitHub for new versions and install them.
-    @Published var autoUpdate: Bool { didSet { UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate") } }
+    @Published var autoUpdate: Bool { didSet { UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate"); synced("update.auto") } }
     /// EQ preset on the headphones now (an `Eq` raw value or "stock"), and the app Auto saw playing.
     @Published private(set) var eqNow: String?
     @Published private(set) var eqApp: String?
@@ -43,12 +43,13 @@ final class TalkMode: ObservableObject {
         didSet {
             UserDefaults.standard.set(idleSaver, forKey: "idleSaver")
             if idleSaver { timerStart = Date() } else { restoreFromIdle() }
+            synced("saver.on")
         }
     }
 
     /// Minutes with nothing playing before the battery saver acts.
     @Published var idleMinutes: Int {
-        didSet { UserDefaults.standard.set(idleMinutes, forKey: "idleMinutes"); timerStart = Date() }
+        didSet { UserDefaults.standard.set(idleMinutes, forKey: "idleMinutes"); timerStart = Date(); synced("saver.minutes") }
     }
     var idleSeconds: TimeInterval { TimeInterval(idleMinutes * 60) }
 
@@ -114,6 +115,7 @@ final class TalkMode: ObservableObject {
         headset.onFrame = { [weak self] f in DispatchQueue.main.async { self?.handle(f) } }
         headset.start()
         MainWindowController.shared.talk = self
+        hookSync()
         DistributedNotificationCenter.default().addObserver(forName: Self.showWindow, object: nil, queue: .main) { _ in
             MainWindowController.shared.show()
         }
@@ -154,6 +156,67 @@ final class TalkMode: ObservableObject {
     func resetStats() {
         stats = UsageStats()
         saveStats()
+        Sync.shared.statsReset()
+    }
+
+    // MARK: sync
+
+    /// True while a setting from the phone is being applied, so it isn't sent back.
+    private var applyingRemote = false
+
+    private func synced(_ key: String) {
+        if !applyingRemote { Sync.shared.settingChanged(key) }
+    }
+
+    /// This Mac's and the phone's counters added up.
+    var allStats: UsageStats {
+        guard let p = Sync.shared.peerStats else { return stats }
+        var s = stats
+        s.talkCount += p.talkCount; s.talkSeconds += p.talkSeconds
+        s.idleOffCount += p.idleOffCount; s.idleOffSeconds += p.idleOffSeconds
+        s.restoreCount += p.restoreCount
+        s.since = min(s.since, p.since)
+        return s
+    }
+
+    private func hookSync() {
+        let sync = Sync.shared
+        sync.settingValue = { [unowned self] k in
+            switch k {
+            case "talk.enabled": return enabled
+            case "talk.volume": return talkVolumePercent
+            case "talk.pause": return talkPause
+            case "saver.on": return idleSaver
+            case "saver.minutes": return idleMinutes
+            case "eq.mode": return eqMode
+            case "eq.music": return musicEq
+            case "update.auto": return autoUpdate
+            default: return nil
+            }
+        }
+        sync.applySetting = { [unowned self] k, v in
+            let b = (v as? NSNumber)?.boolValue, i = (v as? NSNumber)?.intValue, str = v as? String
+            applyingRemote = true
+            defer { applyingRemote = false }
+            switch k {
+            case "talk.enabled": if let b { enabled = b }
+            case "talk.volume": if let i { talkVolumePercent = max(0, min(100, i)) }
+            case "talk.pause": if let b { talkPause = b }
+            case "saver.on": if let b { idleSaver = b }
+            case "saver.minutes": if let i, i > 0 { idleMinutes = i }
+            case "eq.mode": if let str, EqMode.all.contains(str) { eqMode = str }
+            case "eq.music": if let str, Eq(rawValue: str) != nil { musicEq = str }
+            case "update.auto": if let b { autoUpdate = b }
+            default: break
+            }
+        }
+        sync.ownStats = { [unowned self] in stats }
+        sync.resetOwnStats = { [unowned self] at in
+            stats = UsageStats()
+            stats.since = at
+            saveStats()
+        }
+        sync.start()
     }
 
     // MARK: headphones
@@ -334,6 +397,7 @@ final class TalkMode: ObservableObject {
 
     private func saveStats() {
         if let d = try? JSONEncoder().encode(stats) { UserDefaults.standard.set(d, forKey: "stats") }
+        Sync.shared.statsChanged()
     }
 
     // MARK: history
@@ -348,7 +412,7 @@ final class TalkMode: ObservableObject {
     func history(now: Date) -> HistoryView {
         let minute = Int(now.timeIntervalSince1970 / 60)
         if let c = historyCache, c.version == History.shared.version, c.minute == minute { return c.view }
-        let v = HistoryView(History.shared.load(), now: now)
+        let v = HistoryView(History.shared.loadAll(), now: now)
         historyCache = (History.shared.version, minute, v)
         return v
     }

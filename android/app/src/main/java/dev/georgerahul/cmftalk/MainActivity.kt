@@ -116,6 +116,13 @@ private class UiPrefs(val p: Prefs) {
     var eqMode by mutableStateOf(p.eqMode)
     var musicEq by mutableStateOf(p.musicEq)
     var autoUpdate by mutableStateOf(p.autoUpdate)
+
+    /** Settings came from the Mac: show them. */
+    fun reload() {
+        talkEnabled = p.enabled; talkVolume = p.talkVolume; talkPause = p.talkPause
+        idleOff = p.idleOff; idleMinutes = p.idleMinutes
+        eqMode = p.eqMode; musicEq = p.musicEq; autoUpdate = p.autoUpdate
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -134,6 +141,8 @@ class MainActivity : ComponentActivity() {
         val clear = android.graphics.Color.TRANSPARENT
         enableEdgeToEdge(SystemBarStyle.dark(clear), SystemBarStyle.dark(clear))
         Stats.init(this)
+        History.init(this)
+        Sync.init(this)
         val ui = UiPrefs(Prefs(this))
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = C.Purple, background = C.Bg, surface = C.Card)) {
@@ -196,6 +205,7 @@ private class Setup(
 
 @Composable
 private fun App(ui: UiPrefs, setup: Setup) {
+    LaunchedEffect(Sync.settingsVersion) { ui.reload() }
     val st = HeadphoneState
     val svc = TalkService.instance
     val ready = st.connected && svc != null
@@ -612,10 +622,10 @@ private fun StatsTab() {
     val now = rememberNow()
     val liveTalk = st.talkSince?.let { now - it } ?: 0L
     val liveIdle = st.idleOffSince?.let { now - it } ?: 0L
-    val since = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(Stats.since))
+    val since = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(Stats.allSince))
     Reveal(0) { Title("Statistics", "Since $since") }
     // Re-read the log when something new is recorded, and once a minute.
-    val hv = remember(History.version, now / 60_000) { HistoryView(History.load(), System.currentTimeMillis()) }
+    val hv = remember(History.version, now / 60_000) { HistoryView(History.loadAll(), System.currentTimeMillis()) }
     var day by rememberSaveable { mutableIntStateOf(6) }
     Reveal(1) { UsageCard(hv, day) { day = it } }
     Reveal(2) { ModesCard(hv, day) }
@@ -623,42 +633,42 @@ private fun StatsTab() {
     Reveal(4) { Label("Talk mode and battery saver") }
     Reveal(1) {
         Panel {
-            val top = maxOf(Stats.talkCount, Stats.idleOffCount, Stats.restoreCount, 1).toFloat()
+            val top = maxOf(Stats.allTalkCount, Stats.allIdleOffCount, Stats.allRestoreCount, 1).toFloat()
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(132.dp), contentAlignment = Alignment.Center) {
-                    Ring(Stats.talkCount / top, Modifier.fillMaxSize(), 9.dp, C.Card2, Brush.sweepGradient(listOf(C.Purple, C.Pink)))
-                    Ring(Stats.idleOffCount / top, Modifier.size(98.dp), 9.dp, C.Card2, Brush.sweepGradient(listOf(C.Blue1, C.Blue2)))
-                    Ring(Stats.restoreCount / top, Modifier.size(64.dp), 9.dp, C.Card2, Brush.sweepGradient(listOf(C.Teal, C.Blue2)))
+                    Ring(Stats.allTalkCount / top, Modifier.fillMaxSize(), 9.dp, C.Card2, Brush.sweepGradient(listOf(C.Purple, C.Pink)))
+                    Ring(Stats.allIdleOffCount / top, Modifier.size(98.dp), 9.dp, C.Card2, Brush.sweepGradient(listOf(C.Blue1, C.Blue2)))
+                    Ring(Stats.allRestoreCount / top, Modifier.size(64.dp), 9.dp, C.Card2, Brush.sweepGradient(listOf(C.Teal, C.Blue2)))
                 }
                 Spacer(Modifier.width(20.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Legend(C.Pink, "Talk mode", Stats.talkCount)
-                    Legend(C.Blue2, "Battery saver", Stats.idleOffCount)
-                    Legend(C.Teal, "Auto restored", Stats.restoreCount)
+                    Legend(C.Pink, "Talk mode", Stats.allTalkCount)
+                    Legend(C.Blue2, "Battery saver", Stats.allIdleOffCount)
+                    Legend(C.Teal, "Auto restored", Stats.allRestoreCount)
                 }
             }
         }
     }
     Reveal(2) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatTile(Modifier.weight(1f), Ico.Talk, Accent, "Times talked", Stats.talkCount.toString())
-            StatTile(Modifier.weight(1f), Ico.Clock, Accent, "Time talking", dur(Stats.talkMs + liveTalk))
+            StatTile(Modifier.weight(1f), Ico.Talk, Accent, "Times talked", Stats.allTalkCount.toString())
+            StatTile(Modifier.weight(1f), Ico.Clock, Accent, "Time talking", dur(Stats.allTalkMs + liveTalk))
         }
     }
     Reveal(3) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatTile(Modifier.weight(1f), Ico.Leaf, Brush.linearGradient(listOf(C.Teal, C.Blue2)),
-                "Saver turned ANC off", Stats.idleOffCount.toString())
+                "Saver turned ANC off", Stats.allIdleOffCount.toString())
             StatTile(Modifier.weight(1f), Ico.Bolt, Brush.linearGradient(listOf(C.Teal, C.Blue2)),
-                "ANC rested for", dur(Stats.idleOffMs + liveIdle))
+                "ANC rested for", dur(Stats.allIdleOffMs + liveIdle))
         }
     }
     Reveal(4) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatTile(Modifier.weight(1f), Ico.Sound, Brush.linearGradient(listOf(C.Blue1, C.Blue2)),
-                "Restored when music played", Stats.restoreCount.toString())
+                "Restored when music played", Stats.allRestoreCount.toString())
             StatTile(Modifier.weight(1f), Ico.Stats, Brush.linearGradient(listOf(C.Blue1, C.Blue2)),
-                "Average talk", if (Stats.talkCount == 0) "-" else dur((Stats.talkMs + liveTalk) / Stats.talkCount))
+                "Average talk", if (Stats.allTalkCount == 0) "-" else dur((Stats.allTalkMs + liveTalk) / Stats.allTalkCount))
         }
     }
     Reveal(5) {
@@ -728,7 +738,7 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
                     Text("Music pauses when talk mode starts and plays again when it ends. If nothing was playing, nothing changes.",
                         color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
                 } else Column {
-                    var vol by remember { mutableFloatStateOf(ui.talkVolume.toFloat()) }
+                    var vol by remember(ui.talkVolume) { mutableFloatStateOf(ui.talkVolume.toFloat()) }
                     Row {
                         Text("Music volume while talking", fontSize = 15.sp, modifier = Modifier.weight(1f))
                         Text("${vol.toInt()}%", color = C.Sub, fontSize = 15.sp, style = tnum())
@@ -779,6 +789,7 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
             }
         }
     }
+    Reveal(5) { SyncPanel() }
     Reveal(5) {
         Panel {
             Label("Updates")
@@ -811,6 +822,64 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
         Text("CMF Talk Mode ${version ?: ""}\nUnofficial app. Not made by Nothing or CMF.",
             color = C.Faint, fontSize = 12.sp, textAlign = TextAlign.Center, lineHeight = 18.sp,
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+    }
+}
+
+private fun ago(ms: Long, now: Long): String {
+    val m = (now - ms) / 60_000
+    return when {
+        m < 1 -> "just now"
+        m < 60 -> "$m min ago"
+        m < 24 * 60 -> "${m / 60} h ago"
+        else -> DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(ms))
+    }
+}
+
+@Composable
+private fun SyncPanel() {
+    val now = rememberNow()
+    Panel {
+        Label("Sync with your Mac")
+        val name = Sync.peerName ?: "your Mac"
+        if (Sync.peerId == null) {
+            Text("Syncs history, stats and every setting with the Mac app over your Wi-Fi. Nothing goes to the internet, and everything is encrypted.",
+                color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
+            Text("On the Mac: open the app, Settings, Pair a phone. Then type the code here.",
+                color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
+            var code by remember { mutableStateOf("") }
+            androidx.compose.material3.OutlinedTextField(
+                value = code,
+                onValueChange = { v -> code = v.filter { it.isDigit() }.take(6) },
+                label = { Text("6-digit code") },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                textStyle = tnum().copy(fontSize = 22.sp, letterSpacing = 6.sp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            GradientButton(if (Sync.pairing) "Pairing..." else "Pair with Mac") {
+                if (!Sync.pairing && code.length == 6) Sync.pair(code)
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(if (Sync.connected) C.Teal else C.Faint))
+                Spacer(Modifier.width(8.dp))
+                Text(if (Sync.connected) "Connected to $name" else "$name is not on this network",
+                    fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            }
+            if (Sync.lastSync > 0) Text("Last synced ${ago(Sync.lastSync, now)}", color = C.Sub, fontSize = 13.sp)
+            History.version
+            val waiting = Sync.waitingText
+            Text(waiting ?: "Everything from this phone is synced",
+                color = if (waiting == null) C.Teal else C.Text, fontSize = 13.sp)
+            Text("History: ${History.ownCount} events from this phone, ${Sync.haveFromPeer} from $name. Settings and stats sync too.",
+                color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
+            GradientButton("Sync now") { Sync.syncNow() }
+            var armed by remember { mutableStateOf(false) }
+            Text(if (armed) "Tap again to unpair" else "Unpair", color = if (armed) C.Pink else C.Faint, fontSize = 13.sp,
+                modifier = Modifier.pressable { if (armed) { Sync.unpair(); armed = false } else armed = true }.padding(vertical = 4.dp))
+        }
+        Sync.note?.let { Text(it, color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp) }
     }
 }
 

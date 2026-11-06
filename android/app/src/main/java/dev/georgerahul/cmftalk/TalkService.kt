@@ -121,6 +121,13 @@ class TalkService : Service() {
         prefs = Prefs(this)
         Stats.init(this)
         History.init(this)
+        Sync.init(this)
+        Sync.onSettingsApplied = {
+            idleSettingChanged()
+            eqSettingChanged()
+            refreshNotification()
+        }
+        Sync.start()
         alarms = getSystemService(AlarmManager::class.java)
         audio.registerAudioPlaybackCallback(playbackCb, main)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -152,6 +159,7 @@ class TalkService : Service() {
         unregisterReceiver(btReceiver)
         main.removeCallbacks(recheck)
         main.removeCallbacks(updateTick)
+        Sync.stop()
         audio.unregisterAudioPlaybackCallback(playbackCb)
         cancelIdle()
         runCatching { socket?.close() }

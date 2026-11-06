@@ -2,6 +2,16 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.7.0
+
+- **Sync between your phone and Mac.** History, stats and every setting (talk mode, volume, lower or pause, battery saver and its wait time, EQ mode and music preset, auto-update) sync over your Wi-Fi. Nothing goes to the internet, and everything is encrypted.
+  - Pair once: click **Pair a phone** on the Mac and type the 6-digit code on the phone.
+  - While both are on the same Wi-Fi, changes go across within seconds. Anything that piled up while apart goes across as soon as they meet again.
+  - Each side knows exactly what the other has, and Settings shows it: "Everything is synced", or what is still waiting, like "34 history events and 2 settings waiting to sync".
+  - Charts and stats show both devices together. Time when both were connected to the headphones counts once.
+  - For settings changed on both sides, the newest change wins. Resetting stats resets both.
+- The CSV export has a new "device" column.
+
 ## 2.6.3
 
 - **New EQ tuning, louder and fuller.** All presets now play at the same level as the factory sound. Earlier versions turned the volume down to leave headroom, which made them sound quieter and thinner than stock. The factory presets and the Energy Slider boost bass a lot with no volume drop, so the headphones handle it fine.

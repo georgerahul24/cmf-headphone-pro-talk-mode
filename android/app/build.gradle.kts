@@ -12,8 +12,8 @@ android {
         applicationId = "dev.georgerahul.cmftalk"
         minSdk = 31
         targetSdk = 36
-        versionCode = 14
-        versionName = "2.6.3"
+        versionCode = 15
+        versionName = "2.7.0"
     }
 
     // CI passes a fixed keystore (secret ANDROID_KEYSTORE_B64) so new builds
@@ -49,6 +49,7 @@ android {
 kotlin { jvmToolchain(17) }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     val bom = platform("androidx.compose:compose-bom:2025.06.01")
     implementation(bom)
     implementation("androidx.activity:activity-compose:1.10.1")

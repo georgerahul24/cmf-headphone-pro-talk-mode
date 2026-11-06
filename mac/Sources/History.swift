@@ -3,6 +3,9 @@ import Foundation
 /// A log of what the headphones did, kept on this Mac for good (never deleted):
 /// connected / disconnected, noise mode changes and battery level changes.
 /// One line per event: "time,kind,value" (time in ms; kind C = connected 1/0, A = noise mode, B = battery).
+///
+/// history.log holds this Mac's own events. Events synced from the paired phone go to
+/// history-<phone id>.log, line for line, so each side knows exactly how much it has.
 final class History {
     struct Event { let t: Date; let kind: Character; let v: Int }
 
@@ -11,10 +14,16 @@ final class History {
     private var last: [Character: Int] = [:]
     private let io = DispatchQueue(label: "history")
     private(set) var version = 0
+    /// Lines in this Mac's own log (counted when logged, before the write finishes).
+    private(set) var ownCount = 0
+    /// Called after a new own event, for sync.
+    var onLog: (() -> Void)?
 
     private init() {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("CMF Talk Mode", isDirectory: true)
+        // CMF_TALK_DATA_DIR: a separate folder for tests, so they never touch real history.
+        let dir = ProcessInfo.processInfo.environment["CMF_TALK_DATA_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("CMF Talk Mode", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("history.log")
         // Close a connection left open by a crash, at the last thing it recorded.
@@ -23,7 +32,53 @@ final class History {
            let h = try? FileHandle(forWritingTo: url) {
             h.seekToEndOfFile(); h.write(Self.line(Event(t: end, kind: "C", v: 0)).data(using: .utf8)!); try? h.close()
         }
+        ownCount = Self.lines(url).count
     }
+
+    private static func lines(_ u: URL) -> [Substring] {
+        guard let text = try? String(contentsOf: u, encoding: .utf8) else { return [] }
+        return text.split(separator: "\n", omittingEmptySubsequences: true)
+    }
+
+    private func peerURL(_ id: String) -> URL {
+        url.deletingLastPathComponent().appendingPathComponent("history-\(id.filter { $0.isLetter || $0.isNumber || $0 == "-" }).log")
+    }
+
+    /// This Mac's own lines from `index` on, for sending to the phone.
+    func ownLines(from index: Int, max n: Int = 2000) -> [String] {
+        io.sync {
+            let all = Self.lines(url)
+            guard index < all.count else { return [] }
+            return all[index..<min(all.count, index + n)].map(String.init)
+        }
+    }
+
+    /// How many of the phone's lines this Mac has.
+    func peerCount(_ id: String) -> Int { io.sync { Self.lines(peerURL(id)).count } }
+
+    /// Adds the phone's lines to its file. Main thread.
+    func appendPeer(_ id: String, _ lines: [String]) {
+        guard !lines.isEmpty else { return }
+        let u = peerURL(id)
+        let text = lines.map { $0.replacingOccurrences(of: "\n", with: "") + "\n" }.joined()
+        io.sync {
+            if let h = try? FileHandle(forWritingTo: u) {
+                h.seekToEndOfFile(); h.write(text.data(using: .utf8)!); try? h.close()
+            } else {
+                try? text.write(to: u, atomically: true, encoding: .utf8)
+            }
+        }
+        version += 1
+    }
+
+    /// Every history file: this Mac's first, then the phone's.
+    func peerFiles() -> [URL] {
+        let dir = url.deletingLastPathComponent()
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        return names.filter { $0.hasPrefix("history-") && $0.hasSuffix(".log") }.sorted().map { dir.appendingPathComponent($0) }
+    }
+
+    func loadAll() -> [[Event]] { [load()] + peerFiles().map { load($0) } }
 
     private static func line(_ e: Event) -> String {
         "\(Int64(e.t.timeIntervalSince1970 * 1000)),\(e.kind),\(e.v)\n"
@@ -44,10 +99,12 @@ final class History {
             }
         }
         version += 1
+        ownCount += 1
+        onLog?()
     }
 
-    func load() -> [Event] {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+    func load(_ from: URL? = nil) -> [Event] {
+        guard let text = try? String(contentsOf: from ?? url, encoding: .utf8) else { return [] }
         return text.split(separator: "\n").compactMap { l in
             let p = l.split(separator: ",")
             guard p.count == 3, let t = Int64(p[0]), let k = p[1].first, let v = Int(p[2]) else { return nil }
@@ -78,13 +135,35 @@ struct HistoryView {
     let spans: [Span]
     let battery: [(Date, Int)]
 
-    init(_ events: [History.Event], now: Date = Date()) {
+    /// `sources`: this Mac's events first, then the phone's. When both were connected at the same
+    /// time, that time counts once, and this Mac's noise mode record wins.
+    init(_ sources: [[History.Event]], now: Date = Date()) {
         let cal = Calendar.current
         let today = cal.startOfDay(for: now)
         days = (0..<7).reversed().map { cal.date(byAdding: .day, value: -$0, to: today)! }
 
         var spans: [Span] = [], conn: [(Date, Date)] = [], bat: [(Date, Int)] = []
-        var connStart: Date?, mode: Int?, modeStart = now
+        for (i, events) in sources.enumerated() {
+            // A synced log that ends while connected: count it only up to its last event.
+            let end = i == 0 ? now : (events.last?.t ?? now)
+            let (sp, cn, bt) = Self.parse(events, end: end)
+            for s in sp { spans += Self.subtract(s, spans) }
+            conn += cn
+            bat += bt
+        }
+        self.spans = spans.sorted { $0.start < $1.start }
+        battery = bat.sorted { $0.0 < $1.0 }
+        conn = Self.union(conn)
+        let d = days
+        usage = d.indices.map { i in
+            let a = d[i], b = cal.date(byAdding: .day, value: 1, to: a)!
+            return conn.reduce(0) { $0 + max(0, min($1.1, b).timeIntervalSince(max($1.0, a))) }
+        }
+    }
+
+    private static func parse(_ events: [History.Event], end: Date) -> ([Span], [(Date, Date)], [(Date, Int)]) {
+        var spans: [Span] = [], conn: [(Date, Date)] = [], bat: [(Date, Int)] = []
+        var connStart: Date?, mode: Int?, modeStart = end
         func closeMode(_ t: Date) {
             if let m = mode, connStart != nil, t > modeStart { spans.append(Span(start: modeStart, end: t, mode: ModeGroup(m))) }
         }
@@ -102,15 +181,33 @@ struct HistoryView {
             default: break
             }
         }
-        closeMode(now)
-        if let s = connStart { conn.append((s, now)) }
-        self.spans = spans
-        battery = bat
-        let d = days
-        usage = d.indices.map { i in
-            let a = d[i], b = cal.date(byAdding: .day, value: 1, to: a)!
-            return conn.reduce(0) { $0 + max(0, min($1.1, b).timeIntervalSince(max($1.0, a))) }
+        closeMode(end)
+        if let s = connStart, end > s { conn.append((s, end)) }
+        return (spans, conn, bat)
+    }
+
+    /// The parts of `s` not already covered by `taken`.
+    private static func subtract(_ s: Span, _ taken: [Span]) -> [Span] {
+        var parts = [(s.start, s.end)]
+        for t in taken where t.end > s.start && t.start < s.end {
+            parts = parts.flatMap { p -> [(Date, Date)] in
+                if t.end <= p.0 || t.start >= p.1 { return [p] }
+                var out: [(Date, Date)] = []
+                if t.start > p.0 { out.append((p.0, t.start)) }
+                if t.end < p.1 { out.append((t.end, p.1)) }
+                return out
+            }
         }
+        return parts.map { Span(start: $0.0, end: $0.1, mode: s.mode) }
+    }
+
+    /// Overlapping time ranges joined, so time on two devices counts once.
+    private static func union(_ r: [(Date, Date)]) -> [(Date, Date)] {
+        var out: [(Date, Date)] = []
+        for x in r.sorted(by: { $0.0 < $1.0 }) {
+            if let last = out.last, x.0 <= last.1 { out[out.count - 1].1 = max(last.1, x.1) } else { out.append(x) }
+        }
+        return out
     }
 
     func dayEnd(_ i: Int) -> Date { Calendar.current.date(byAdding: .day, value: 1, to: days[i])! }

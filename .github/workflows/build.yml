@@ -39,7 +39,7 @@ jobs:
           fi
       - name: Build APK
         working-directory: android
-        run: gradle --no-daemon :app:assembleRelease
+        run: gradle --no-daemon :app:testReleaseUnitTest :app:assembleRelease
       - name: Rename
         run: |
           version=$(grep versionName android/app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')

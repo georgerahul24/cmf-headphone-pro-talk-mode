@@ -137,6 +137,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
 struct MainWindow: View {
     @ObservedObject var talk: TalkMode
     @ObservedObject private var updater = Updater.shared
+    @ObservedObject private var sync = Sync.shared
     @StateObject private var nav = Nav()
     private var page: Page { nav.page }
 
@@ -254,7 +255,7 @@ struct MainWindow: View {
             case .settings:
                 LazyVGrid(columns: grid, spacing: 16) {
                     c.settingsCard
-                    c.updatesCard
+                    VStack(spacing: 16) { c.syncCard; c.updatesCard }
                 }
             }
         }
@@ -567,7 +568,7 @@ struct Cards {
     }
 
     func statsCard(_ now: Date) -> some View {
-        let s = talk.stats
+        let s = talk.allStats
         let talkSecs = s.talkSeconds + (talk.talkSince.map { now.timeIntervalSince($0) } ?? 0)
         let restSecs = s.idleOffSeconds + (talk.idleOffSince.map { now.timeIntervalSince($0) } ?? 0)
         return Card(title: "Statistics") {
@@ -670,6 +671,49 @@ struct Cards {
                 if let app = talk.eqApp {
                     Text("Last playing: \(app)").font(.system(size: 10)).foregroundStyle(Pal.faint)
                 }
+            }
+        }
+    }
+
+    var syncCard: some View {
+        let s = Sync.shared
+        let name = s.peerName ?? "your phone"
+        return Card(title: "Sync with your phone") {
+            if s.peerId == nil {
+                if let code = s.pairCode {
+                    Text("On your phone, open Settings, then Sync, tap Pair with Mac and enter:")
+                        .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
+                    Text(code.prefix(3) + " " + code.suffix(3))
+                        .font(.system(size: 30, weight: .semibold, design: .rounded)).monospacedDigit().tracking(3)
+                    HStack {
+                        Text("Works for 5 minutes. Keep both on the same Wi-Fi.").font(.system(size: 10)).foregroundStyle(Pal.faint)
+                        Spacer()
+                        Button("Cancel") { s.stopPairing() }
+                    }
+                } else {
+                    Text("Syncs history, stats and every setting with the Android app over your Wi-Fi. Nothing goes to the internet, and everything is encrypted.")
+                        .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
+                    Button("Pair a phone") { s.startPairing() }
+                }
+            } else {
+                HStack(spacing: 7) {
+                    Circle().fill(s.connected ? Pal.teal : Pal.faint).frame(width: 7, height: 7)
+                    Text(s.connected ? "Connected to \(name)" : "\(name) is not on this network").font(.system(size: 13, weight: .medium))
+                }
+                if let t = s.lastSync {
+                    (Text("Last synced ") + Text(t, style: .relative) + Text(" ago")).font(.system(size: 11)).foregroundStyle(Pal.sub)
+                }
+                HStack(spacing: 6) {
+                    Image(systemName: s.everythingSynced ? "checkmark.circle.fill" : "clock")
+                        .foregroundStyle(s.everythingSynced ? Pal.teal : Pal.sub)
+                    Text(s.waitingText ?? "Everything from this Mac is synced").font(.system(size: 12))
+                }
+                Text("History: \(History.shared.ownCount) events from this Mac, \(s.haveFromPeer) from \(name). Settings and stats sync too.")
+                    .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
+                Button("Unpair") { s.unpair() }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Pal.faint)
+            }
+            if let n = s.note {
+                Text(n).font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
