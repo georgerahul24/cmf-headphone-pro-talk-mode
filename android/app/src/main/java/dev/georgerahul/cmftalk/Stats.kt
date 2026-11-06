@@ -52,7 +52,7 @@ object Stats {
         .put("idleOffMs", idleOffMs).put("restoreCount", restoreCount).put("since", since)
 
     /** The Mac's counters arrived. */
-    fun setPeer(j: org.json.JSONObject?) {
+    fun updatePeer(j: org.json.JSONObject?) {
         peer = j
         p?.edit()?.apply { if (j == null) remove("peer") else putString("peer", j.toString()) }?.apply()
     }
@@ -79,7 +79,7 @@ object Stats {
     fun reset() {
         talkCount = 0; talkMs = 0; idleOffCount = 0; idleOffMs = 0; restoreCount = 0
         since = System.currentTimeMillis()
-        setPeer(null)
+        updatePeer(null)
         save()
         Sync.statsReset()
     }

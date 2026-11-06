@@ -190,7 +190,7 @@ object Sync {
             ?.remove("lastSync")?.remove("host")?.remove("port")?.apply()
         secret = null
         peerId = null; peerName = null; peerHas = 0; peerHasV = 0; haveFromPeer = 0; lastSync = 0
-        Stats.setPeer(null)
+        Stats.updatePeer(null)
         runCatching { socket?.close() }
         note = "Unpaired. History already synced from the Mac stays on this phone."
     }
@@ -244,7 +244,7 @@ object Sync {
             secret = sec
             main.post {
                 peerId = macId; peerName = macName
-                if (newPeer) { peerHas = 0; peerHasV = 0; Stats.setPeer(null) }
+                if (newPeer) { peerHas = 0; peerHasV = 0; Stats.updatePeer(null) }
                 haveFromPeer = History.peerCount(macId)
             }
             wakeUp()
@@ -465,7 +465,7 @@ object Sync {
             p?.edit()?.putLong("statsReset", r)?.apply()
             Stats.resetFromSync(r)
         }
-        m.optJSONObject("stats")?.let { Stats.setPeer(it) }
+        m.optJSONObject("stats")?.let { Stats.updatePeer(it) }
     }
 
     // ---- finding the Mac ----
