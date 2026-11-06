@@ -12,25 +12,45 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 
 ## Features
 
-- **One-press talk mode.** A single press drops music volume and turns on Transparency (ambient sound). This is the same idea as Sony Speak-to-Chat or AirPods Conversation Awareness.
-- **Remembers your exact noise mode.** If you were in Noise Cancelling (High, Mid, Low or Adaptive), Off or Transparency, it goes back to that exact mode when you press again.
-- **Restores your exact volume.** Not a guess. The same level you had before.
-- **Your normal buttons still work.** Talk mode uses its own button. Your usual noise control buttons stay the way they are and never touch your volume.
-- **No voice assistant pop-up.** It does not hijack Siri or Google Assistant.
-- **A full control app on Android.** Switch noise control (Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive) and Spatial Audio, and see your battery, in a clean dark dot-matrix design. For these everyday controls, you don't need Nothing X.
-- **Battery saver for noise cancelling.** If nothing plays for 10 minutes (you can pick 5 to 60), the app turns noise control Off so ANC or Transparency stops draining the battery. When music, a video or a call starts, your old mode comes back on its own. You can turn this off in the app. A live countdown shows how long until it kicks in.
-- **Headphone history.** See how long you wore your headphones each day, a 24 hour strip of when you used noise cancelling, Transparency or Off, and a battery chart for each day. Kept forever on your device, never deleted. Export it as a CSV (Android) or open the log file (Mac) to dig into your own listening patterns.
-- **Usage stats.** See how many times you used talk mode, how long you talked, how often the battery saver turned ANC off and how long ANC rested. Stats stay on your device.
-- **Works on Android and Mac.** A small menu bar app on macOS and a background app on Android.
-- **Lower or pause.** Choose what happens to your music while you talk. Lower it to a volume you pick (10% by default), or pause it and have it play again when you are done.
-- **EQ tuned for these headphones.** Movie (deep rumble you can feel, clear dialogue), Pop and Rock. Each uses all 8 EQ bands the headphones support, tuned from measurements and community feedback instead of the factory presets. Stock brings back the factory sound.
-- **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows which one it picked, like "Auto (Movie)".
-- **Updates itself.** Checks GitHub Releases and installs new versions. On Android, the first update asks you to tap Install.
-- **Full Mac app.** The menu bar keeps the quick controls. Open the full window for EQ, history, stats and settings.
-- **Turn it off any time.** One switch puts the button back to normal Spatial Audio.
-- **Built to stay running on Android.** Runs as a foreground service, asks for unrestricted battery use, starts after a reboot and reconnects when your headphones connect. Made to hold up on custom ROMs like Evolution X.
-- **Opens at login on macOS.** Lives in the menu bar, uses almost no resources, and macOS restarts it if it ever crashes.
-- **Safe for your headphones.** It only sends the same settings commands the official Nothing X app sends. It never touches firmware or the update channel, so your warranty and future firmware updates are not affected.
+**Talk mode**
+- **One-press talk mode.** A single press turns on Transparency (ambient sound) and lowers or pauses your music. The same idea as Sony Speak-to-Chat or AirPods Conversation Awareness.
+- **Lower or pause.** Lower the music to a volume you pick (10% by default), or pause it and have it play again when you are done.
+- **Puts everything back.** Your exact noise mode (Noise Cancelling High, Mid, Low or Adaptive, Off or Transparency) and your exact volume come back when you press again.
+- **Your normal buttons still work.** Talk mode uses its own button. No voice assistant pop-up.
+
+**Sound**
+- **EQ tuned for these headphones.** Movie, Pop and Rock presets built from measurements and audio enthusiast research, not copied from the factory presets. Each uses all 8 EQ bands the headphones support. Stock brings back the factory sound. [More below](#eq).
+- **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows what it picked, like "Auto (Movie)", in the app and in the Android notification.
+- **Noise control and Spatial Audio.** Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive. Spatial Audio Off, Concert or Cinema. For everyday controls you don't need Nothing X.
+
+**Battery and history**
+- **Battery saver for noise cancelling.** If nothing plays for 10 minutes (pick 5 to 60), noise control turns Off so ANC stops draining the battery. Your old mode comes back when audio starts. A live countdown shows when it kicks in.
+- **Headphone history.** Time worn per day, a 24 hour strip of when you used Noise Cancelling, Transparency or Off, and a battery chart. Kept forever on your device. Export it as CSV (Android) or open the log file (Mac).
+- **Usage stats.** Times you talked, time talking, how often the battery saver turned ANC off and how long it rested.
+
+**Apps**
+- **Android:** a clean dark app with Home, Sound, Stats and Settings tabs. Runs in the background, starts after a reboot and reconnects on its own. Made to hold up on custom ROMs like Evolution X.
+- **Mac:** quick controls in the menu bar (talk, noise control, Spatial Audio, battery saver), plus a full window with Home, Sound, Activity and Settings. Opens at login and restarts if it crashes.
+- **Updates itself.** Both apps check GitHub Releases and install new versions. On Android, the first update asks you to tap Install.
+- **Connect button** when the headphones aren't connected.
+- **Safe for your headphones.** Only the same settings commands the official Nothing X app sends. It never touches firmware or the update channel, so your warranty and future firmware updates are not affected.
+
+## EQ
+
+The CMF Headphone Pro takes up to 8 EQ filters, each with its own frequency, strength and width. The Nothing X app only shows bass, mid and treble, so these presets can fix things it can't.
+
+Out of the box, measurements show these headphones have strong bass, a dip around 2 to 4 kHz (voices sound a bit far away) and a sharp peak at 8 kHz (harsh "s" sounds and cymbals). Every preset fixes the dip and the peak, then shapes the rest for its job:
+
+| Preset | Made for | What you hear |
+|---|---|---|
+| **Movie** | Energy Slider at full bass | Big rumble and boom for fights and explosions. Dialogue, faint sounds and details like clinking glass stay clear. |
+| **Pop** | Energy Slider at zero | Big bass like the factory Pop, vocals clearly in front and smooth. Tuned for English, Hindi and Malayalam songs. |
+| **Rock** | Energy Slider at zero | Weighty kick and bass guitar, less mud, vocals that cut through, smoother cymbals. |
+| **Stock** | Anything | The headphones' own factory sound. |
+
+**Auto** picks Movie for video apps (Netflix, Prime Video, JioHotstar, YouTube, VLC and more) and for web browsers on Mac. It picks your music preset for music apps (Spotify, YouTube Music, JioSaavn, Apple Music and more). On Mac, the Zen browser counts as music. Nothing playing means no change.
+
+The presets play at the same level as the factory sound. Sources for the tuning: SoundGuys measurements, RTINGS, Kuulokenurkka, Pragmatic Audio (which measured the factory presets), Harman research on listener preferences, and Sound on Sound on how Bollywood mixes are made.
 
 ## How it works
 
@@ -63,7 +83,9 @@ Get the latest build from the [Releases page](../../releases):
 2. Open **CMF Talk Mode** and tap **Allow Bluetooth and notifications**.
 3. Tap **Allow running in background** and pick **Allow**. This sets battery use to Unrestricted, so Android doesn't kill the app.
 4. **Force stop Nothing X** (Settings, Apps, Nothing X, Force stop), or turn off its background use. Only one app can hold the headphones' control link at a time. Open Nothing X again only when you want to change settings.
-5. Done. You will see a small "CMF Talk Mode" notification. It keeps the app alive, and it also has a **Talk** button.
+5. Done. You will see a small "CMF Talk Mode" notification. It keeps the app alive, shows your noise mode, battery and EQ, and has a **Talk** button.
+6. Optional, for Auto EQ: on the Sound tab, tap **Let Auto see which app is playing** and turn on Notification access. It only checks which app plays and never reads your notifications. If Android says it's a restricted setting: App info, three dots, **Allow restricted settings**.
+7. For updates: allow the app to use the internet. Some ROMs (like Evolution X) block this per app under App info, **Mobile data & Wi-Fi** or **Network access**.
 
 ### 3. macOS
 
@@ -71,12 +93,18 @@ Get the latest build from the [Releases page](../../releases):
 2. The app is not signed with a paid Apple account. The first time, right-click the app and pick **Open**. Or run:
    `xattr -dr com.apple.quarantine "/Applications/CMF Talk Mode.app"`
 3. Allow Bluetooth when macOS asks.
-4. Click the **speech bubbles** icon in the menu bar and turn on **Open at login**. The icon fills in while talk mode is on.
+4. Click the **speech bubbles** icon in the menu bar. It has the quick controls. Click **Open app** for the full window (EQ, history, stats, settings) and turn on **Open at login** in Settings. The icon fills in while talk mode is on.
 
 ## FAQ
 
 **Will this void my warranty or block firmware updates?**
-No. The app only uses normal settings commands (noise mode, Spatial Audio, battery). It never uses the firmware update channel.
+No. The app only uses normal settings commands (noise mode, Spatial Audio, EQ, battery). It never uses the firmware update channel.
+
+**The EQ changed my Nothing X EQ.**
+The app's presets are saved as the headphones' Custom EQ. Picking a preset in Nothing X, or Stock in this app, brings back the factory sound.
+
+**Should I use the Energy Slider?**
+Movie is tuned for the slider at full bass. Pop and Rock are tuned for the slider at zero.
 
 **I hear "concert mode" (a voice prompt) when I press the button.**
 That prompt plays inside the headphones the moment Spatial Audio switches on, before the app gets the message. There is no known setting to turn it off yet.
@@ -86,6 +114,9 @@ No. While connected, the app just waits for the headphones to send a message. Th
 
 **Does it start again if it is closed?**
 On Android, it starts after a reboot and after updates, and Android restarts the service if it gets killed. Swiping it away from recent apps does not stop it. Only "Force stop" stops it, until you open the app again. On macOS, it opens at login and restarts after a crash. Picking Quit keeps it closed until you open it again.
+
+**How do updates work?**
+Both apps check GitHub Releases (Android twice a day, Mac every 6 hours) and install new versions. You can also check by hand in Settings. See the [changelog](CHANGELOG.md) for what changed.
 
 **Can I still use Spatial Audio?**
 Yes. Turn off the "Talk mode button" switch in the app, and the button works as normal Spatial Audio again.
@@ -105,7 +136,7 @@ GitHub Actions builds both on every push, and attaches them to a release for tag
 
 ## Credits
 
-Protocol details come from the open-source community, mainly [BudsLink](https://github.com/maniacx/BudsLink) and [EarA](https://github.com/oneydef/EarA-linux). The code in this repo is written from scratch.
+Protocol details come from the open-source community, mainly [ear-web](https://github.com/radiance-project/ear-web), [BudsLink](https://github.com/maniacx/BudsLink) and [EarA](https://github.com/oneydef/EarA-linux). The 8-band EQ was checked on a real pair. The code in this repo is written from scratch.
 
 ## License
 
@@ -113,4 +144,4 @@ MIT. Nothing, CMF and Nothing X are trademarks of their owners. This project is 
 
 ---
 
-**Keywords:** CMF Headphone Pro app, CMF Headphone Pro transparency shortcut, conversation mode, speak to chat for Android, conversation awareness for Mac, auto lower volume when talking, ambient sound shortcut, Nothing X alternative, CMF by Nothing headphones, ANC toggle app, open source headphone companion app.
+**Keywords:** CMF Headphone Pro app, CMF Headphone Pro transparency shortcut, conversation mode, speak to chat for Android, conversation awareness for Mac, auto lower volume when talking, CMF Headphone Pro EQ, best EQ for CMF Headphone Pro, movie EQ, Bollywood EQ, ambient sound shortcut, Nothing X alternative, CMF by Nothing headphones, ANC toggle app, open source headphone companion app.

@@ -19,53 +19,51 @@ enum Eq: String, CaseIterable {
 
     var about: String {
         switch self {
-        case .movie: return "Made for the Energy Slider at full bass. Big rumble and boom in explosions, with dialogue pushed forward so voices stay clear."
-        case .pop: return "Full, punchy bass, vocals up front and smooth, with a bit of shine on top."
-        case .rock: return "Punchy kick drum, less muddy guitars, more crunch and bite, cymbals that sparkle."
+        case .movie: return "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear."
+        case .pop: return "Big, full bass like the factory Pop, with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs."
+        case .rock: return "Weighty kick and bass guitar, less muddy guitars, vocals that cut through, and cymbals without the harshness."
         }
     }
 
-    var preamp: Float {
-        switch self {
-        case .movie: return -4.5
-        case .pop: return -3
-        case .rock: return -3.5
-        }
-    }
+    /// No preamp: the factory presets and the Energy Slider boost bass 6-10 dB with no loss of level, so
+    /// the DSP has headroom. A negative preamp only made ours sound quieter and thinner than stock.
+    var preamp: Float { 0 }
 
     var bands: [Band] {
         switch self {
-        // Tuned for the Energy Slider at full bass (+8-10 dB below ~150 Hz). Keeps the boom and
-        // rumble, adds a bit more of the lowest rumble, and trims the mud so voices stay clear.
+        // Slider at full bass, for a basshead who also wants every detail: big rumble and boom, a 220 Hz
+        // cut so bass doesn't smear over voices, speech bands lifted, only the narrow 8 kHz peak cut,
+        // and a gentle treble lift for environmental detail (glass, rattles, room sound).
         case .movie: return [
-            Band(type: 0, gain: 1.5, freq: 35, q: 0.7),     // more of the lowest rumble
-            Band(type: 1, gain: -1, freq: 100, q: 0.9),     // keeps the boom, a little tighter
-            Band(type: 1, gain: -2.5, freq: 250, q: 1),     // clears the mud that covers voices
-            Band(type: 1, gain: 1.5, freq: 1800, q: 1.4),   // body of the voice
-            Band(type: 1, gain: 3.5, freq: 3000, q: 1.4),   // dialogue clarity, over the heavy bass
-            Band(type: 1, gain: 3, freq: 4200, q: 2.5),     // fills the 4 kHz dip
-            Band(type: 1, gain: -3, freq: 8000, q: 3),      // tames the 8 kHz peak
-            Band(type: 2, gain: 1.5, freq: 13000, q: 0.7),  // air and space
+            Band(type: 1, gain: 2.5, freq: 32, q: 1),       // deep rumble you feel
+            Band(type: 1, gain: 2, freq: 80, q: 1),         // boom and punch for fights and explosions
+            Band(type: 1, gain: -3, freq: 220, q: 1),       // keeps bass from smearing over voices
+            Band(type: 1, gain: 1, freq: 1000, q: 1),       // body of voices
+            Band(type: 1, gain: 2.5, freq: 2400, q: 1.3),   // dialogue clarity
+            Band(type: 1, gain: 3, freq: 3800, q: 1.6),     // consonants and faint sounds
+            Band(type: 1, gain: -2, freq: 8000, q: 3.5),    // only the narrow harsh peak
+            Band(type: 2, gain: 1.5, freq: 10500, q: 0.7),  // sparkle and space: glass, rattles
         ]
+        // Slider at zero. English, Hindi and Malayalam pop: singer up front over a strong bass line.
         case .pop: return [
-            Band(type: 0, gain: 1, freq: 105, q: 0.7),      // full bass
-            Band(type: 1, gain: 1, freq: 55, q: 1.2),       // deep 808 and synth bass drop
-            Band(type: 1, gain: -1.5, freq: 250, q: 1),     // cleaner low-mids
-            Band(type: 1, gain: 1.5, freq: 1800, q: 1.4),   // vocal body
-            Band(type: 1, gain: 3, freq: 3000, q: 1.4),     // vocals forward
-            Band(type: 1, gain: 2.5, freq: 4200, q: 2.5),   // fills the 4 kHz dip
-            Band(type: 1, gain: -3, freq: 8000, q: 3),      // softer "s" sounds
-            Band(type: 2, gain: 2, freq: 12000, q: 0.7),    // shimmer and air
+            Band(type: 0, gain: 4, freq: 105, q: 0.7),      // bass shelf, like the factory Pop preset
+            Band(type: 1, gain: 1, freq: 50, q: 1),         // extra deep bass for dance drops
+            Band(type: 1, gain: -2, freq: 250, q: 1),       // less low-mid mud under the vocals
+            Band(type: 1, gain: 2, freq: 2300, q: 1.4),     // vocal body and clarity
+            Band(type: 1, gain: 3.5, freq: 3800, q: 1.6),   // fills the 4 kHz dip (muted vocals)
+            Band(type: 1, gain: -1, freq: 6300, q: 2),      // softer "s" on bright female vocals
+            Band(type: 1, gain: -3, freq: 8000, q: 3),      // tames the 8 kHz peak
+            Band(type: 1, gain: -1, freq: 11000, q: 1.5),   // keeps cymbals from splashing
         ]
         case .rock: return [
-            Band(type: 0, gain: -1.5, freq: 35, q: 0.7),
-            Band(type: 1, gain: 1, freq: 90, q: 1.2),
-            Band(type: 1, gain: -2, freq: 250, q: 1),
-            Band(type: 1, gain: 1, freq: 1500, q: 1.2),
-            Band(type: 1, gain: 2, freq: 3000, q: 1.4),
-            Band(type: 1, gain: 3, freq: 4200, q: 2.5),
-            Band(type: 1, gain: -2, freq: 8000, q: 3),
-            Band(type: 2, gain: 2.5, freq: 11000, q: 0.7),
+            Band(type: 0, gain: 3, freq: 100, q: 0.7),      // weight for kick and bass guitar
+            Band(type: 1, gain: 1, freq: 60, q: 1.2),       // kick drum punch
+            Band(type: 1, gain: -1.5, freq: 250, q: 1),     // less guitar and bass mud
+            Band(type: 1, gain: 2, freq: 2500, q: 1.2),     // guitar bite and snare crack
+            Band(type: 1, gain: 3, freq: 3800, q: 1.6),     // vocals over dense guitars
+            Band(type: 1, gain: -1, freq: 6300, q: 2),      // softens guitar fizz
+            Band(type: 1, gain: -3.5, freq: 8000, q: 3),    // cymbal harshness
+            Band(type: 1, gain: -1, freq: 11000, q: 1.5),   // hi-hat splash
         ]
         }
     }

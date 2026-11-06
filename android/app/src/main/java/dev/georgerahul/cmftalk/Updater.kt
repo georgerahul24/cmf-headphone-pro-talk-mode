@@ -65,25 +65,22 @@ object Updater {
         Thread({
             var step = "reach GitHub"
             try {
-                val c = URL(API).openConnection() as HttpURLConnection
-                c.setRequestProperty("Accept", "application/vnd.github+json")
-                c.setRequestProperty("User-Agent", "cmf-talk-mode")
-                c.connectTimeout = 15_000; c.readTimeout = 15_000
-                val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
-                val tag = j.getString("tag_name").removePrefix("v")
+                val latest = runCatching { fromApi() }.getOrElse { e ->
+                    // api.github.com blocked or unreachable (ad-blocking DNS, for example): use github.com.
+                    Log.w(TAG, "api.github.com failed ($e), trying github.com")
+                    fromReleasePage()
+                }
+                val (tag, apkUrl) = latest
                 val cur = current(app)
                 if (!newer(tag, cur)) { post("Up to date ($cur)", true); return@Thread }
-                val assets = j.getJSONArray("assets")
-                val asset = (0 until assets.length()).map { assets.getJSONObject(it) }
-                    .firstOrNull { it.getString("name").endsWith(".apk") }
-                if (asset == null) { post("Version $tag is out, but has no APK yet", true); return@Thread }
                 if (!install) { post("Version $tag is available", true); return@Thread }
-                val size = asset.getLong("size")
+                step = "find the $tag download"
+                val size = latest.size.takeIf { it > 0 } ?: contentLength(apkUrl)
                 val dir = File(app.cacheDir, "update").apply { mkdirs() }
                 val f = File(dir, "CMF-Talk-Mode-$tag.apk")
                 dir.listFiles()?.filter { it != f }?.forEach { it.delete() }
                 step = "download $tag"
-                download(asset.getString("browser_download_url"), f, size, tag)
+                download(apkUrl, f, size, tag)
                 if (f.length() != size) {
                     main.post { failed = true }
                     post("Download stopped at ${f.length() * 100 / size}%. Will try again later.", true); return@Thread
@@ -98,6 +95,48 @@ object Updater {
                 post("Couldn't $step (${e.javaClass.simpleName}: ${e.message ?: "no details"})", true)
             }
         }, "cmf-update").start()
+    }
+
+    private class Latest(val tag: String, val apkUrl: String, val size: Long) {
+        operator fun component1() = tag
+        operator fun component2() = apkUrl
+    }
+
+    private fun open(url: String): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
+        setRequestProperty("User-Agent", "cmf-talk-mode")
+        connectTimeout = 15_000; readTimeout = 15_000
+    }
+
+    /** Latest release from the GitHub API. */
+    private fun fromApi(): Latest {
+        val c = open(API)
+        c.setRequestProperty("Accept", "application/vnd.github+json")
+        val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
+        val tag = j.getString("tag_name").removePrefix("v")
+        val assets = j.getJSONArray("assets")
+        val asset = (0 until assets.length()).map { assets.getJSONObject(it) }
+            .firstOrNull { it.getString("name").endsWith(".apk") }
+            ?: throw java.io.IOException("Version $tag has no APK yet")
+        return Latest(tag, asset.getString("browser_download_url"), asset.getLong("size"))
+    }
+
+    /** Latest release from github.com itself: /releases/latest redirects to /releases/tag/vX.Y.Z. */
+    private fun fromReleasePage(): Latest {
+        val c = open(PAGE)
+        c.instanceFollowRedirects = false
+        val loc = c.getHeaderField("Location") ?: throw java.io.IOException("github.com gave no release (${c.responseCode})")
+        val tag = loc.substringAfterLast("/tag/").removePrefix("v")
+        if (tag.isEmpty() || tag.contains('/')) throw java.io.IOException("Unexpected release link: $loc")
+        val url = "https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases/download/v$tag/CMF-Talk-Mode-$tag.apk"
+        return Latest(tag, url, -1)
+    }
+
+    private fun contentLength(url: String): Long {
+        val c = open(url)
+        c.requestMethod = "HEAD"
+        val n = c.contentLengthLong
+        if (c.responseCode != 200 || n <= 0) throw java.io.IOException("No APK yet (${c.responseCode})")
+        return n
     }
 
     /** Downloads with resume, so a dropped connection carries on where it stopped. */
