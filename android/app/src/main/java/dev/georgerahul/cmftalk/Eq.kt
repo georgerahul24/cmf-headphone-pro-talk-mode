@@ -85,6 +85,9 @@ enum class Eq(val id: String, val label: String, val about: String, val preamp: 
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.id == id }
 
+        /** The presets with a character (everything but Flat). */
+        val presets get() = entries.filter { it != FLAT }
+
         /** 20 Hz to 20 kHz, evenly on a log scale. */
         val PLOT_FREQS: List<Double> = List(120) { 20.0 * Math.pow(1000.0, it / 119.0) }
 

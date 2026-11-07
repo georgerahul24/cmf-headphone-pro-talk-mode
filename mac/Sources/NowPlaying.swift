@@ -1,6 +1,6 @@
 import Foundation
 
-/// What's playing on this Mac, for the "Now playing" card and the genre lookup: from the system's
+/// What's playing on this Mac, for the "Now playing" card and remembered picks: from the system's
 /// Now Playing (any app, browsers included), or by asking Apple Music and Spotify directly as a
 /// fallback (macOS asks once for permission).
 enum NowPlayingInfo {
@@ -74,56 +74,3 @@ enum NowPlayingInfo {
     }
 }
 
-/// Song genre for Auto EQ: looks the song up on Apple's iTunes Search (free, no account; only the
-/// title and artist are sent). Rock-type genres get Rock, classical music Classical, everything else Pop.
-enum GenreLookup {
-    private static var cache: [String: String] = [:]   // "" = not found
-    private static var pending: Set<String> = []
-    private static let rock = ["rock", "metal", "punk", "alternative", "grunge", "emo", "hardcore"]
-    private static let classical = ["classical", "opera", "orchestral", "baroque", "choral", "chamber"]
-
-    static func key(_ s: NowPlayingInfo.Song) -> String { "\(s.artist.lowercased())|\(s.title.lowercased())" }
-
-    /// The cached genre, "" if not found, or nil if not looked up yet.
-    static func cached(_ s: NowPlayingInfo.Song) -> String? { cache[key(s)] }
-
-    static func preset(for genre: String, fallback: String) -> String {
-        if genre.isEmpty { return fallback }
-        let g = genre.lowercased()
-        if classical.contains(where: { g.contains($0) }) { return Eq.classical.rawValue }
-        return rock.contains { g.contains($0) } ? Eq.rock.rawValue : Eq.pop.rawValue
-    }
-
-    private static func clean(_ s: String) -> String {
-        s.replacingOccurrences(of: "\\s*[(\\[][^)\\]]*[)\\]]", with: "", options: .regularExpression)
-            .replacingOccurrences(of: "(?i)\\s+(ft\\.?|feat\\.?|featuring)\\s.*$", with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespaces)
-    }
-
-    /// Looks the song up in the background, then calls `done` on the main thread.
-    static func lookup(_ s: NowPlayingInfo.Song, done: @escaping () -> Void) {
-        let k = key(s)
-        guard cache[k] == nil, !pending.contains(k) else { return }
-        pending.insert(k)
-        let country = Locale.current.region?.identifier ?? "IN"
-        var c = URLComponents(string: "https://itunes.apple.com/search")!
-        // Only the first artist: long lists like "A, B, C and D" can make the search miss.
-        let artist = s.artist.components(separatedBy: CharacterSet(charactersIn: ",&")).first?
-            .components(separatedBy: " and ").first ?? s.artist
-        c.queryItems = [.init(name: "term", value: "\(clean(s.title)) \(clean(artist))"), .init(name: "entity", value: "song"),
-                        .init(name: "limit", value: "1"), .init(name: "country", value: country)]
-        var req = URLRequest(url: c.url!, timeoutInterval: 10)
-        req.setValue("cmf-talk-mode", forHTTPHeaderField: "User-Agent")
-        URLSession.shared.dataTask(with: req) { data, _, error in
-            let genre: String? = error != nil ? nil : {
-                guard let data, let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return "" }
-                return ((j["results"] as? [[String: Any]])?.first?["primaryGenreName"] as? String) ?? ""
-            }()
-            DispatchQueue.main.async {
-                pending.remove(k)
-                if let genre { cache[k] = genre } // network errors aren't cached, so it tries again later
-                done()
-            }
-        }.resume()
-    }
-}

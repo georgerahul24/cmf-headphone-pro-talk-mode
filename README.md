@@ -20,7 +20,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 
 **Sound**
 - **EQ tuned for these headphones.** Movie, Pop and Rock presets using all 8 EQ bands the headphones support, not copied from the factory presets. Flat turns the EQ off (every band at 0), and every preset is measured from it. [More below](#eq).
-- **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows what it picked, like "Auto (Movie)", in the app and in the Android notification.
+- **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows what it picked, like "Auto (Movie)", in the app and in the Android notification. Remembers your pick per show, film, song or artist.
 - **Noise control and Spatial Audio.** Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive. Spatial Audio Off, Concert or Cinema. For everyday controls you don't need Nothing X.
 
 **Battery and history**
@@ -53,7 +53,7 @@ The Nothing X app only shows bass, mid and treble, but the CMF Headphone Pro app
 
 Both apps draw each preset's curve and list all 8 bands with their values.
 
-**Genre lookup:** in Auto, each song is looked up on Apple's iTunes Search (only the title and artist are sent) and gets Rock if it's a rock-type genre, otherwise Pop. A "Now playing" card shows the song, its genre and the EQ it picked. On Android this needs Notification access; on Mac it works with any app, including YouTube Music in a browser. You can turn it off.
+**Remember for this:** the Now playing card has Movie, Pop, Rock and Classical buttons. Tap one and Auto remembers it for that show, film or song and its artist or channel. Episode numbers are ignored, so one pick covers a whole series. Picks sync between your devices, and nothing is looked up online.
 
 **Auto** picks Movie for video apps (Netflix, Prime Video, JioHotstar, YouTube, VLC and more) and for web browsers on Mac. It picks your music preset for music apps (Spotify, YouTube Music, JioSaavn, Apple Music and more). On Mac, the Zen browser counts as music. Nothing playing means no change.
 

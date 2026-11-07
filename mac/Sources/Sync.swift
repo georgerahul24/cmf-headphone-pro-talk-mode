@@ -25,7 +25,7 @@ final class Sync: ObservableObject {
 
     /// The settings that sync, by their shared names.
     static let keys = ["talk.enabled", "talk.volume", "talk.pause", "saver.on", "saver.minutes",
-                       "eq.mode", "eq.music", "eq.genre", "update.auto", "alert.battery", "alert.hearing"]
+                       "eq.mode", "eq.music", "update.auto", "alert.battery", "alert.hearing"]
 
     private let d = UserDefaults.standard
     let deviceId: String
@@ -127,6 +127,16 @@ final class Sync: ObservableObject {
         dirtySettings.insert(key)
         saveDirty()
         if connected { sendSettings() }
+    }
+
+    /// A remembered EQ pick changed on this Mac.
+    func learnedChanged() {
+        dirtySettings.insert("eq.learned")
+        saveDirty()
+        if connected {
+            session?.send(["t": "learned", "learned": Learned.shared.all()])
+            dirtySettings.removeAll(); saveDirty()
+        }
     }
 
     /// This Mac's counters changed.
@@ -254,6 +264,7 @@ final class Sync: ObservableObject {
         case "state":
             if let n = m["name"] as? String, n != peerName { peerName = n; d.set(n, forKey: "sync.peerName") }
             if let set = m["settings"] as? [String: Any] { applySettings(set) }
+            if let l = m["learned"] as? [String: Any] { applyLearned(l) }
             applyStats(m)
             if let have = m["have"] as? Int { gotAck(have) }
         case "events":
@@ -268,6 +279,8 @@ final class Sync: ObservableObject {
             if let set = m["settings"] as? [String: Any] { applySettings(set) }
         case "stats":
             applyStats(m)
+        case "learned":
+            if let l = m["learned"] as? [String: Any] { applyLearned(l) }
         default:
             break
         }
@@ -340,7 +353,8 @@ final class Sync: ObservableObject {
 
     private func sendState() {
         session?.send(["t": "state", "id": deviceId, "name": deviceName, "have": haveFromPeer,
-                       "settings": settingsMap(), "stats": statsMap(), "reset": resetAt])
+                       "settings": settingsMap(), "stats": statsMap(), "reset": resetAt,
+                       "learned": Learned.shared.all()])
         dirtySettings.removeAll(); saveDirty()
         statsDirty = false; d.set(false, forKey: "sync.statsDirty")
     }
@@ -387,6 +401,13 @@ final class Sync: ObservableObject {
         }
         settingTs = ts
         saveDirty()
+    }
+
+    /// Remembered picks from the phone; the Auto EQ is re-checked through the settings hook.
+    var learnedApplied: () -> Void = {}
+
+    private func applyLearned(_ l: [String: Any]) {
+        if Learned.shared.merge(l) { learnedApplied() }
     }
 
     private func applyStats(_ m: [String: Any]) {

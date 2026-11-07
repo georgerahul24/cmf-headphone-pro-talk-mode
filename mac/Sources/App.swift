@@ -683,8 +683,6 @@ struct Cards {
                     selected: EqMode.all.firstIndex(of: talk.eqMode).map { UInt8($0) }, enabled: true) { v in
                     withAnimation(spring) { talk.eqMode = EqMode.all[Int(v)] }
                 }
-                // Redraw from the current setting whenever it changes (also when it comes from the phone).
-                .id("\(start)-\(talk.eqMode)")
             }
         }
     }
@@ -719,9 +717,7 @@ struct Cards {
                     selected: Eq.music.firstIndex { $0.rawValue == talk.musicEq }.map { UInt8($0) }, enabled: true) { v in
                     talk.musicEq = Eq.music[Int(v)].rawValue
                 }
-                Toggle("Pick Pop or Rock by song", isOn: $talk.eqGenre)
-                    .toggleStyle(.switch).tint(Pal.purple).controlSize(.small).font(.system(size: 12))
-                Text("Looks up each song's genre on Apple's iTunes Search (only the title and artist are sent). Rock songs get Rock, classical music Classical, the rest Pop. Works with Apple Music and Spotify, and with browsers when macOS shares the song.")
+                Text("Pick an EQ for a show, film or song on the Now playing card and Auto remembers it, also for later episodes and the same artist.")
                     .font(.system(size: 10)).foregroundStyle(Pal.faint).fixedSize(horizontal: false, vertical: true)
                 nowPlayingCard
                 if let app = talk.eqApp {
@@ -765,13 +761,10 @@ struct Cards {
             let colors: [Color] = eq == .movie ? [Pal.purple, Pal.blue1] : eq == .rock ? [Pal.pink, Color(hex: 0xC0832B)]
                 : eq == .classical ? [Color(hex: 0x2BA88F), Pal.blue1] : [Pal.violet, Pal.pink]
             let line: String = {
-                if talk.songIsVideo { return "Video → Movie EQ" }
                 if talk.eqMode != EqMode.auto { return "EQ: \(EqMode.label(talk.eqMode))" }
-                if !talk.eqGenre { return "Music → \(EqMode.label(talk.musicEq)) EQ" }
-                if s == nil { return "Music → \(EqMode.label(talk.eqNow ?? talk.musicEq)) EQ" }
-                if talk.genreLooking { return "Looking up the genre..." }
-                if let g = talk.genre { return "\(g) → \(EqMode.label(talk.eqNow ?? talk.musicEq)) EQ" }
-                return "Genre unknown → \(EqMode.label(talk.musicEq)) EQ"
+                if let l = talk.learnedFor { return "Remembered for \"\(l)\" → \(EqMode.label(talk.eqNow ?? "")) EQ" }
+                if talk.songIsVideo { return "Video → Movie EQ" }
+                return "Music → \(EqMode.label(talk.eqNow ?? talk.musicEq)) EQ"
             }()
             HStack(spacing: 12) {
                 ZStack {
@@ -791,6 +784,24 @@ struct Cards {
                         .background(Capsule().fill(LinearGradient(colors: colors.map { $0.opacity(0.55) }, startPoint: .leading, endPoint: .trailing)))
                         .contentTransition(.opacity)
                         .padding(.top, 3)
+                    // Remember an EQ for this show, film or song (and its artist). Tap again to forget.
+                    if let s {
+                        let chosen = Learned.shared.forTitle(s.title)
+                        HStack(spacing: 5) {
+                            Text("Remember:").font(.system(size: 9)).foregroundStyle(Pal.faint)
+                            ForEach(Eq.presets, id: \.self) { e in
+                                let on = chosen == e.rawValue
+                                Text(e.label).font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(on ? .white : Pal.sub)
+                                    .padding(.horizontal, 7).padding(.vertical, 2)
+                                    .background(Capsule().fill(on ? AnyShapeStyle(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Pal.card2)))
+                                    .contentShape(Capsule())
+                                    .onTapGesture { Learned.shared.set(title: s.title, artist: s.artist, preset: on ? nil : e.rawValue); talk.refreshAuto() }
+                                    .help(on ? "Forget" : "Use \(e.label) for this and future episodes or songs by this artist")
+                            }
+                        }
+                        .padding(.top, 4)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -924,7 +935,8 @@ struct Card<Content: View>: View {
     }
 }
 
-/// Pill selector with a sliding highlight.
+/// Pill selector. Each option draws its own highlight, so it always matches the selection
+/// (a single sliding highlight could get stuck in the menu bar popover).
 struct Seg: View {
     let options: [(UInt8, String)]
     let selected: UInt8?
@@ -933,30 +945,24 @@ struct Seg: View {
     let pick: (UInt8) -> Void
 
     var body: some View {
-        let idx = options.firstIndex { $0.0 == selected }
-        GeometryReader { g in
-            let w = (g.size.width - 6) / CGFloat(options.count)
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 9)
-                    .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
-                    .frame(width: w, height: 28)
-                    .offset(x: 3 + w * CGFloat(idx ?? 0))
-                    .opacity(idx == nil ? 0 : 1)
-                HStack(spacing: 0) {
-                    ForEach(options.indices, id: \.self) { i in
-                        Text(options[i].1)
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundStyle(i == idx ? .white : (enabled ? Pal.sub : Pal.faint))
-                            .frame(width: w, height: 28)
-                            .contentShape(Rectangle())
-                            .onTapGesture { if enabled { pick(options[i].0) } }
-                    }
-                }
-                .padding(.horizontal, 3)
+        HStack(spacing: 0) {
+            ForEach(options.indices, id: \.self) { i in
+                let on = options[i].0 == selected
+                Text(options[i].1)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(on ? .white : (enabled ? Pal.sub : Pal.faint))
+                    .frame(maxWidth: .infinity).frame(height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 9)
+                            .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
+                            .opacity(on ? 1 : 0)
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture { if enabled { pick(options[i].0) } }
+                    .animation(.easeOut(duration: 0.18), value: on)
             }
-            .frame(width: g.size.width, height: g.size.height)
-            .animation(spring, value: idx)
         }
+        .padding(3)
         .frame(height: 34)
         .background(RoundedRectangle(cornerRadius: 12).fill(Pal.card2))
     }

@@ -24,12 +24,11 @@ object HeadphoneState {
     /** EQ preset on the headphones now (an [Eq] id), and the app Auto saw playing. */
     var eqNow by mutableStateOf<String?>(null)
     var eqApp by mutableStateOf<String?>(null)
-    /** What's playing (from the media session), and its genre if looked up. */
+    /** What's playing (from the media session), and the remembered name Auto matched, if any. */
     var songTitle by mutableStateOf<String?>(null)
     var songArtist by mutableStateOf<String?>(null)
     var songIsVideo by mutableStateOf(false)
-    var genre by mutableStateOf<String?>(null)
-    var genreLooking by mutableStateOf(false)
+    var learnedFor by mutableStateOf<String?>(null)
 
     fun clear() {
         connected = false

@@ -34,13 +34,10 @@ final class TalkMode: ObservableObject {
     @Published var eqMode: String { didSet { UserDefaults.standard.set(eqMode, forKey: "eqMode"); eqSettingChanged(); synced("eq.mode") } }
     /// Preset Auto uses for music: "pop" or "rock".
     @Published var musicEq: String { didSet { UserDefaults.standard.set(musicEq, forKey: "musicEq"); eqSettingChanged(); synced("eq.music") } }
-    /// Auto picks Pop or Rock by the song's genre, looked up on Apple's iTunes Search.
-    @Published var eqGenre: Bool { didSet { UserDefaults.standard.set(eqGenre, forKey: "eqGenre"); eqSettingChanged(); synced("eq.genre") } }
-    /// What's playing (Apple Music or Spotify), and its genre if looked up.
+    /// What's playing, and the remembered name Auto matched, if any.
     @Published private(set) var song: NowPlayingInfo.Song?
     @Published private(set) var songIsVideo = false
-    @Published private(set) var genre: String?
-    @Published private(set) var genreLooking = false
+    @Published private(set) var learnedFor: String?
     private var lastSongCheck = Date.distantPast
     /// Notify when the headphone battery drops below 10%.
     @Published var alertBattery: Bool { didSet { UserDefaults.standard.set(alertBattery, forKey: "alertBattery"); synced("alert.battery") } }
@@ -124,7 +121,6 @@ final class TalkMode: ObservableObject {
         eqMode = EqMode.normalize(d.string(forKey: "eqMode") ?? EqMode.auto)
         musicEq = d.string(forKey: "musicEq") ?? Eq.pop.rawValue
         autoUpdate = d.object(forKey: "autoUpdate") as? Bool ?? true
-        eqGenre = d.object(forKey: "eqGenre") as? Bool ?? true
         alertBattery = d.object(forKey: "alertBattery") as? Bool ?? true
         alertHearing = d.object(forKey: "alertHearing") as? Bool ?? true
         stats = (d.data(forKey: "stats")).flatMap { try? JSONDecoder().decode(UsageStats.self, from: $0) } ?? UsageStats()
@@ -208,7 +204,6 @@ final class TalkMode: ObservableObject {
             case "saver.minutes": return idleMinutes
             case "eq.mode": return eqMode
             case "eq.music": return musicEq
-            case "eq.genre": return eqGenre
             case "alert.battery": return alertBattery
             case "alert.hearing": return alertHearing
             case "update.auto": return autoUpdate
@@ -227,7 +222,6 @@ final class TalkMode: ObservableObject {
             case "saver.minutes": if let i, i > 0 { idleMinutes = i }
             case "eq.mode": if let str, EqMode.all.contains(EqMode.normalize(str)) { eqMode = EqMode.normalize(str) }
             case "eq.music": if let str, Eq(rawValue: str) != nil { musicEq = str }
-            case "eq.genre": if let b { eqGenre = b }
             case "alert.battery": if let b { alertBattery = b }
             case "alert.hearing": if let b { alertHearing = b }
             case "update.auto": if let b { autoUpdate = b }
@@ -240,6 +234,8 @@ final class TalkMode: ObservableObject {
             stats.since = at
             saveStats()
         }
+        Learned.shared.onChange = { sync.learnedChanged() }
+        sync.learnedApplied = { [unowned self] in lastSongCheck = .distantPast; autoEq() }
         sync.start()
     }
 
@@ -341,9 +337,9 @@ final class TalkMode: ObservableObject {
 
     private var wantedEq: String { eqMode == EqMode.auto ? (autoPick ?? musicEq) : eqMode }
 
-    /// Auto: Movie while a video app (or a browser) plays; for music, Pop or Rock by the song's genre
-    /// (looked up online, if that's on), else the music preset. Nothing playing: no change.
-    /// Also keeps the "Now playing" card up to date.
+    /// Auto: your remembered pick for this show, film, song or artist if there is one; otherwise
+    /// Movie while a video app plays and the music preset for music (browsers like Zen count as
+    /// music). Nothing playing: no change. Also keeps the "Now playing" card up to date.
     private func autoEq() {
         guard playing, let k = PlayingApps.kind() else { return }
         if eqApp != k.name { eqApp = k.name }
@@ -364,25 +360,14 @@ final class TalkMode: ObservableObject {
             if s != song { song = s }
         }
         guard eqMode == EqMode.auto else { return }
-        autoPick = k.video ? Eq.movie.rawValue : (genrePick() ?? (autoPick != Eq.movie.rawValue ? autoPick : nil) ?? musicEq)
+        let learned = Learned.shared.lookup(title: song?.title, artist: song?.artist)
+        if learnedFor != learned?.name { learnedFor = learned?.name }
+        autoPick = learned?.preset ?? (k.video ? Eq.movie.rawValue : musicEq)
         applyEq()
     }
 
-    /// Pop or Rock from the song's genre, or nil if off, unknown or still looking it up.
-    private func genrePick() -> String? {
-        guard eqGenre, let s = song, !songIsVideo else {
-            if genre != nil { genre = nil }; if genreLooking { genreLooking = false }
-            return nil
-        }
-        guard let g = GenreLookup.cached(s) else {
-            genre = nil; genreLooking = true
-            GenreLookup.lookup(s) { [weak self] in self?.lastSongCheck = .distantPast; self?.autoEq() }
-            return nil
-        }
-        genreLooking = false
-        genre = g.isEmpty ? nil : g
-        return GenreLookup.preset(for: g, fallback: musicEq)
-    }
+    /// Re-checks Auto right away (after a remembered pick changed).
+    func refreshAuto() { lastSongCheck = .distantPast; autoEq() }
 
     private func applyEq() {
         guard connected else { return }

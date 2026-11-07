@@ -118,7 +118,6 @@ private class UiPrefs(val p: Prefs) {
     var eqMode by mutableStateOf(p.eqMode)
     var musicEq by mutableStateOf(p.musicEq)
     var autoUpdate by mutableStateOf(p.autoUpdate)
-    var eqGenre by mutableStateOf(p.eqGenre)
     var alertBattery by mutableStateOf(p.alertBattery)
     var alertHearing by mutableStateOf(p.alertHearing)
 
@@ -126,7 +125,7 @@ private class UiPrefs(val p: Prefs) {
     fun reload() {
         talkEnabled = p.enabled; talkVolume = p.talkVolume; talkPause = p.talkPause
         idleOff = p.idleOff; idleMinutes = p.idleMinutes
-        eqMode = p.eqMode; musicEq = p.musicEq; autoUpdate = p.autoUpdate; eqGenre = p.eqGenre
+        eqMode = p.eqMode; musicEq = p.musicEq; autoUpdate = p.autoUpdate
         alertBattery = p.alertBattery; alertHearing = p.alertHearing
     }
 }
@@ -639,7 +638,7 @@ private fun HearingCard() {
 
 /**
  * What's playing: an artwork tile with bouncing music bars, the song, the artist and app, and
- * which genre was found and which EQ it picked.
+ * the EQ in use, and buttons to remember an EQ for this show, film, song or artist.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -681,13 +680,12 @@ private fun NowPlayingCard(ui: UiPrefs) {
             Text(listOfNotNull(st.songArtist, st.eqApp).joinToString(" · "), color = C.Sub, fontSize = 12.sp, maxLines = 1,
                 modifier = Modifier.basicMarquee())
             Spacer(Modifier.height(6.dp))
+            val learned = st.learnedFor
             val line = when {
-                st.songIsVideo -> "Video → Movie EQ"
                 ui.eqMode != EqMode.AUTO -> "EQ: ${EqMode.label(ui.eqMode)}"
-                !ui.eqGenre -> "Music → ${EqMode.label(ui.musicEq)} EQ"
-                st.genreLooking -> "Looking up the genre..."
-                st.genre != null -> "${st.genre} → ${EqMode.label(st.eqNow ?: ui.musicEq)} EQ"
-                else -> "Genre unknown → ${EqMode.label(ui.musicEq)} EQ"
+                learned != null -> "Remembered for \"$learned\" → ${EqMode.label(st.eqNow ?: "")} EQ"
+                st.songIsVideo -> "Video → Movie EQ"
+                else -> "Music → ${EqMode.label(st.eqNow ?: ui.musicEq)} EQ"
             }
             AnimatedContent(line, transitionSpec = {
                 (fadeIn(tween(250)) + slideInVertically { it / 2 }).togetherWith(fadeOut(tween(120)))
@@ -695,6 +693,27 @@ private fun NowPlayingCard(ui: UiPrefs) {
                 Text(it, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium,
                     modifier = Modifier.clip(CircleShape).background(Brush.horizontalGradient(colors.map { c -> c.copy(alpha = 0.55f) }))
                         .padding(horizontal = 10.dp, vertical = 3.dp))
+            }
+            // Remember an EQ for this show, film or song (and its artist or channel). Tap again to forget.
+            if (st.songTitle != null) {
+                Learned.version
+                val chosen = Learned.forTitle(st.songTitle)
+                Spacer(Modifier.height(8.dp))
+                Text("Remember for this", color = C.Faint, fontSize = 10.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    for (e in Eq.presets) {
+                        val on = chosen == e.id
+                        Text(e.label, fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                            color = if (on) Color.White else C.Sub,
+                            modifier = Modifier.clip(CircleShape)
+                                .background(if (on) Brush.horizontalGradient(colors) else Brush.horizontalGradient(listOf(C.Card2, C.Card2)))
+                                .pressable {
+                                    Learned.set(st.songTitle, st.songArtist, if (on) null else e.id)
+                                    TalkService.instance?.eqSettingChanged()
+                                }
+                                .padding(horizontal = 10.dp, vertical = 4.dp))
+                    }
+                }
             }
         }
     }
@@ -827,9 +846,6 @@ private fun EqCard(ui: UiPrefs) {
                         val id = music[it].id
                         ui.musicEq = id; ui.p.musicEq = id; svc?.eqSettingChanged()
                     }
-                    SwitchRow("Pick Pop or Rock by song",
-                        "Looks up each song's genre on Apple's iTunes Search (only the title and artist are sent). Rock songs get Rock, classical music gets Classical, the rest Pop. Above is used when the genre is unknown.",
-                        ui.eqGenre) { ui.eqGenre = it; ui.p.eqGenre = it; svc?.eqSettingChanged() }
                     if (st.songTitle != null) NowPlayingCard(ui)
                     st.eqApp?.let { Text("Last playing: $it", color = C.Faint, fontSize = 12.sp) }
                     MainActivity.resumes

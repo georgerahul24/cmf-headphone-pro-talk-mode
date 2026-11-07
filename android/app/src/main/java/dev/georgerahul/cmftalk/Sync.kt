@@ -115,6 +115,7 @@ object Sync {
         started = true
         running = true
         History.onLog = { historyChanged() }
+        Learned.onChange = { learnedChanged() }
         runCatching {
             app!!.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(
                 object : ConnectivityManager.NetworkCallback() {
@@ -158,6 +159,16 @@ object Sync {
         dirty = dirty + key
         p?.edit()?.putStringSet("dirty", dirty)?.apply()
         if (connected) main.post { sendSettings() }
+    }
+
+    /** A remembered EQ pick changed on this phone. Main thread. */
+    fun learnedChanged() {
+        dirty = dirty + "eq.learned"
+        p?.edit()?.putStringSet("dirty", dirty)?.apply()
+        if (connected) main.post {
+            send(JSONObject().put("t", "learned").put("learned", Learned.all()))
+            clearDirty()
+        }
     }
 
     /** This phone's counters changed. Main thread. */
@@ -363,7 +374,8 @@ object Sync {
         val have = History.peerCount(id)
         haveFromPeer = have
         send(JSONObject().put("t", "state").put("id", deviceId).put("name", deviceName).put("have", have)
-            .put("settings", settingsJson()).put("stats", Stats.snapshot()).put("reset", resetAt))
+            .put("settings", settingsJson()).put("stats", Stats.snapshot()).put("reset", resetAt)
+            .put("learned", Learned.all()))
         clearDirty()
         statsDirty = false
         p?.edit()?.putBoolean("statsDirty", false)?.apply()
@@ -418,6 +430,7 @@ object Sync {
                     peerName = it; p?.edit()?.putString("peerName", it)?.apply()
                 }
                 m.optJSONObject("settings")?.let { applySettings(it) }
+                m.optJSONObject("learned")?.let { applyLearned(it) }
                 applyStats(m)
                 if (m.has("have")) gotAck(m.optInt("have"))
             }
@@ -436,6 +449,7 @@ object Sync {
             "ack" -> gotAck(m.optInt("have"))
             "settings" -> m.optJSONObject("settings")?.let { applySettings(it) }
             "stats" -> applyStats(m)
+            "learned" -> m.optJSONObject("learned")?.let { applyLearned(it) }
             "err" -> { note = m.optString("msg"); runCatching { socket?.close() } }
         }
     }
@@ -457,6 +471,10 @@ object Sync {
             settingsVersion++
             onSettingsApplied?.invoke()
         }
+    }
+
+    private fun applyLearned(j: JSONObject) {
+        if (Learned.merge(j)) onSettingsApplied?.invoke()
     }
 
     private fun applyStats(m: JSONObject) {

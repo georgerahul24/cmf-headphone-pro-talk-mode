@@ -4,9 +4,11 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 
 ## 2.11.0
 
-- **Mac reads the song from any app, including YouTube Music in Zen.** macOS 15.4 and newer stopped sharing the playing song with apps, so the Mac app now bundles a small, reviewed, read-only part of the open-source [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) (BSD license, pinned version). The Now playing card and the genre lookup now work for browsers too.
+- **Auto remembers your picks.** On the Now playing card, tap Movie, Pop, Rock or Classical to remember it for what's playing, by its name and its artist or channel. Episode numbers are ignored, so picking Movie on one Mr. Robot episode covers the whole series, in any app, browsers included. Tap again to forget. Your picks sync between the phone and the Mac.
+- **The online genre lookup is gone.** Apple's search labels most Indian songs by language (Tamil, Bollywood), not style, so it couldn't tell rock from pop. Nothing is looked up online anymore. The Classical preset stays.
+- **Mac reads what's playing in any app, including YouTube Music or a show in Zen.** macOS 15.4 and newer stopped sharing this with apps, so the Mac app bundles a small, reviewed, read-only part of the open-source [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) (BSD license, pinned version).
   - Safety: only the read part is built; the parts that control playback or start other programs are left out. It has no network access and writes no files. The app runs it with Apple's own `/usr/bin/perl`, fixed paths inside the app, no shell, an empty environment, a time limit and an output size limit. Details in `mac/vendor/mediaremote-adapter/README.md`.
-- The genre lookup searches with only the first artist, so songs with long artist lists are found more often.
+- **Mac:** the EQ buttons in the menu bar always highlight the current choice.
 
 ## 2.10.0
 

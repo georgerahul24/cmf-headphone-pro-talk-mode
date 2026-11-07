@@ -122,6 +122,7 @@ class TalkService : Service() {
         Stats.init(this)
         History.init(this)
         Hearing.init(this)
+        Learned.init(this)
         Sync.init(this)
         Sync.onSettingsApplied = {
             idleSettingChanged()
@@ -461,8 +462,8 @@ class TalkService : Service() {
 
     /** Auto: Movie while a video app plays, the music preset while music plays. Nothing playing: no change. */
     /**
-     * Auto: Movie while a video app plays; for music, Pop or Rock by the song's genre (looked up
-     * online, if that's on), else the music preset. Nothing playing: no change.
+     * Auto: your remembered pick for this show, film, song or artist if there is one; otherwise
+     * Movie while a video app plays and the music preset for music. Nothing playing: no change.
      * Also keeps the "Now playing" card up to date.
      */
     private fun autoEq() {
@@ -472,11 +473,13 @@ class TalkService : Service() {
         st.eqApp = app
         nowPlaying(ctrl, video)
         if (prefs.eqMode != EqMode.AUTO) return
-        autoPick = if (video) Eq.MOVIE.id else genrePick() ?: autoPick?.takeIf { it != Eq.MOVIE.id } ?: prefs.musicEq
+        val learned = Learned.lookup(st.songTitle, st.songArtist)
+        st.learnedFor = learned?.second
+        autoPick = learned?.first ?: if (video) Eq.MOVIE.id else prefs.musicEq
         applyEq()
     }
 
-    /** Title and artist of what's playing, for the "Now playing" card and the genre lookup. */
+    /** Title and artist of what's playing, for the "Now playing" card and remembered picks. */
     private fun nowPlaying(ctrl: android.media.session.MediaController?, video: Boolean) {
         val md = ctrl?.metadata
         val title = md?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE)?.trim().orEmpty()
@@ -485,23 +488,6 @@ class TalkService : Service() {
         st.songTitle = title.ifEmpty { null }
         st.songArtist = artist.ifEmpty { null }
         st.songIsVideo = video
-    }
-
-    /** Pop or Rock from the song's genre, or null if off, unknown or still looking it up. */
-    private fun genrePick(): String? {
-        val title = st.songTitle
-        if (!prefs.eqGenre || title == null) { st.genre = null; st.genreLooking = false; return null }
-        val artist = st.songArtist.orEmpty()
-        val key = Genre.key(artist, title)
-        val g = Genre.cached(key)
-        if (g == null) {
-            st.genre = null; st.genreLooking = true
-            Genre.lookup(artist, title) { autoEq() }
-            return null
-        }
-        st.genreLooking = false
-        st.genre = g.ifEmpty { null }
-        return Genre.presetFor(g, prefs.musicEq)
     }
 
     private fun applyEq() {
