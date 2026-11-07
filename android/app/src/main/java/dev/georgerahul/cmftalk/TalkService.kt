@@ -473,14 +473,11 @@ class TalkService : Service() {
         eqApplied = w
         st.eqNow = w
         refreshNotification()
-        val eq = Eq.of(w)
+        // Every preset, Flat included, is a custom EQ, so they are all measured from flat.
+        val eq = Eq.of(w) ?: Eq.FLAT
         Log.i(TAG, "EQ: $w")
-        if (eq == null) {
-            send(Proto.EQ_PRESET_SET, Proto.EQ_STOCK, 0x00)
-        } else {
-            send(Proto.EQ_CUSTOM_SET, *eq.payload())
-            send(Proto.EQ_PRESET_SET, Proto.EQ_CUSTOM, 0x00)
-        }
+        send(Proto.EQ_CUSTOM_SET, *eq.payload())
+        send(Proto.EQ_PRESET_SET, Proto.EQ_CUSTOM, 0x00)
     }
 
     /** true = video, false = music, with the app's name if known. Null = can't tell. */

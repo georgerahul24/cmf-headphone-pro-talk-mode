@@ -642,7 +642,7 @@ private fun EqBandList(eq: Eq) {
     }
 }
 
-private val EqModes = listOf(EqMode.AUTO, Eq.MOVIE.id, Eq.POP.id, Eq.ROCK.id, EqMode.STOCK)
+private val EqModes = listOf(EqMode.AUTO, Eq.MOVIE.id, Eq.POP.id, Eq.ROCK.id, Eq.FLAT.id)
 
 /** "Auto (Movie)" in Auto mode, else the preset name. */
 private fun eqTitle(ui: UiPrefs, now: String?): String =
@@ -664,10 +664,10 @@ private fun EqCard(ui: UiPrefs) {
         Segmented(EqModes.mapIndexed { i, id -> i to EqMode.label(id) }, EqModes.indexOf(ui.eqMode), true) {
             ui.eqMode = EqModes[it]; ui.p.eqMode = EqModes[it]; svc?.eqSettingChanged()
         }
-        // The preset in use (Auto shows what it picked). Null = Stock.
+        // The preset in use (Auto shows what it picked).
         val shown = Eq.of(if (ui.eqMode == EqMode.AUTO) st.eqNow ?: ui.musicEq else ui.eqMode)
         Row {
-            Text(shown?.let { "${it.label} curve" } ?: "Stock: no changes", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text(shown?.let { "${it.label} curve" } ?: "Flat", fontSize = 13.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.weight(1f))
             if (shown == Eq.MOVIE) Text("plus the Energy Slider at full", color = C.Faint, fontSize = 11.sp)
         }
@@ -675,7 +675,7 @@ private fun EqCard(ui: UiPrefs) {
         AnimatedVisibility(shown != null) { shown?.let { EqBandList(it) } }
         Text("All presets", color = C.Sub, fontSize = 13.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (e in Eq.entries) {
+            for (e in Eq.entries.filter { it != Eq.FLAT }) {
                 val on = ui.eqMode == e.id
                 Column(
                     Modifier.weight(1f).clip(RoundedRectangle(12.dp)).background(if (on) C.Card2 else C.Card2.copy(alpha = 0.4f))
@@ -696,7 +696,6 @@ private fun EqCard(ui: UiPrefs) {
                 val about = when (mode) {
                     EqMode.AUTO -> "Movie while you watch something, your music preset while you listen. " +
                         "It changes by itself when a different app starts playing."
-                    EqMode.STOCK -> "The headphones' own factory sound."
                     else -> Eq.of(mode)?.about ?: ""
                 }
                 Text(about, color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)

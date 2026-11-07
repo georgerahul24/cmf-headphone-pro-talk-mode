@@ -30,13 +30,13 @@ final class TalkMode: ObservableObject {
     @Published var talkVolumePercent: Int { didSet { UserDefaults.standard.set(talkVolumePercent, forKey: "talkVolume"); synced("talk.volume") } }
     /// While talking: true = pause the music, false = lower the volume.
     @Published var talkPause: Bool { didSet { UserDefaults.standard.set(talkPause, forKey: "talkPause"); synced("talk.pause") } }
-    /// EQ: "auto", "movie", "pop", "rock" or "stock".
+    /// EQ: "auto", "movie", "pop", "rock" or "flat".
     @Published var eqMode: String { didSet { UserDefaults.standard.set(eqMode, forKey: "eqMode"); eqSettingChanged(); synced("eq.mode") } }
     /// Preset Auto uses for music: "pop" or "rock".
     @Published var musicEq: String { didSet { UserDefaults.standard.set(musicEq, forKey: "musicEq"); eqSettingChanged(); synced("eq.music") } }
     /// Check GitHub for new versions and install them.
     @Published var autoUpdate: Bool { didSet { UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate"); synced("update.auto") } }
-    /// EQ preset on the headphones now (an `Eq` raw value or "stock"), and the app Auto saw playing.
+    /// EQ preset on the headphones now (an `Eq` raw value), and the app Auto saw playing.
     @Published private(set) var eqNow: String?
     @Published private(set) var eqApp: String?
     @Published var idleSaver: Bool {
@@ -107,7 +107,7 @@ final class TalkMode: ObservableObject {
         talkPause = d.object(forKey: "talkPause") as? Bool ?? false
         idleSaver = d.object(forKey: "idleSaver") as? Bool ?? true
         idleMinutes = d.object(forKey: "idleMinutes") as? Int ?? 10
-        eqMode = d.string(forKey: "eqMode") ?? EqMode.auto
+        eqMode = EqMode.normalize(d.string(forKey: "eqMode") ?? EqMode.auto)
         musicEq = d.string(forKey: "musicEq") ?? Eq.pop.rawValue
         autoUpdate = d.object(forKey: "autoUpdate") as? Bool ?? true
         stats = (d.data(forKey: "stats")).flatMap { try? JSONDecoder().decode(UsageStats.self, from: $0) } ?? UsageStats()
@@ -204,7 +204,7 @@ final class TalkMode: ObservableObject {
             case "talk.pause": if let b { talkPause = b }
             case "saver.on": if let b { idleSaver = b }
             case "saver.minutes": if let i, i > 0 { idleMinutes = i }
-            case "eq.mode": if let str, EqMode.all.contains(str) { eqMode = str }
+            case "eq.mode": if let str, EqMode.all.contains(EqMode.normalize(str)) { eqMode = EqMode.normalize(str) }
             case "eq.music": if let str, Eq(rawValue: str) != nil { musicEq = str }
             case "update.auto": if let b { autoUpdate = b }
             default: break
@@ -331,12 +331,10 @@ final class TalkMode: ObservableObject {
         eqApplied = w
         eqNow = w
         log("EQ: \(w)")
-        if let eq = Eq(rawValue: w) {
-            headset.send(Proto.eqCustomSet, eq.payload)
-            headset.send(Proto.eqPresetSet, [Proto.eqCustom, 0x00])
-        } else {
-            headset.send(Proto.eqPresetSet, [Proto.eqStock, 0x00])
-        }
+        // Every preset, Flat included, is a custom EQ, so they are all measured from flat.
+        let eq = Eq(rawValue: w) ?? .flat
+        headset.send(Proto.eqCustomSet, eq.payload)
+        headset.send(Proto.eqPresetSet, [Proto.eqCustom, 0x00])
     }
 
     /// "Auto (Movie)" in Auto mode, else the preset name.

@@ -19,7 +19,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Your normal buttons still work.** Talk mode uses its own button. No voice assistant pop-up.
 
 **Sound**
-- **EQ tuned for these headphones.** Movie, Pop and Rock presets picked for what each one is for, not copied from the factory presets. Stock brings back the factory sound. [More below](#eq).
+- **EQ tuned for these headphones.** Movie, Pop and Rock presets picked for what each one is for, not copied from the factory presets. Flat turns the EQ off (every band at 0), and every preset is measured from it. [More below](#eq).
 - **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows what it picked, like "Auto (Movie)", in the app and in the Android notification.
 - **Noise control and Spatial Audio.** Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive. Spatial Audio Off, Concert or Cinema. For everyday controls you don't need Nothing X.
 
@@ -45,7 +45,7 @@ The CMF Headphone Pro has a 3-band EQ: bass (140 Hz), mid (980 Hz) and treble (3
 | **Movie** (bass +2, mid +2, treble +4) | Energy Slider at full bass | Big rumble and boom for fights and explosions. Dialogue, faint sounds and details like clinking glass stay clear. |
 | **Pop** (bass +5, mid +2, treble +3) | Energy Slider at zero | Big bass like the factory Pop, vocals clearly in front and smooth. Tuned for English, Hindi and Malayalam songs. |
 | **Rock** (bass +4, mid -2, treble +4) | Energy Slider at zero | Weighty kick and bass guitar, less mud, vocals that cut through, smoother cymbals. |
-| **Stock** | Anything | The headphones' own factory sound. |
+| **Flat** (all 0) | Anything | No EQ. The neutral starting point every preset is measured from. |
 
 Both apps draw each preset's curve and show its bass, mid and treble values.
 
@@ -115,7 +115,7 @@ Get the latest build from the [Releases page](../../releases):
 No. The app only uses normal settings commands (noise mode, Spatial Audio, EQ, battery). It never uses the firmware update channel.
 
 **The EQ changed my Nothing X EQ.**
-The app's presets are saved as the headphones' Custom EQ. Picking a preset in Nothing X, or Stock in this app, brings back the factory sound.
+The app's presets are saved as the headphones' Custom EQ. Picking a preset in Nothing X brings back the factory sound.
 
 **Should I use the Energy Slider?**
 Movie is tuned for the slider at full bass. Pop and Rock are tuned for the slider at zero.

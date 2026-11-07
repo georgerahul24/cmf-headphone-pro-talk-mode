@@ -8,7 +8,10 @@ struct Band { let type: UInt8; let gain: Float; let freq: Float; let q: Float }
 ///
 /// Same values as the Android app.
 enum Eq: String, CaseIterable {
-    case movie, pop, rock
+    case movie, pop, rock, flat
+
+    /// The presets with a character (everything but Flat).
+    static let presets: [Eq] = [.movie, .pop, .rock]
 
     var label: String { rawValue.capitalized }
 
@@ -16,6 +19,7 @@ enum Eq: String, CaseIterable {
         switch self {
         case .movie: return "Made for the Energy Slider at full bass, which brings the rumble and boom. Mid and treble are lifted so dialogue, faint sounds and small details stay clear."
         case .pop: return "Big bass, vocals pushed forward and a brighter top. Good for English, Hindi and Malayalam songs."
+        case .flat: return "No EQ: bass, mid and treble all at 0. Every preset is measured from here."
         case .rock: return "Punchy bass and bright, crisp top with the mids pulled back a little, for drums and guitars."
         }
     }
@@ -32,6 +36,7 @@ enum Eq: String, CaseIterable {
         case .movie: return (2, 2, 4)   // the Energy Slider brings the bass; clear dialogue and detail
         case .pop: return (5, 2, 3)     // big bass, vocals forward, brighter top
         case .rock: return (4, -2, 4)   // punchy and bright, mids pulled back
+        case .flat: return (0, 0, 0)    // the neutral starting point
         }
     }
 
@@ -51,14 +56,15 @@ enum Eq: String, CaseIterable {
     }
 }
 
-/// EQ choices in the menu. "stock" = the headphones' own factory sound.
+/// EQ choices in the menu: Auto or one of the `Eq` presets.
 enum EqMode {
-    static let auto = "auto", stock = "stock"
-    static let all = [auto, Eq.movie.rawValue, Eq.pop.rawValue, Eq.rock.rawValue, stock]
+    static let auto = "auto"
+    static let all = [auto, Eq.movie.rawValue, Eq.pop.rawValue, Eq.rock.rawValue, Eq.flat.rawValue]
+    /// Older versions had "stock" (the factory Pop preset); it is Flat now.
+    static func normalize(_ id: String) -> String { id == "stock" ? Eq.flat.rawValue : id }
     static func label(_ id: String) -> String {
         switch id {
         case auto: return "Auto"
-        case stock: return "Stock"
         default: return Eq(rawValue: id)?.label ?? id
         }
     }

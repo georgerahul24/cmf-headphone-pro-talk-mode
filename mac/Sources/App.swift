@@ -651,7 +651,7 @@ struct Cards {
         }
     }
 
-    /// The preset whose curve to show: the one in use (Auto shows what it picked). Nil = Stock.
+    /// The preset whose curve to show: the one in use (Auto shows what it picked).
     var shownEq: Eq? {
         Eq(rawValue: talk.eqMode == EqMode.auto ? (talk.eqNow ?? talk.musicEq) : talk.eqMode)
     }
@@ -680,7 +680,6 @@ struct Cards {
         let about: String = {
             switch talk.eqMode {
             case EqMode.auto: return "Movie while you watch something (video apps and most browsers; Zen counts as music), your music preset while you listen. It changes by itself when a different app plays."
-            case EqMode.stock: return "The headphones' own factory sound."
             default: return Eq(rawValue: talk.eqMode)?.about ?? ""
             }
         }()
@@ -699,7 +698,7 @@ struct Cards {
             }
             Divider().overlay(Pal.card2)
             HStack {
-                Text(shownEq.map { "\($0.label) curve" } ?? "Stock: no changes").font(.system(size: 12, weight: .medium))
+                Text(shownEq.map { "\($0.label) curve" } ?? "Flat").font(.system(size: 12, weight: .medium))
                 Spacer()
                 if shownEq == .movie { Text("plus the Energy Slider at full").font(.system(size: 10)).foregroundStyle(Pal.faint) }
             }
@@ -708,7 +707,7 @@ struct Cards {
             Divider().overlay(Pal.card2)
             Text("All presets").font(.system(size: 12, weight: .medium)).foregroundStyle(Pal.sub)
             HStack(spacing: 8) {
-                ForEach(Eq.allCases, id: \.self) { e in
+                ForEach(Eq.presets, id: \.self) { e in
                     let on = talk.eqMode == e.rawValue
                     VStack(alignment: .leading, spacing: 4) {
                         Text(e.label).font(.system(size: 11, weight: .medium)).foregroundStyle(on ? Pal.text : Pal.sub)
@@ -916,7 +915,7 @@ struct EqCurve: View {
                         Text("-6").font(.system(size: 8)).foregroundStyle(Pal.faint).position(x: 9, y: y(-6) + 6)
                     }
                 }
-                .id(eq?.rawValue ?? "stock")
+                .id(eq?.rawValue ?? "flat")
                 .transition(.opacity)
             }
             .frame(height: height)

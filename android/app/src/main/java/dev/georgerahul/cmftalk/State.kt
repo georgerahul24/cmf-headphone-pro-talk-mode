@@ -21,7 +21,7 @@ object HeadphoneState {
     var quietSince by mutableStateOf<Long?>(null)
     var idleDeadline by mutableStateOf<Long?>(null)
     var idleOffSince by mutableStateOf<Long?>(null)
-    /** EQ preset on the headphones now (an [Eq] id or "stock"), and the app Auto saw playing. */
+    /** EQ preset on the headphones now (an [Eq] id), and the app Auto saw playing. */
     var eqNow by mutableStateOf<String?>(null)
     var eqApp by mutableStateOf<String?>(null)
 

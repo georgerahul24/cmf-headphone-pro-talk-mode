@@ -25,7 +25,10 @@ enum class Eq(val id: String, val label: String, val about: String, val preamp: 
         0f, threeBand(bass = 5f, mid = 2f, treble = 3f)),
     ROCK("rock", "Rock",
         "Punchy bass and bright, crisp top with the mids pulled back a little, for drums and guitars.",
-        0f, threeBand(bass = 4f, mid = -2f, treble = 4f));
+        0f, threeBand(bass = 4f, mid = -2f, treble = 4f)),
+    FLAT("flat", "Flat",
+        "No EQ: bass, mid and treble all at 0. Every preset is measured from here.",
+        0f, threeBand(bass = 0f, mid = 0f, treble = 0f));
 
     /** Bass, mid and treble, in the order and shape Nothing X sends them. */
     val bass get() = bands[2].gain
@@ -85,13 +88,13 @@ fun threeBand(bass: Float, mid: Float, treble: Float) = listOf(
     Band(1, mid, 980f, 0.7f), Band(2, treble, 3500f, 1f), Band(0, bass, 140f, 0.8f),
 )
 
-/** EQ choices on the screen. "stock" = the headphones' own factory sound. */
+/** EQ choices on the screen: Auto or one of the [Eq] presets. */
 object EqMode {
     const val AUTO = "auto"
-    const val STOCK = "stock"
+    /** Older versions had "stock" (the factory Pop preset); it is Flat now. */
+    fun normalize(id: String) = if (id == "stock") Eq.FLAT.id else id
     fun label(id: String) = when (id) {
         AUTO -> "Auto"
-        STOCK -> "Stock"
         else -> Eq.of(id)?.label ?: id
     }
 }

@@ -8,6 +8,7 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
   - Movie: bass +2, mid +2, treble +4 (for the Energy Slider at full bass)
   - Pop: bass +5, mid +2, treble +3
   - Rock: bass +4, mid -2, treble +4
+- **Flat instead of Stock.** Stock was the factory Pop preset, which already adds a lot of bass, so the presets were hard to judge against it. Now there is **Flat** (bass, mid and treble at 0), and every preset is measured from it.
 - **New app icon** on Android and Mac: a frosted glass panel with a sound wave over soft violet glows. The Mac app now has an icon at all.
 - **Animated logo on Android.** The new icon sits at the top of the Home screen, and its sound wave bounces while audio plays.
 - **Live Dock icon on Mac.** While the app window is open, the sound wave in the Dock icon bounces with your audio, and faster while talking.

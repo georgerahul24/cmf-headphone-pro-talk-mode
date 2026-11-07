@@ -48,9 +48,9 @@ class Prefs(ctx: Context) {
         get() = p.getInt("idleMinutes", 10)
         set(v) { p.edit().putInt("idleMinutes", v).apply(); changed("idleMinutes") }
 
-    /** EQ: "auto", "movie", "pop", "rock" or "stock". */
+    /** EQ: "auto", "movie", "pop", "rock" or "flat". */
     var eqMode: String
-        get() = p.getString("eqMode", EqMode.AUTO) ?: EqMode.AUTO
+        get() = EqMode.normalize(p.getString("eqMode", EqMode.AUTO) ?: EqMode.AUTO)
         set(v) { p.edit().putString("eqMode", v).apply(); changed("eqMode") }
 
     /** Preset Auto uses for music: "pop" or "rock". */
@@ -87,7 +87,7 @@ class Prefs(ctx: Context) {
             "talk.enabled", "talk.pause", "saver.on", "update.auto" -> e.putBoolean(local, v as? Boolean ?: return false)
             "talk.volume" -> e.putInt(local, ((v as? Number)?.toInt() ?: return false).coerceIn(0, 100))
             "saver.minutes" -> e.putInt(local, ((v as? Number)?.toInt() ?: return false).coerceAtLeast(1))
-            "eq.mode" -> e.putString(local, (v as? String)?.takeIf { it == EqMode.AUTO || it == EqMode.STOCK || Eq.of(it) != null } ?: return false)
+            "eq.mode" -> e.putString(local, (v as? String)?.let { EqMode.normalize(it) }?.takeIf { it == EqMode.AUTO || Eq.of(it) != null } ?: return false)
             "eq.music" -> e.putString(local, (v as? String)?.takeIf { Eq.of(it) != null } ?: return false)
         }
         e.putLong("ts.$local", ts).apply()
