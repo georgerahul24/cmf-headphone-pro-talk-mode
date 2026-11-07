@@ -438,7 +438,7 @@ struct Cards {
 
     var spatialCard: some View {
         Card(title: "Spatial audio") {
-            Seg(options: [(0, "Off"), (2, "Concert"), (3, "Cinema")], selected: talk.spatial, enabled: talk.connected) {
+            Seg(options: [(0, "Off"), (2, "Concert"), (3, "Cinema")], selected: talk.spatial ?? 0, enabled: talk.connected) { // unknown yet: show Off
                 talk.setSpatial($0)
             }
         }

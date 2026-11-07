@@ -560,7 +560,7 @@ private fun SoundTab(ui: UiPrefs, ready: Boolean) {
     Reveal(2) {
         Panel {
             Label("Spatial audio")
-            Segmented(Spatial.MODES, st.spatial, ready) { svc?.setSpatial(it) }
+            Segmented(Spatial.MODES, st.spatial ?: 0, ready) { svc?.setSpatial(it) } // unknown yet: show Off
             Text("Your talk button stays on Spatial Audio. The mode you pick here is kept.",
                 color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
         }
@@ -1404,7 +1404,7 @@ private fun ancShort(m: Int?): String = when (m) {
     else -> Proto.ancName(m)
 }
 
-private fun spatialName(v: Int?): String = Spatial.MODES.firstOrNull { it.first == v }?.second ?: "-"
+private fun spatialName(v: Int?): String = Spatial.MODES.firstOrNull { it.first == (v ?: 0) }?.second ?: "Off"
 
 // ---------- history charts ----------
 
