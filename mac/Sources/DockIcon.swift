@@ -1,7 +1,7 @@
 import AppKit
 
-/// The app icon, drawn live in the Dock: the sound-wave bars bounce while audio plays (faster while
-/// talking) and rest when it's quiet. Same design as AppIcon.icns. Only runs while the window is
+/// The app icon, drawn live in the Dock: the sound-wave bars breathe gently while the window is
+/// open, bounce while this Mac plays audio, and bounce faster while talking. Same design as AppIcon.icns. Only runs while the window is
 /// open, since that's the only time the app is in the Dock.
 final class DockIcon {
     static let shared = DockIcon()
@@ -9,11 +9,10 @@ final class DockIcon {
     private weak var talk: TalkMode?
     private let view = DockIconView(frame: NSRect(x: 0, y: 0, width: 128, height: 128))
     private var phase = 0.0
-    private var level = 0.0 // 0 = resting, 1 = full bounce; eases between the two
+    private var level = 0.0 // 0.25 = gentle breathing, 1 = full bounce; eases between the two
 
     func start(_ talk: TalkMode) {
         self.talk = talk
-        NSApp.dockTile.contentView = view
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 15, repeats: true) { [weak self] _ in self?.tick() }
         timer?.tolerance = 0.02
@@ -28,10 +27,19 @@ final class DockIcon {
 
     private func tick() {
         guard let talk else { return }
-        let target = talk.active || talk.playing ? 1.0 : 0.0
-        if target == 0 && level < 0.01 { if level != 0 { level = 0; redraw() }; return } // still: nothing to do
-        level += (target - level) * 0.15
-        phase += talk.active ? 0.55 : 0.35
+        // The Dock icon appears a moment after the app switches into the Dock, and a view set
+        // before that is dropped. So check every frame and attach it when it's missing.
+        let tile = NSApp.dockTile
+        if tile.contentView !== view {
+            let size = tile.size
+            view.frame = NSRect(origin: .zero, size: size.width > 0 ? size : NSSize(width: 128, height: 128))
+            tile.contentView = view
+        }
+
+        let busy = talk.active || talk.playing
+        let target = busy ? 1.0 : 0.25
+        level += (target - level) * 0.12
+        phase += talk.active ? 0.55 : (busy ? 0.35 : 0.12)
         redraw()
     }
 

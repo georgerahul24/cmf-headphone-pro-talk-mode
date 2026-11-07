@@ -3,6 +3,7 @@ import Charts
 
 @main
 struct TalkModeApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var talk = TalkMode()
 
     init() {
@@ -29,6 +30,14 @@ struct TalkModeApp: App {
             Image(systemName: talk.active ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// Clicking the app in Applications, Launchpad or the Dock while it runs opens the window.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        MainWindowController.shared.show()
+        return true
     }
 }
 

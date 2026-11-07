@@ -11,7 +11,8 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 - **Flat instead of Stock.** Stock was the factory Pop preset, which already adds a lot of bass, so the presets were hard to judge against it. Now there is **Flat** (bass, mid and treble at 0), and every preset is measured from it. Earlier "no difference" results were mostly because Stock already adds a lot of bass.
 - **New app icon** on Android and Mac: a frosted glass panel with a sound wave over soft violet glows. The Mac app now has an icon at all.
 - **Animated logo on Android.** The new icon sits at the top of the Home screen, and its sound wave bounces while audio plays.
-- **Live Dock icon on Mac.** While the app window is open, the sound wave in the Dock icon bounces with your audio, and faster while talking.
+- **Live Dock icon on Mac.** While the app window is open, the sound wave in the Dock icon breathes gently, bounces when the Mac plays audio, and bounces faster while talking.
+- **Mac:** clicking the app in Applications, Launchpad or the Dock while it runs now opens its window.
 
 ## 2.7.2
 
