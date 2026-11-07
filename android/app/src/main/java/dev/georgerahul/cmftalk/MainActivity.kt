@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -328,9 +329,7 @@ private fun HomeTab(ui: UiPrefs, setup: Setup, onTab: (Int) -> Unit) {
     val now = rememberNow()
     Reveal(0) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(Accent), contentAlignment = Alignment.Center) {
-                Glyph(Ico.Talk, Color.White, 20.dp)
-            }
+            LogoMark(40.dp, live = st.playing || st.talkActive, fast = st.talkActive)
             Spacer(Modifier.width(10.dp))
             Text("talk mode", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
@@ -551,6 +550,39 @@ private fun SoundTab(ui: UiPrefs, ready: Boolean) {
 
 @Suppress("FunctionName")
 private fun RoundedRectangle(r: Dp) = RoundedCornerShape(r)
+
+/**
+ * The app icon, drawn live: violet base with soft glows, a frosted glass panel and a five-bar
+ * sound wave that bounces while audio plays (faster while talking). Same design as the launcher icon.
+ */
+@Composable
+private fun LogoMark(size: Dp, live: Boolean, fast: Boolean) {
+    val level by animateFloatAsState(if (live) 1f else 0f, tween(600), label = "logoLevel")
+    val t = rememberInfiniteTransition(label = "logo")
+    val phase by t.animateFloat(0f, (2 * Math.PI).toFloat() * 4, infiniteRepeatable(tween(if (fast) 3600 else 5600, easing = LinearEasing)), label = "logoPhase")
+    Canvas(Modifier.size(size)) {
+        val k = this.size.width / 824f // icon grid: the 824 square of the 1024 design
+        fun p(v: Float) = (v - 100f) * k
+        val r = 185f * k
+        drawRoundRect(Brush.linearGradient(listOf(Color(0xFF2A2347), Color(0xFF0E0D15)), Offset(p(250f), p(100f)), Offset(p(774f), p(924f))),
+            cornerRadius = CornerRadius(r))
+        clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, 0f, this@Canvas.size.width, this@Canvas.size.height, CornerRadius(r))) }) {
+            drawCircle(Brush.radialGradient(listOf(Color(0xBF8B5CF6), Color(0x008B5CF6)), Offset(p(640f), p(330f)), 400f * k), 400f * k, Offset(p(640f), p(330f)))
+            drawCircle(Brush.radialGradient(listOf(Color(0x73EC5C9A), Color(0x00EC5C9A)), Offset(p(360f), p(730f)), 340f * k), 340f * k, Offset(p(360f), p(730f)))
+        }
+        val panelTl = Offset(p(232f), p(302f)); val panelSize = Size(560f * k, 420f * k)
+        drawRoundRect(Brush.linearGradient(listOf(Color(0x38FFFFFF), Color(0x0FFFFFFF)), panelTl, Offset(p(792f), p(722f))),
+            panelTl, panelSize, CornerRadius(132f * k))
+        drawRoundRect(Color(0x59FFFFFF), panelTl, panelSize, CornerRadius(132f * k), style = Stroke(4f * k))
+        val bars = listOf(392f to 96f, 452f to 176f, 512f to 250f, 572f to 176f, 632f to 96f)
+        bars.forEachIndexed { i, (x, h) ->
+            val wave = ((Math.sin(phase + i * 1.3) + Math.sin(phase * 0.7 + i * 2.1)) / 4 + 0.5).toFloat()
+            val sc = 1 - level * 0.55f + level * 0.55f * wave * 1.6f
+            val bh = (h * sc).coerceIn(38f, 380f) * k
+            drawRoundRect(Color(0xF5FFFFFF), Offset(p(x) - 19f * k, p(512f) - bh / 2), Size(38f * k, bh), CornerRadius(19f * k))
+        }
+    }
+}
 
 /** The EQ curve with a soft shadow under it, a 0 dB line and a dot on each band. */
 @Composable
