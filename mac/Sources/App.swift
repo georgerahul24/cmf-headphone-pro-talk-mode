@@ -104,7 +104,7 @@ struct MenuPanel: View {
         .animation(spring, value: talk.active)
         .animation(spring, value: talk.ancMode)
         .animation(spring, value: talk.connected)
-        .animation(spring, value: talk.song)
+        .animation(spring, value: talk.song).animation(spring, value: talk.playing)
     }
 }
 
@@ -256,6 +256,7 @@ struct MainWindow: View {
                 LazyVGrid(columns: grid, spacing: 16) {
                     c.saverCard(now)
                     c.eqSummary
+                    c.hearingCard
                 }
             case .sound:
                 LazyVGrid(columns: grid, spacing: 16) {
@@ -324,6 +325,10 @@ struct Cards {
                 Text(talk.active ? (talk.talkPause ? "Transparency on · music paused" : "Transparency on · music at \(talk.talkVolumePercent)%")
                      : (talk.connected ? talk.ancName : talk.status))
                     .font(.system(size: 11)).opacity(0.85).lineLimit(1)
+                if !talk.active, talk.connected, let left = talk.batteryLeft(now: now) {
+                    Text(talk.charging ? "Charging" : BatteryPredict.text(left.hours) + (left.learned ? " · from your use" : " · estimate"))
+                        .font(.system(size: 10)).opacity(0.7).monospacedDigit()
+                }
             }
             Spacer()
             ZStack {
@@ -628,6 +633,8 @@ struct Cards {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
+            Toggle("Low battery reminder (below 10%)", isOn: $talk.alertBattery)
+            Toggle("Hearing safety reminders", isOn: $talk.alertHearing)
             Toggle("Open at login", isOn: $talk.launchAtLogin)
             Button("Show history file") { NSWorkspace.shared.activateFileViewerSelecting([History.shared.url]) }
                 .buttonStyle(.plain).foregroundStyle(Pal.sub)
@@ -668,10 +675,15 @@ struct Cards {
         Eq(rawValue: talk.eqMode == EqMode.auto ? (talk.eqNow ?? talk.musicEq) : talk.eqMode)
     }
 
+    /// Two rows of three, so the names fit.
     private var eqPicker: some View {
-        Seg(options: EqMode.all.indices.map { (UInt8($0), EqMode.label(EqMode.all[$0])) },
-            selected: EqMode.all.firstIndex(of: talk.eqMode).map { UInt8($0) }, enabled: true) { v in
-            withAnimation(spring) { talk.eqMode = EqMode.all[Int(v)] }
+        VStack(spacing: 6) {
+            ForEach([0, 3], id: \.self) { start in
+                Seg(options: (start..<start + 3).map { (UInt8($0), EqMode.label(EqMode.all[$0])) },
+                    selected: EqMode.all.firstIndex(of: talk.eqMode).map { UInt8($0) }, enabled: true) { v in
+                    withAnimation(spring) { talk.eqMode = EqMode.all[Int(v)] }
+                }
+            }
         }
     }
 
@@ -701,12 +713,13 @@ struct Cards {
             Text(about).font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
             if talk.eqMode == EqMode.auto {
                 Text("Music plays with").font(.system(size: 11)).foregroundStyle(Pal.sub)
-                Seg(options: [(0, "Pop"), (1, "Rock")], selected: talk.musicEq == Eq.rock.rawValue ? 1 : 0, enabled: true) { v in
-                    talk.musicEq = v == 1 ? Eq.rock.rawValue : Eq.pop.rawValue
+                Seg(options: Eq.music.indices.map { (UInt8($0), Eq.music[$0].label) },
+                    selected: Eq.music.firstIndex { $0.rawValue == talk.musicEq }.map { UInt8($0) }, enabled: true) { v in
+                    talk.musicEq = Eq.music[Int(v)].rawValue
                 }
                 Toggle("Pick Pop or Rock by song", isOn: $talk.eqGenre)
                     .toggleStyle(.switch).tint(Pal.purple).controlSize(.small).font(.system(size: 12))
-                Text("Looks up each song's genre on Apple's iTunes Search (only the title and artist are sent). Rock songs get Rock, the rest Pop. Works with Apple Music and Spotify, and with browsers when macOS shares the song.")
+                Text("Looks up each song's genre on Apple's iTunes Search (only the title and artist are sent). Rock songs get Rock, classical music Classical, the rest Pop. Works with Apple Music and Spotify, and with browsers when macOS shares the song.")
                     .font(.system(size: 10)).foregroundStyle(Pal.faint).fixedSize(horizontal: false, vertical: true)
                 nowPlayingCard
                 if let app = talk.eqApp {
@@ -744,13 +757,16 @@ struct Cards {
     /// What's playing: artwork tile with bouncing music bars, song, artist and app, and the genre
     /// that was found and the EQ it picked.
     @ViewBuilder var nowPlayingCard: some View {
-        if let s = talk.song {
+        if talk.playing, let app = talk.eqApp {
+            let s = talk.song
             let eq = Eq(rawValue: talk.eqNow ?? "")
-            let colors: [Color] = eq == .movie ? [Pal.purple, Pal.blue1] : eq == .rock ? [Pal.pink, Color(hex: 0xC0832B)] : [Pal.violet, Pal.pink]
+            let colors: [Color] = eq == .movie ? [Pal.purple, Pal.blue1] : eq == .rock ? [Pal.pink, Color(hex: 0xC0832B)]
+                : eq == .classical ? [Color(hex: 0x2BA88F), Pal.blue1] : [Pal.violet, Pal.pink]
             let line: String = {
                 if talk.songIsVideo { return "Video → Movie EQ" }
                 if talk.eqMode != EqMode.auto { return "EQ: \(EqMode.label(talk.eqMode))" }
                 if !talk.eqGenre { return "Music → \(EqMode.label(talk.musicEq)) EQ" }
+                if s == nil { return "Music → \(EqMode.label(talk.eqNow ?? talk.musicEq)) EQ" }
                 if talk.genreLooking { return "Looking up the genre..." }
                 if let g = talk.genre { return "\(g) → \(EqMode.label(talk.eqNow ?? talk.musicEq)) EQ" }
                 return "Genre unknown → \(EqMode.label(talk.musicEq)) EQ"
@@ -763,8 +779,9 @@ struct Cards {
                 .frame(width: 52, height: 52)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(talk.songIsVideo ? "Now watching" : "Now playing").font(.system(size: 10)).foregroundStyle(Pal.sub)
-                    Text(s.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    Text([s.artist, talk.eqApp ?? ""].filter { !$0.isEmpty }.joined(separator: " · "))
+                    Text(s?.title ?? "Playing in \(app)").font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    Text(s.map { [$0.artist, app].filter { !$0.isEmpty }.joined(separator: " · ") }
+                         ?? "macOS doesn't share song names from \(app)")
                         .font(.system(size: 11)).foregroundStyle(Pal.sub).lineLimit(1)
                     Text(line).font(.system(size: 10, weight: .medium)).foregroundStyle(.white)
                         .padding(.horizontal, 8).padding(.vertical, 2)
@@ -778,6 +795,32 @@ struct Cards {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 18).fill(Pal.card))
             .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    /// This week's listening against the WHO safe amount, for both devices. Estimated from volume.
+    var hearingCard: some View {
+        let dose = talk.allDose
+        let t = Hearing.shared.today()
+        let color: Color = dose >= 1 ? Pal.pink : dose >= 0.6 ? Color(hex: 0xC0832B) : Pal.teal
+        return Card(title: "Hearing") {
+            HStack(spacing: 14) {
+                ZStack {
+                    Ring(p: min(1, dose), colors: [color, color], track: Pal.card2, line: 6)
+                    Text("\(Int(dose * 100))%").font(.system(size: 13, weight: .semibold)).monospacedDigit()
+                }
+                .frame(width: 58, height: 58)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(dose >= 1 ? "Give your ears a rest" : dose >= 0.6 ? "Getting close" : "Safe so far")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("of this week's safe listening (WHO: 80 dB for 40 h a week)")
+                        .font(.system(size: 10)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
+                    Text(t.secs > 0 ? "Today \(dur(t.secs)) at about \(Int(t.db)) dB" : "Nothing played today")
+                        .font(.system(size: 10)).foregroundStyle(Pal.sub).monospacedDigit()
+                    Text("Estimated from your volume, not measured.").font(.system(size: 9)).foregroundStyle(Pal.faint)
+                }
+                Spacer(minLength: 0)
+            }
         }
     }
 

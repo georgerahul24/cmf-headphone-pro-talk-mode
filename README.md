@@ -24,6 +24,9 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Noise control and Spatial Audio.** Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive. Spatial Audio Off, Concert or Cinema. For everyday controls you don't need Nothing X.
 
 **Battery and history**
+- **Battery time left.** Learned from how fast your battery drops, like "About 29 h left".
+- **Low battery reminder** below 10%.
+- **Hearing safety.** A weekly sound dose ring following the WHO guideline (80 dB for 40 hours a week), with reminders after loud listening. Estimated from your volume.
 - **Battery saver for noise cancelling.** If nothing plays for 10 minutes (pick 5 to 60), noise control turns Off so ANC stops draining the battery. Your old mode comes back when audio starts. A live countdown shows when it kicks in.
 - **Headphone history.** Time worn per day, a 24 hour strip of when you used Noise Cancelling, Transparency or Off, and a battery chart. Kept forever on your device. Export it as CSV (Android) or open the log file (Mac).
 - **Usage stats.** Times you talked, time talking, how often the battery saver turned ANC off and how long it rested.
@@ -44,6 +47,7 @@ The Nothing X app only shows bass, mid and treble, but the CMF Headphone Pro app
 |---|---|---|
 | **Movie** | Energy Slider at full bass | Big rumble and boom for fights and explosions. Dialogue, faint sounds and details like clinking glass stay clear. |
 | **Pop** | Energy Slider at zero | Big bass like the factory Pop, vocals clearly in front and smooth. Tuned for English, Hindi and Malayalam songs. |
+| **Classical** | Energy Slider at zero | Natural and open: clean low strings, clear soloists, soft violins, the air of the hall. |
 | **Rock** | Energy Slider at zero | Weighty kick and bass guitar, less mud, vocals that cut through, smoother cymbals. |
 | **Flat** (all 0) | Anything | No EQ. The neutral starting point every preset is measured from. |
 

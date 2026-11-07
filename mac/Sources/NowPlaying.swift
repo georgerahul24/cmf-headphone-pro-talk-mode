@@ -47,11 +47,12 @@ enum NowPlayingInfo {
 }
 
 /// Song genre for Auto EQ: looks the song up on Apple's iTunes Search (free, no account; only the
-/// title and artist are sent). Rock-type genres get Rock, everything else Pop. Same as Android.
+/// title and artist are sent). Rock-type genres get Rock, classical music Classical, everything else Pop.
 enum GenreLookup {
     private static var cache: [String: String] = [:]   // "" = not found
     private static var pending: Set<String> = []
     private static let rock = ["rock", "metal", "punk", "alternative", "grunge", "emo", "hardcore"]
+    private static let classical = ["classical", "opera", "orchestral", "baroque", "choral", "chamber"]
 
     static func key(_ s: NowPlayingInfo.Song) -> String { "\(s.artist.lowercased())|\(s.title.lowercased())" }
 
@@ -60,7 +61,9 @@ enum GenreLookup {
 
     static func preset(for genre: String, fallback: String) -> String {
         if genre.isEmpty { return fallback }
-        return rock.contains { genre.lowercased().contains($0) } ? Eq.rock.rawValue : Eq.pop.rawValue
+        let g = genre.lowercased()
+        if classical.contains(where: { g.contains($0) }) { return Eq.classical.rawValue }
+        return rock.contains { g.contains($0) } ? Eq.rock.rawValue : Eq.pop.rawValue
     }
 
     private static func clean(_ s: String) -> String {

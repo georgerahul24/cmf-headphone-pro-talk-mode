@@ -8,10 +8,12 @@ struct Band { let type: UInt8; let gain: Float; let freq: Float; let q: Float }
 ///
 /// Same values as the Android app.
 enum Eq: String, CaseIterable {
-    case movie, pop, rock, flat
+    case movie, pop, rock, classical, flat
 
     /// The presets with a character (everything but Flat).
-    static let presets: [Eq] = [.movie, .pop, .rock]
+    static let presets: [Eq] = [.movie, .pop, .rock, .classical]
+    /// What Auto can use for music.
+    static let music: [Eq] = [.pop, .rock, .classical]
 
     var label: String { rawValue.capitalized }
 
@@ -19,6 +21,7 @@ enum Eq: String, CaseIterable {
         switch self {
         case .movie: return "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear."
         case .pop: return "Big, full bass with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs."
+        case .classical: return "Natural and open: clean low strings, clear soloists, soft violins and the air of the hall."
         case .flat: return "No EQ: bass, mid and treble all at 0. Every preset is measured from here."
         case .rock: return "Punchy kick and bass guitar, crunchy guitars, vocals that cut through, and bright cymbals."
         }
@@ -67,6 +70,16 @@ enum Eq: String, CaseIterable {
             Band(type: 1, gain: -3, freq: 8000, q: 3),  // cymbal harshness
             Band(type: 2, gain: 3, freq: 10000, q: 0.7),  // cymbal sparkle and air
         ]
+        case .classical: return [
+            Band(type: 0, gain: -1, freq: 105, q: 0.7),     // a touch less bass, so cellos and basses sound true
+            Band(type: 1, gain: 1, freq: 40, q: 1),         // keeps the depth of organs and timpani
+            Band(type: 1, gain: -2, freq: 250, q: 1),       // clears the muddy low-mid boom of large halls
+            Band(type: 1, gain: 1, freq: 700, q: 1),        // body and wood of the instruments
+            Band(type: 1, gain: 1.5, freq: 2500, q: 1.2),   // presence of soloists and voices
+            Band(type: 1, gain: 3, freq: 4000, q: 2),       // detail; fills the 4 kHz dip
+            Band(type: 1, gain: -3.5, freq: 8000, q: 3),    // softens harsh violins and sopranos
+            Band(type: 2, gain: 2, freq: 12000, q: 0.7),    // the air and space of the hall
+        ]
         // No EQ: Nothing's 3 bands (mid 980 Hz, treble 3.5 kHz, bass 140 Hz) all at 0.
         case .flat: return [
             Band(type: 1, gain: 0, freq: 980, q: 0.7), Band(type: 2, gain: 0, freq: 3500, q: 1), Band(type: 0, gain: 0, freq: 140, q: 0.8),
@@ -86,7 +99,7 @@ enum Eq: String, CaseIterable {
 /// EQ choices in the menu: Auto or one of the `Eq` presets.
 enum EqMode {
     static let auto = "auto"
-    static let all = [auto, Eq.movie.rawValue, Eq.pop.rawValue, Eq.rock.rawValue, Eq.flat.rawValue]
+    static let all = [auto, Eq.movie.rawValue, Eq.pop.rawValue, Eq.rock.rawValue, Eq.classical.rawValue, Eq.flat.rawValue]
     /// Older versions had "stock" (the factory Pop preset); it is Flat now.
     static func normalize(_ id: String) -> String { id == "stock" ? Eq.flat.rawValue : id }
     static func label(_ id: String) -> String {

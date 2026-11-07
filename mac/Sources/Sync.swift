@@ -25,7 +25,7 @@ final class Sync: ObservableObject {
 
     /// The settings that sync, by their shared names.
     static let keys = ["talk.enabled", "talk.volume", "talk.pause", "saver.on", "saver.minutes",
-                       "eq.mode", "eq.music", "eq.genre", "update.auto"]
+                       "eq.mode", "eq.music", "eq.genre", "update.auto", "alert.battery", "alert.hearing"]
 
     private let d = UserDefaults.standard
     let deviceId: String
@@ -45,6 +45,8 @@ final class Sync: ObservableObject {
     @Published private(set) var statsDirty: Bool
     /// The phone's own counters, from its last sync.
     @Published private(set) var peerStats: UsageStats?
+    /// The phone's hearing dose this week, from its last sync.
+    @Published private(set) var peerDose: Double
 
     /// Hooks into the app, set by TalkMode.
     var settingValue: (String) -> Any? = { _ in nil }
@@ -74,6 +76,7 @@ final class Sync: ObservableObject {
         peerName = d.string(forKey: "sync.peerName")
         if let s = d.data(forKey: "sync.secret") { secret = SymmetricKey(data: s) }
         peerHas = d.integer(forKey: "sync.peerHas")
+        peerDose = d.double(forKey: "sync.peerDose")
         dirtySettings = Set(d.stringArray(forKey: "sync.dirty") ?? [])
         statsDirty = d.bool(forKey: "sync.statsDirty")
         if let ms = d.object(forKey: "sync.lastSync") as? Double { lastSync = Date(timeIntervalSince1970: ms / 1000) }
@@ -330,7 +333,7 @@ final class Sync: ObservableObject {
         let s = ownStats()
         return ["talkCount": s.talkCount, "talkMs": Int64(s.talkSeconds * 1000), "idleOffCount": s.idleOffCount,
                 "idleOffMs": Int64(s.idleOffSeconds * 1000), "restoreCount": s.restoreCount,
-                "since": Int64(s.since.timeIntervalSince1970 * 1000)]
+                "since": Int64(s.since.timeIntervalSince1970 * 1000), "dose7": Hearing.shared.week()]
     }
 
     private var resetAt: Double { d.double(forKey: "sync.statsReset") }
@@ -400,6 +403,8 @@ final class Sync: ObservableObject {
         u.restoreCount = Int(n("restoreCount"))
         u.since = Date(timeIntervalSince1970: n("since") / 1000)
         peerStats = u
+        peerDose = n("dose7")
+        d.set(peerDose, forKey: "sync.peerDose")
         if let data = try? JSONEncoder().encode(u) { d.set(data, forKey: "sync.peerStats") }
     }
 }

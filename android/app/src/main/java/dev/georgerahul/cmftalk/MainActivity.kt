@@ -119,12 +119,15 @@ private class UiPrefs(val p: Prefs) {
     var musicEq by mutableStateOf(p.musicEq)
     var autoUpdate by mutableStateOf(p.autoUpdate)
     var eqGenre by mutableStateOf(p.eqGenre)
+    var alertBattery by mutableStateOf(p.alertBattery)
+    var alertHearing by mutableStateOf(p.alertHearing)
 
     /** Settings came from the Mac: show them. */
     fun reload() {
         talkEnabled = p.enabled; talkVolume = p.talkVolume; talkPause = p.talkPause
         idleOff = p.idleOff; idleMinutes = p.idleMinutes
         eqMode = p.eqMode; musicEq = p.musicEq; autoUpdate = p.autoUpdate; eqGenre = p.eqGenre
+        alertBattery = p.alertBattery; alertHearing = p.alertHearing
     }
 }
 
@@ -365,6 +368,8 @@ private fun HomeTab(ui: UiPrefs, setup: Setup, onTab: (Int) -> Unit) {
     }
     Reveal(5) { Label("Battery saver") }
     Reveal(6) { SaverCard(ui, now) }
+    Reveal(7) { Label("Hearing") }
+    Reveal(8) { HearingCard() }
 }
 
 @Composable
@@ -431,6 +436,17 @@ private fun HeroCard(ui: UiPrefs, now: Long) {
                     if (talk) (if (ui.talkPause) "Transparency on · music paused" else "Transparency on · music at ${ui.talkVolume}%") else if (st.connected) Proto.ancName(st.anc) else "Not connected",
                     color = Color.White.copy(alpha = 0.82f), fontSize = 13.sp,
                 )
+                val b = st.battery
+                if (!talk && st.connected && b != null) {
+                    val left = remember(b, st.anc, now / 600_000) {
+                        BatteryPredict.hoursLeft(b, st.anc, History.loadAll(), System.currentTimeMillis())
+                    }
+                    Text(
+                        if (st.charging) "Charging" else BatteryPredict.text(left.first).replaceFirstChar { it.uppercase() } +
+                            if (left.second) " · from your use" else " · estimate",
+                        color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, style = tnum(),
+                    )
+                }
             }
             Box(Modifier.size(86.dp), contentAlignment = Alignment.Center) {
                 Ring(
@@ -590,6 +606,38 @@ private fun LogoMark(size: Dp, live: Boolean, fast: Boolean) {
 }
 
 /**
+ * This week's listening against the WHO safe amount (80 dB for 40 hours a week), for both
+ * devices. Estimated from the volume, since the headphones can't measure loudness.
+ */
+@Composable
+private fun HearingCard() {
+    Hearing.version
+    val dose = Stats.allDose
+    val (secs, db) = Hearing.today()
+    val pct = (dose * 100).toInt()
+    val color = when { dose >= 1.0 -> C.Pink; dose >= 0.6 -> Color(0xFFC0832B); else -> C.Teal }
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(C.Card).padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(78.dp), contentAlignment = Alignment.Center) {
+            Ring(dose.coerceAtMost(1.0).toFloat(), Modifier.fillMaxSize(), 8.dp, C.Card2, Brush.sweepGradient(listOf(color, color)))
+            Text("$pct%", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, style = tnum())
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(when { dose >= 1.0 -> "Give your ears a rest"; dose >= 0.6 -> "Getting close"; else -> "Safe so far" },
+                fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Text("of this week's safe listening (WHO: 80 dB for 40 h a week)", color = C.Sub, fontSize = 12.sp, lineHeight = 16.sp)
+            Spacer(Modifier.height(6.dp))
+            Text(if (secs > 0) "Today ${dur((secs * 1000).toLong())} at about ${db.toInt()} dB" else "Nothing played today",
+                color = C.Sub, fontSize = 12.sp, style = tnum())
+            Text("Estimated from your volume, not measured.", color = C.Faint, fontSize = 11.sp)
+        }
+    }
+}
+
+/**
  * What's playing: an artwork tile with bouncing music bars, the song, the artist and app, and
  * which genre was found and which EQ it picked.
  */
@@ -601,6 +649,7 @@ private fun NowPlayingCard(ui: UiPrefs) {
     val colors = when (eq) {
         Eq.MOVIE -> listOf(Color(0xFF8B5CF6), Color(0xFF3B6FF5))
         Eq.ROCK -> listOf(Color(0xFFEC5C9A), Color(0xFFC0832B))
+        Eq.CLASSICAL -> listOf(Color(0xFF2BA88F), Color(0xFF3B6FF5))
         else -> listOf(Color(0xFFB46CF7), Color(0xFFEC5C9A))
     }
     val level by animateFloatAsState(if (st.playing) 1f else 0f, tween(500), label = "npLevel")
@@ -713,7 +762,7 @@ private fun EqBandList(eq: Eq) {
     }
 }
 
-private val EqModes = listOf(EqMode.AUTO, Eq.MOVIE.id, Eq.POP.id, Eq.ROCK.id, Eq.FLAT.id)
+private val EqModes = listOf(EqMode.AUTO, Eq.MOVIE.id, Eq.POP.id, Eq.ROCK.id, Eq.CLASSICAL.id, Eq.FLAT.id)
 
 /** "Auto (Movie)" in Auto mode, else the preset name. */
 private fun eqTitle(ui: UiPrefs, now: String?): String =
@@ -732,7 +781,8 @@ private fun EqCard(ui: UiPrefs) {
                 (fadeIn(tween(250)) + slideInVertically { it / 2 }).togetherWith(fadeOut(tween(120)))
             }, label = "eqNow") { Text(it, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
         }
-        Segmented(EqModes.mapIndexed { i, id -> i to EqMode.label(id) }, EqModes.indexOf(ui.eqMode), true) {
+        // Two rows of three, so the names fit on a phone.
+        for (row in EqModes.chunked(3)) Segmented(row.map { EqModes.indexOf(it) to EqMode.label(it) }, EqModes.indexOf(ui.eqMode), true) {
             ui.eqMode = EqModes[it]; ui.p.eqMode = EqModes[it]; svc?.eqSettingChanged()
         }
         // The preset in use (Auto shows what it picked).
@@ -772,12 +822,13 @@ private fun EqCard(ui: UiPrefs) {
                 Text(about, color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
                 if (mode == EqMode.AUTO) {
                     Text("Music plays with", color = C.Sub, fontSize = 13.sp)
-                    Segmented(listOf(0 to "Pop", 1 to "Rock"), if (ui.musicEq == Eq.ROCK.id) 1 else 0, true) {
-                        val id = if (it == 1) Eq.ROCK.id else Eq.POP.id
+                    val music = listOf(Eq.POP, Eq.ROCK, Eq.CLASSICAL)
+                    Segmented(music.mapIndexed { i, e -> i to e.label }, music.indexOfFirst { it.id == ui.musicEq }, true) {
+                        val id = music[it].id
                         ui.musicEq = id; ui.p.musicEq = id; svc?.eqSettingChanged()
                     }
                     SwitchRow("Pick Pop or Rock by song",
-                        "Looks up each song's genre on Apple's iTunes Search (only the title and artist are sent). Rock songs get Rock, the rest Pop. Above is used when the genre is unknown.",
+                        "Looks up each song's genre on Apple's iTunes Search (only the title and artist are sent). Rock songs get Rock, classical music gets Classical, the rest Pop. Above is used when the genre is unknown.",
                         ui.eqGenre) { ui.eqGenre = it; ui.p.eqGenre = it; svc?.eqSettingChanged() }
                     if (st.songTitle != null) NowPlayingCard(ui)
                     st.eqApp?.let { Text("Last playing: $it", color = C.Faint, fontSize = 12.sp) }
@@ -978,6 +1029,18 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
                         .putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     ctx.startActivity(Intent.createChooser(send, "Export history"))
                 }
+            }
+        }
+    }
+    Reveal(5) {
+        Panel {
+            Label("Reminders")
+            SwitchRow("Low battery", "A notification when the headphones drop below 10%. Syncs with the Mac.", ui.alertBattery) {
+                ui.alertBattery = it; ui.p.alertBattery = it
+            }
+            HorizontalDivider(color = C.Card2)
+            SwitchRow("Hearing safety", "A notice after 30 minutes of loud listening, and when you pass this week's safe amount.", ui.alertHearing) {
+                ui.alertHearing = it; ui.p.alertHearing = it
             }
         }
     }

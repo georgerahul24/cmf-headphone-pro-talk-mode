@@ -29,6 +29,8 @@ object Stats {
     val allIdleOffCount get() = idleOffCount + (peer?.optInt("idleOffCount") ?: 0)
     val allIdleOffMs get() = idleOffMs + (peer?.optLong("idleOffMs") ?: 0)
     val allRestoreCount get() = restoreCount + (peer?.optInt("restoreCount") ?: 0)
+    /** This week's hearing dose from both devices (1.0 = the whole safe amount). */
+    val allDose get() = Hearing.week() + (peer?.optDouble("dose7", 0.0) ?: 0.0)
     val allSince get() = peer?.optLong("since")?.takeIf { it > 0 }?.let { minOf(it, since) } ?: since
 
     fun init(ctx: Context) {
@@ -50,6 +52,7 @@ object Stats {
     fun snapshot(): org.json.JSONObject = org.json.JSONObject()
         .put("talkCount", talkCount).put("talkMs", talkMs).put("idleOffCount", idleOffCount)
         .put("idleOffMs", idleOffMs).put("restoreCount", restoreCount).put("since", since)
+        .put("dose7", Hearing.week())
 
     /** The Mac's counters arrived. */
     fun updatePeer(j: org.json.JSONObject?) {

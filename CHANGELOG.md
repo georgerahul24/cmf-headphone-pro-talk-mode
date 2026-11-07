@@ -2,6 +2,15 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.10.0
+
+- **Battery time left.** Learned from your own history (how fast the battery drops while connected over the last week), shown like "About 29 h left · from your use". Uses CMF's figures (about 50 h with noise control on, 100 h off) until there's enough history.
+- **Low battery reminder.** One notification when the headphones drop below 10%, again only after they've charged.
+- **Hearing safety.** A weekly "sound dose" ring following the WHO guideline (80 dB for 40 hours a week; every 3 dB louder halves the safe time), with today's listening time and level. Phone and Mac add up through sync. A notice after 30 minutes of loud listening and when you pass the week's safe amount. Loudness is estimated from the volume, since the headphones can't measure it.
+- **Classical preset.** Natural and open: clean low strings, clear soloists, soft violins and the air of the hall. Auto picks it when the genre lookup finds classical, opera or orchestral music.
+- **Now playing on Mac shows up for browsers too.** macOS doesn't share song names from browsers like Zen, so the card says "Playing in Zen" with the EQ it picked.
+- Both reminders have switches and sync between devices.
+
 ## 2.9.0
 
 - **EQ by song genre.** In Auto, each song is looked up on Apple's iTunes Search (only the title and artist are sent). Rock-type songs get Rock, everything else (Bollywood, Regional Indian, Pop, R&B...) gets Pop. Videos still get Movie. On by default, with a switch to turn it off; the setting syncs.

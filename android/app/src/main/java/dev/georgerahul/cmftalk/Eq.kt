@@ -52,6 +52,18 @@ enum class Eq(val id: String, val label: String, val about: String, val preamp: 
             Band(1, -3f, 8000f, 3f), // cymbal harshness
             Band(2, 3f, 10000f, 0.7f), // cymbal sparkle and air
         )),
+    CLASSICAL("classical", "Classical",
+        "Natural and open: clean low strings, clear soloists, soft violins and the air of the hall.",
+        0f, listOf(
+            Band(0, -1f, 105f, 0.7f),    // a touch less bass, so cellos and basses sound true
+            Band(1, 1f, 40f, 1f),        // keeps the depth of organs and timpani
+            Band(1, -2f, 250f, 1f),      // clears the muddy low-mid boom of large halls
+            Band(1, 1f, 700f, 1f),       // body and wood of the instruments
+            Band(1, 1.5f, 2500f, 1.2f),  // presence of soloists and voices
+            Band(1, 3f, 4000f, 2f),      // detail; fills the 4 kHz dip
+            Band(1, -3.5f, 8000f, 3f),   // softens harsh violins and sopranos
+            Band(2, 2f, 12000f, 0.7f),   // the air and space of the hall
+        )),
     FLAT("flat", "Flat",
         "No EQ: bass, mid and treble all at 0. Every preset is measured from here.",
         0f, threeBand(bass = 0f, mid = 0f, treble = 0f));

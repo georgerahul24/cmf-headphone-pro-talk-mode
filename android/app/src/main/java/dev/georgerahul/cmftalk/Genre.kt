@@ -11,12 +11,13 @@ import java.util.Locale
 
 /**
  * Song genre for Auto EQ: looks the song up on Apple's iTunes Search (free, no account; only the
- * title and artist are sent). Rock-type genres get the Rock preset, everything else Pop
+ * title and artist are sent). Rock-type genres get Rock, classical music gets Classical, everything else Pop
  * (Bollywood, Regional Indian, Pop, R&B, Hip-Hop...). Results are kept in memory.
  */
 object Genre {
     private val main = Handler(Looper.getMainLooper())
     private val rock = listOf("rock", "metal", "punk", "alternative", "grunge", "emo", "hardcore")
+    private val classical = listOf("classical", "opera", "orchestral", "baroque", "choral", "chamber")
 
     /** Song key -> genre ("" = not found). */
     private val cache = object : LinkedHashMap<String, String>(64, 0.75f, true) {
@@ -32,6 +33,7 @@ object Genre {
     /** Rock or Pop for a genre; [fallback] when the genre is unknown. */
     fun presetFor(genre: String, fallback: String): String = when {
         genre.isEmpty() -> fallback
+        classical.any { genre.lowercase().contains(it) } -> Eq.CLASSICAL.id
         rock.any { genre.lowercase().contains(it) } -> Eq.ROCK.id
         else -> Eq.POP.id
     }

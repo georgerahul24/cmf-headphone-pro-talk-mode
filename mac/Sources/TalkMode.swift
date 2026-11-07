@@ -42,6 +42,12 @@ final class TalkMode: ObservableObject {
     @Published private(set) var genre: String?
     @Published private(set) var genreLooking = false
     private var lastSongCheck = Date.distantPast
+    /// Notify when the headphone battery drops below 10%.
+    @Published var alertBattery: Bool { didSet { UserDefaults.standard.set(alertBattery, forKey: "alertBattery"); synced("alert.battery") } }
+    /// Notify about loud listening and the weekly safe amount.
+    @Published var alertHearing: Bool { didSet { UserDefaults.standard.set(alertHearing, forKey: "alertHearing"); synced("alert.hearing") } }
+    private var lowWarned = false
+    private var lastHearTick: Date?
     /// Check GitHub for new versions and install them.
     @Published var autoUpdate: Bool { didSet { UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate"); synced("update.auto") } }
     /// EQ preset on the headphones now (an `Eq` raw value), and the app Auto saw playing.
@@ -119,12 +125,15 @@ final class TalkMode: ObservableObject {
         musicEq = d.string(forKey: "musicEq") ?? Eq.pop.rawValue
         autoUpdate = d.object(forKey: "autoUpdate") as? Bool ?? true
         eqGenre = d.object(forKey: "eqGenre") as? Bool ?? true
+        alertBattery = d.object(forKey: "alertBattery") as? Bool ?? true
+        alertHearing = d.object(forKey: "alertHearing") as? Bool ?? true
         stats = (d.data(forKey: "stats")).flatMap { try? JSONDecoder().decode(UsageStats.self, from: $0) } ?? UsageStats()
         headset.onState = { [weak self] s in DispatchQueue.main.async { self?.stateChanged(s) } }
         headset.onFrame = { [weak self] f in DispatchQueue.main.async { self?.handle(f) } }
         headset.start()
         MainWindowController.shared.talk = self
         hookSync()
+        Notify.ask()
         DistributedNotificationCenter.default().addObserver(forName: Self.showWindow, object: nil, queue: .main) { _ in
             MainWindowController.shared.show()
         }
@@ -200,6 +209,8 @@ final class TalkMode: ObservableObject {
             case "eq.mode": return eqMode
             case "eq.music": return musicEq
             case "eq.genre": return eqGenre
+            case "alert.battery": return alertBattery
+            case "alert.hearing": return alertHearing
             case "update.auto": return autoUpdate
             default: return nil
             }
@@ -217,6 +228,8 @@ final class TalkMode: ObservableObject {
             case "eq.mode": if let str, EqMode.all.contains(EqMode.normalize(str)) { eqMode = EqMode.normalize(str) }
             case "eq.music": if let str, Eq(rawValue: str) != nil { musicEq = str }
             case "eq.genre": if let b { eqGenre = b }
+            case "alert.battery": if let b { alertBattery = b }
+            case "alert.hearing": if let b { alertHearing = b }
             case "update.auto": if let b { autoUpdate = b }
             default: break
             }
@@ -259,6 +272,7 @@ final class TalkMode: ObservableObject {
             if f.payload.count >= 3 {
                 battery = Int(f.payload[2] & 0x7F)
                 charging = f.payload[2] & 0x80 != 0
+                checkLowBattery()
             }
         case Proto.spatialNotify:
             if let v = f.payload.first { spatialReport(v, seq: f.seq) }
@@ -385,6 +399,43 @@ final class TalkMode: ObservableObject {
         eqMode == EqMode.auto ? "Auto (\(EqMode.label(eqNow ?? musicEq)))" : EqMode.label(eqMode)
     }
 
+    // MARK: reminders
+
+    /// One reminder when the battery drops below 10%; again only after it charged back up.
+    private func checkLowBattery() {
+        guard let b = battery else { return }
+        if charging || b >= 20 { lowWarned = false; return }
+        if b < 10, !lowWarned, alertBattery {
+            lowWarned = true
+            Notify.show("battery", "Headphone battery at \(b)%", "Time to charge your CMF Headphone Pro.")
+        }
+    }
+
+    /// Adds listening time to the hearing dose while this Mac plays through the headphones.
+    private func hearingTick() {
+        let now = Date()
+        defer { lastHearTick = playing && connected ? now : nil }
+        guard playing, connected, let last = lastHearTick else { return }
+        let dt = min(5, now.timeIntervalSince(last))
+        if let msg = Hearing.shared.add(volume: Double(SystemVolume.get() ?? 0), seconds: dt, now: now), alertHearing {
+            Notify.show("hearing", "Hearing safety", msg)
+        }
+    }
+
+    /// This week's hearing dose from both devices (1.0 = the whole safe amount).
+    var allDose: Double { Hearing.shared.week() + Sync.shared.peerDose }
+
+    /// Battery time left, from your own use when there's enough history.
+    func batteryLeft(now: Date) -> (hours: Double, learned: Bool)? {
+        guard let b = battery else { return nil }
+        let minute = Int(now.timeIntervalSince1970 / 600)
+        if let c = predictCache, c.minute == minute, c.level == b, c.anc == ancMode { return c.value }
+        let v = BatteryPredict.hoursLeft(level: b, anc: ancMode, sources: History.shared.loadAll())
+        predictCache = (minute, b, ancMode, v)
+        return v
+    }
+    private var predictCache: (minute: Int, level: Int, anc: UInt8?, value: (hours: Double, learned: Bool))?
+
     // MARK: battery saver
 
     /// When noise control will be turned off, if the countdown is running.
@@ -397,6 +448,7 @@ final class TalkMode: ObservableObject {
     private func checkIdle() {
         let p = SystemVolume.isPlaying()
         if p != playing { playing = p }
+        hearingTick()
         if p {
             quietSince = nil
             restoreFromIdle()

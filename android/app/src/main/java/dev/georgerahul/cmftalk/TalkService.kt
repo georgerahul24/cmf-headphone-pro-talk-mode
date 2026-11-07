@@ -121,6 +121,7 @@ class TalkService : Service() {
         prefs = Prefs(this)
         Stats.init(this)
         History.init(this)
+        Hearing.init(this)
         Sync.init(this)
         Sync.onSettingsApplied = {
             idleSettingChanged()
@@ -367,6 +368,7 @@ class TalkService : Service() {
                 st.battery = f.payload[2] and 0x7F
                 st.charging = f.payload[2] and 0x80 != 0
                 History.log(History.BATTERY, st.battery!!)
+                checkLowBattery()
                 refreshNotification()
             }
             Proto.SPATIAL_NOTIFY -> f.payload.firstOrNull()?.let { spatialReport(it, f.seq) }
@@ -558,8 +560,45 @@ class TalkService : Service() {
 
     private val idleMs get() = prefs.idleMinutes * 60_000L
 
+    // ---- alerts (main thread) ----
+
+    private var lowWarned = false
+    private var lastHearTick = 0L
+
+    /** One reminder when the battery drops below 10%; again only after it charged back up. */
+    private fun checkLowBattery() {
+        val b = st.battery ?: return
+        if (st.charging || b >= 20) { lowWarned = false; return }
+        if (b < 10 && !lowWarned && prefs.alertBattery) {
+            lowWarned = true
+            alert(4, "Headphone battery at $b%", "Time to charge your CMF Headphone Pro.")
+        }
+    }
+
+    /** Adds listening time to the hearing dose while audio plays through the headphones. */
+    private fun hearingTick(playing: Boolean) {
+        val now = System.currentTimeMillis()
+        val dt = if (lastHearTick == 0L) 0L else (now - lastHearTick).coerceAtMost(15_000)
+        lastHearTick = if (playing && st.connected) now else 0L
+        if (!playing || !st.connected || dt <= 0) return
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        val vol = audio.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble() / max
+        val msg = Hearing.add(vol, dt / 1000.0, now)
+        if (msg != null && prefs.alertHearing) alert(5, "Hearing safety", msg)
+    }
+
+    private fun alert(id: Int, title: String, text: String) {
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel("alerts", "Reminders", NotificationManager.IMPORTANCE_DEFAULT))
+        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        nm.notify(id, Notification.Builder(this, "alerts").setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title).setContentText(text).setStyle(Notification.BigTextStyle().bigText(text))
+            .setContentIntent(open).setAutoCancel(true).build())
+    }
+
     private fun activityChanged() {
         val playing = isPlaying()
+        hearingTick(playing)
         st.playing = playing
         if (playing) {
             // Keep checking while playing, in case a stop is missed. The phone is awake anyway.
