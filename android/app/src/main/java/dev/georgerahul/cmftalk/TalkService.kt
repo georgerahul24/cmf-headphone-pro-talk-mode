@@ -249,7 +249,7 @@ class TalkService : Service() {
                 cancelIdle()
                 activityChanged() // start the idle timer
             } else {
-                if (st.connected) History.log(History.CONNECTED, 0)
+                if (st.connected) { History.log(History.CONNECTED, 0); Hearing.flush() }
                 clearIdle()
                 st.clear()
                 cancelIdle()
@@ -586,6 +586,7 @@ class TalkService : Service() {
     private fun activityChanged() {
         val playing = isPlaying()
         hearingTick(playing)
+        if (!playing && st.playing) Hearing.flush() // audio stopped: save the listening time
         st.playing = playing
         if (playing) {
             // Keep checking while playing, in case a stop is missed. The phone is awake anyway.

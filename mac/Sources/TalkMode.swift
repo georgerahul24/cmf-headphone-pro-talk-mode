@@ -249,7 +249,7 @@ final class TalkMode: ObservableObject {
         status = s
         let now = s == "Connected"
         if now && !connected { spatialChosen = nil; timerStart = Date(); History.shared.log("C", 1) }
-        if !now && connected { History.shared.log("C", 0) }
+        if !now && connected { History.shared.log("C", 0); Hearing.shared.flush() }
         let fresh = now && !connected
         if !now {
             clearIdle(restored: false)
@@ -439,6 +439,7 @@ final class TalkMode: ObservableObject {
     private func checkIdle() {
         let p = SystemVolume.isPlaying()
         let started = p && !playing
+        if !p && playing { Hearing.shared.flush() } // audio stopped: save the listening time
         if p != playing { playing = p }
         hearingTick()
         if p {

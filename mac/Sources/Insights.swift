@@ -94,7 +94,8 @@ final class Hearing {
     private let fmt: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyyMMdd"; f.locale = Locale(identifier: "en_US_POSIX"); return f }()
     private var loudSince: Date?
     private var lastLoudAlert = Date.distantPast
-    /// Not yet saved: written once a minute instead of on every tick, to save energy.
+    /// Not yet saved. Written when something happens (audio stops, headphones disconnect, the day
+    /// changes, the app quits) and at least every 15 minutes of listening, instead of on every tick.
     private var pending: [String: Double] = [:]
     private var pendingDay = ""
 
@@ -116,7 +117,7 @@ final class Hearing {
         pending["dose", default: 0] += seconds * pow(2, (level - 80) / 3) / (40 * 3600)
         pending["secs", default: 0] += seconds
         pending["dbs", default: 0] += level * seconds
-        if pending["secs", default: 0] >= 60 { flush() }
+        if pending["secs", default: 0] >= 15 * 60 { flush() }
         if level >= 85 { if loudSince == nil { loudSince = now } } else { loudSince = nil }
         if let s = loudSince, now.timeIntervalSince(s) > 1800, now.timeIntervalSince(lastLoudAlert) > 3600 {
             lastLoudAlert = now

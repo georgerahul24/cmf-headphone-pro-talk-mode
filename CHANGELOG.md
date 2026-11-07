@@ -6,8 +6,9 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 
 - **Much lighter on battery.**
   - Mac: when no window is open, the app used to wake the processor about 900 times a second. It's now about once a second, at 0 to 0.5% CPU. The closed window is removed instead of updating in the background, the menu's clock and animations only run while it's open, and the Dock icon only animates while audio plays.
-  - Mac: which app is playing is checked every 6 seconds, the song name every 20 seconds or when the app changes, and the hearing dose is saved once a minute.
-  - Android: animations (logo, music bars, talk pulse, connecting dot) only run while they're visible and needed, and the hearing dose is saved once a minute.
+  - Mac: which app is playing is checked every 6 seconds, the song name every 20 seconds or when the app changes, and animations and checks only run while needed.
+  - Android: animations (logo, music bars, talk pulse, connecting dot) only run while they're visible and needed.
+  - Both: the hearing dose is saved only when something happens (audio stops, the headphones disconnect, the day changes, the app quits) and at least every 15 minutes of listening.
 - **Spatial Audio shows Off** until the headphones report their setting, instead of nothing selected.
 
 ## 2.11.0

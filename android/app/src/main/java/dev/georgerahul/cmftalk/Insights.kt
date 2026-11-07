@@ -128,7 +128,10 @@ object Hearing {
     /** Bumped on every change, so screens refresh. */
     var version by mutableIntStateOf(0); private set
     private var loudSince = 0L
-    /** Not yet saved: written once a minute instead of on every tick, to save battery. */
+    /**
+     * Not yet saved. Written when something happens (audio stops, headphones disconnect, the day
+     * changes, the app stops) and at least every 15 minutes of listening, instead of on every tick.
+     */
     private var pendDose = 0.0; private var pendSecs = 0.0; private var pendDbs = 0.0; private var pendDay = ""
     private var lastLoudAlert = 0L
     private var lastWeekAlertDay = ""
@@ -156,7 +159,7 @@ object Hearing {
         val d = day.format(Date(now))
         if (d != pendDay) { flush(); pendDay = d }
         pendDose += dose(level, seconds); pendSecs += seconds; pendDbs += level * seconds
-        if (pendSecs >= 60) { flush(); prune(prefs, now) }
+        if (pendSecs >= 15 * 60) { flush(); prune(prefs, now) }
         version++
         // Very loud for 30 minutes in a row: once an hour at most.
         if (level >= 85) { if (loudSince == 0L) loudSince = now } else loudSince = 0
