@@ -2,6 +2,12 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.11.0
+
+- **Mac reads the song from any app, including YouTube Music in Zen.** macOS 15.4 and newer stopped sharing the playing song with apps, so the Mac app now bundles a small, reviewed, read-only part of the open-source [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) (BSD license, pinned version). The Now playing card and the genre lookup now work for browsers too.
+  - Safety: only the read part is built; the parts that control playback or start other programs are left out. It has no network access and writes no files. The app runs it with Apple's own `/usr/bin/perl`, fixed paths inside the app, no shell, an empty environment, a time limit and an output size limit. Details in `mac/vendor/mediaremote-adapter/README.md`.
+- The genre lookup searches with only the first artist, so songs with long artist lists are found more often.
+
 ## 2.10.0
 
 - **Battery time left.** Learned from your own history (how fast the battery drops while connected over the last week), shown like "About 29 h left · from your use". Uses CMF's figures (about 50 h with noise control on, 100 h off) until there's enough history.

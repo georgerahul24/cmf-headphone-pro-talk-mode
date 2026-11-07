@@ -351,14 +351,17 @@ final class TalkMode: ObservableObject {
         // Asking Music or Spotify for the song costs a little, so at most every 5 seconds.
         if Date().timeIntervalSince(lastSongCheck) > 5 {
             lastSongCheck = Date()
-            if NowPlayingInfo.canRead(k.id) {
-                let s = NowPlayingInfo.song(in: k.id)
-                if s != song { song = s }
-            } else {
-                // A browser or other app: try the system's Now Playing.
-                NowPlayingInfo.refreshSystem { [weak self] in self?.lastSongCheck = .distantPast; self?.autoEq() }
-                if NowPlayingInfo.system != song { song = NowPlayingInfo.system }
+            // The system's Now Playing works for every app. It's read in the background and used
+            // only when it belongs to the app that is playing (its helper processes count too).
+            NowPlayingInfo.refreshSystem { [weak self] in self?.lastSongCheck = .distantPast; self?.autoEq() }
+            var s: NowPlayingInfo.Song?
+            if let sys = NowPlayingInfo.system, !sys.app.isEmpty,
+               k.id.hasPrefix(sys.app) || sys.app.hasPrefix(k.id) || (k.id.hasPrefix("com.apple.WebKit") && sys.app == "com.apple.Safari") {
+                s = sys.song
+            } else if NowPlayingInfo.canRead(k.id) {
+                s = NowPlayingInfo.song(in: k.id)
             }
+            if s != song { song = s }
         }
         guard eqMode == EqMode.auto else { return }
         autoPick = k.video ? Eq.movie.rawValue : (genrePick() ?? (autoPick != Eq.movie.rawValue ? autoPick : nil) ?? musicEq)

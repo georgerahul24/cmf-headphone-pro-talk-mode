@@ -12,8 +12,8 @@ android {
         applicationId = "dev.georgerahul.cmftalk"
         minSdk = 31
         targetSdk = 36
-        versionCode = 20
-        versionName = "2.10.0"
+        versionCode = 21
+        versionName = "2.11.0"
     }
 
     // CI passes a fixed keystore (secret ANDROID_KEYSTORE_B64) so new builds

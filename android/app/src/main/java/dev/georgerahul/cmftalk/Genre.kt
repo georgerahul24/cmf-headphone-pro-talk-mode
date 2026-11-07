@@ -49,7 +49,9 @@ object Genre {
         pending = k
         Thread({
             val g = runCatching {
-                val term = URLEncoder.encode("${clean(title)} ${clean(artist)}".trim(), "UTF-8")
+                // Only the first artist: long lists like "A, B, C and D" can make the search miss.
+                val first = artist.split(",", "&").first().split(" and ").first()
+                val term = URLEncoder.encode("${clean(title)} ${clean(first)}".trim(), "UTF-8")
                 val country = Locale.getDefault().country.takeIf { it.length == 2 } ?: "IN"
                 val c = URL("https://itunes.apple.com/search?term=$term&entity=song&limit=1&country=$country")
                     .openConnection() as HttpURLConnection
