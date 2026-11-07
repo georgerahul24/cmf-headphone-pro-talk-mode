@@ -19,7 +19,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Your normal buttons still work.** Talk mode uses its own button. No voice assistant pop-up.
 
 **Sound**
-- **EQ tuned for these headphones.** Movie, Pop and Rock presets picked for what each one is for, not copied from the factory presets. Flat turns the EQ off (every band at 0), and every preset is measured from it. [More below](#eq).
+- **EQ tuned for these headphones.** Movie, Pop and Rock presets using all 8 EQ bands the headphones support, not copied from the factory presets. Flat turns the EQ off (every band at 0), and every preset is measured from it. [More below](#eq).
 - **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows what it picked, like "Auto (Movie)", in the app and in the Android notification.
 - **Noise control and Spatial Audio.** Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive. Spatial Audio Off, Concert or Cinema. For everyday controls you don't need Nothing X.
 
@@ -38,16 +38,16 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 
 ## EQ
 
-The CMF Headphone Pro has a 3-band EQ: bass (140 Hz), mid (980 Hz) and treble (3.5 kHz). The headphones accept more bands, but their sound chip is built for these 3, so the app uses exactly what Nothing X uses, with values picked for each job:
+The Nothing X app only shows bass, mid and treble, but the CMF Headphone Pro applies up to 8 EQ filters, each with its own frequency and width (checked by ear: changing only bands 4 to 8 is clearly audible). So each preset uses all 8, measured from Flat:
 
 | Preset | Made for | What you hear |
 |---|---|---|
-| **Movie** (bass +2, mid +2, treble +4) | Energy Slider at full bass | Big rumble and boom for fights and explosions. Dialogue, faint sounds and details like clinking glass stay clear. |
-| **Pop** (bass +5, mid +2, treble +3) | Energy Slider at zero | Big bass like the factory Pop, vocals clearly in front and smooth. Tuned for English, Hindi and Malayalam songs. |
-| **Rock** (bass +4, mid -2, treble +4) | Energy Slider at zero | Weighty kick and bass guitar, less mud, vocals that cut through, smoother cymbals. |
+| **Movie** | Energy Slider at full bass | Big rumble and boom for fights and explosions. Dialogue, faint sounds and details like clinking glass stay clear. |
+| **Pop** | Energy Slider at zero | Big bass like the factory Pop, vocals clearly in front and smooth. Tuned for English, Hindi and Malayalam songs. |
+| **Rock** | Energy Slider at zero | Weighty kick and bass guitar, less mud, vocals that cut through, smoother cymbals. |
 | **Flat** (all 0) | Anything | No EQ. The neutral starting point every preset is measured from. |
 
-Both apps draw each preset's curve and show its bass, mid and treble values.
+Both apps draw each preset's curve and list all 8 bands with their values.
 
 **Auto** picks Movie for video apps (Netflix, Prime Video, JioHotstar, YouTube, VLC and more) and for web browsers on Mac. It picks your music preset for music apps (Spotify, YouTube Music, JioSaavn, Apple Music and more). On Mac, the Zen browser counts as music. Nothing playing means no change.
 

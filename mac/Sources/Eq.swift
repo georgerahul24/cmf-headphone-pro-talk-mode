@@ -17,10 +17,10 @@ enum Eq: String, CaseIterable {
 
     var about: String {
         switch self {
-        case .movie: return "Made for the Energy Slider at full bass, which brings the rumble and boom. Mid and treble are lifted so dialogue, faint sounds and small details stay clear."
-        case .pop: return "Big bass, vocals pushed forward and a brighter top. Good for English, Hindi and Malayalam songs."
+        case .movie: return "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear."
+        case .pop: return "Big, full bass with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs."
         case .flat: return "No EQ: bass, mid and treble all at 0. Every preset is measured from here."
-        case .rock: return "Punchy bass and bright, crisp top with the mids pulled back a little, for drums and guitars."
+        case .rock: return "Punchy kick and bass guitar, crunchy guitars, vocals that cut through, and bright cymbals."
         }
     }
 
@@ -28,23 +28,50 @@ enum Eq: String, CaseIterable {
     /// the DSP has headroom. A negative preamp only made ours sound quieter and thinner than stock.
     var preamp: Float { 0 }
 
-    /// The CMF Headphone Pro's sound chip is built for Nothing's 3-band custom EQ (bass, mid,
-    /// treble). It will store more bands, but a listening test and every review point to only the 3
-    /// being used properly, so each preset is a 3-band EQ sent exactly like Nothing X sends it.
-    var gains: (bass: Float, mid: Float, treble: Float) {
-        switch self {
-        case .movie: return (2, 2, 4)   // the Energy Slider brings the bass; clear dialogue and detail
-        case .pop: return (5, 2, 3)     // big bass, vocals forward, brighter top
-        case .rock: return (4, -2, 4)   // punchy and bright, mids pulled back
-        case .flat: return (0, 0, 0)    // the neutral starting point
-        }
-    }
-
-    /// Nothing's order and shapes: mid peak 980 Hz, treble high shelf 3.5 kHz, bass low shelf 140 Hz.
+    /// 8 bands, each at its own frequency and width. The headphones apply all 8: in a listening test,
+    /// changing only bands 4-8 (with Nothing's 3 bands at 0) was clearly audible. Every preset is
+    /// measured from Flat.
     var bands: [Band] {
-        let g = gains
-        return [Band(type: 1, gain: g.mid, freq: 980, q: 0.7), Band(type: 2, gain: g.treble, freq: 3500, q: 1),
-                Band(type: 0, gain: g.bass, freq: 140, q: 0.8)]
+        switch self {
+        // Slider at full bass, for a basshead who also wants every detail: big rumble and boom, a 220 Hz
+        // cut so bass doesn't smear over voices, speech bands lifted, only the narrow 8 kHz peak cut,
+        // and a gentle treble lift for environmental detail (glass, rattles, room sound).
+        case .movie: return [
+            Band(type: 1, gain: 5, freq: 30, q: 0.9),  // huge rumble you feel, where movie bass effects live
+            Band(type: 1, gain: 3, freq: 70, q: 1),  // boom and punch for fights and explosions
+            Band(type: 1, gain: -3.5, freq: 220, q: 1),  // keeps the bass from smearing over voices and detail
+            Band(type: 1, gain: 1, freq: 1000, q: 1),  // body of voices
+            Band(type: 1, gain: 3, freq: 2500, q: 1.3),  // dialogue clarity
+            Band(type: 1, gain: 3.5, freq: 3800, q: 1.6),  // consonants and faint sounds; fills the 4 kHz dip
+            Band(type: 1, gain: -2.5, freq: 8000, q: 3.5),  // only the narrow harsh peak, so detail stays
+            Band(type: 2, gain: 2.5, freq: 10500, q: 0.7),  // sparkle and space: glass, rattles, room sound
+        ]
+        // Slider at zero. English, Hindi and Malayalam pop: singer up front over a strong bass line.
+        case .pop: return [
+            Band(type: 0, gain: 5.5, freq: 105, q: 0.7),  // big warm bass shelf
+            Band(type: 1, gain: 1, freq: 50, q: 1),  // deep bass for dance drops
+            Band(type: 1, gain: -2.5, freq: 250, q: 1),  // less low-mid mud under the vocals
+            Band(type: 1, gain: 2.5, freq: 2300, q: 1.4),  // vocal body and clarity
+            Band(type: 1, gain: 4, freq: 3800, q: 1.6),  // vocals forward; fills the 4 kHz dip
+            Band(type: 1, gain: -1.5, freq: 6300, q: 2),  // softer "s" on bright female vocals
+            Band(type: 1, gain: -3, freq: 8000, q: 3),  // tames the headphones' 8 kHz peak
+            Band(type: 2, gain: 2, freq: 12000, q: 0.7),  // shimmer and air
+        ]
+        case .rock: return [
+            Band(type: 0, gain: 3.5, freq: 90, q: 0.7),  // weight for kick and bass guitar
+            Band(type: 1, gain: 2, freq: 60, q: 1.2),  // kick drum punch
+            Band(type: 1, gain: -3, freq: 300, q: 1),  // less guitar and bass mud
+            Band(type: 1, gain: 2.5, freq: 1500, q: 1.2),  // guitar crunch
+            Band(type: 1, gain: 2, freq: 3000, q: 1.4),  // bite and vocals
+            Band(type: 1, gain: 3, freq: 4200, q: 2),  // fills the 4 kHz dip
+            Band(type: 1, gain: -3, freq: 8000, q: 3),  // cymbal harshness
+            Band(type: 2, gain: 3, freq: 10000, q: 0.7),  // cymbal sparkle and air
+        ]
+        // No EQ: Nothing's 3 bands (mid 980 Hz, treble 3.5 kHz, bass 140 Hz) all at 0.
+        case .flat: return [
+            Band(type: 1, gain: 0, freq: 980, q: 0.7), Band(type: 2, gain: 0, freq: 3500, q: 1), Band(type: 0, gain: 0, freq: 140, q: 0.8),
+        ]
+        }
     }
 
     /// Payload for `Proto.eqCustomSet`: count, preamp, then type/gain/freq/Q per band (float32 LE), 3 zero bytes per band.

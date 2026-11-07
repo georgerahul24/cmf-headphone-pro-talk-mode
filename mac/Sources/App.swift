@@ -669,7 +669,7 @@ struct Cards {
             HStack {
                 Text(talk.eqTitle).font(.system(size: 15, weight: .semibold)).contentTransition(.opacity)
                 Spacer()
-                if let e = shownEq { Text("B \(gainText(e.gains.bass)) · M \(gainText(e.gains.mid)) · T \(gainText(e.gains.treble))").font(.system(size: 10)).foregroundStyle(Pal.faint).monospacedDigit() }
+                if let e = shownEq, e != .flat { Text("\(e.bands.count) bands").font(.system(size: 10)).foregroundStyle(Pal.faint) }
             }
             eqPicker
             EqCurve(eq: shownEq, height: 74, labels: true)
@@ -907,7 +907,7 @@ struct EqCurve: View {
                                 .overlay(Circle().stroke(Pal.card, lineWidth: 2))
                                 .frame(width: 14, height: 14).contentShape(Circle())
                                 .position(x: x(Double(b.freq)), y: y(eq.gain(at: Double(b.freq))))
-                                .help("\(b.type == 0 ? "Bass" : b.type == 1 ? "Mid" : "Treble") \(freqText(b.freq)): \(gainText(b.gain))")
+                                .help("\(freqText(b.freq)): \(gainText(b.gain))")
                         }
                     }
                     if labels {
@@ -937,17 +937,18 @@ struct EqBandList: View {
     let eq: Eq
 
     var body: some View {
-        let g = eq.gains
-        HStack(spacing: 6) {
-            ForEach([("Bass", "140 Hz", g.bass), ("Mid", "980 Hz", g.mid), ("Treble", "3.5 kHz", g.treble)], id: \.0) { name, f, v in
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+            ForEach(eq.bands.indices.sorted { eq.bands[$0].freq < eq.bands[$1].freq }, id: \.self) { i in
+                let b = eq.bands[i]
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("\(name) · \(f)").font(.system(size: 10)).foregroundStyle(Pal.sub)
-                    Text(gainText(v)).font(.system(size: 14, weight: .semibold)).monospacedDigit()
-                        .foregroundStyle(v >= 0 ? Pal.text : Pal.sub)
+                    Text(freqText(b.freq)).font(.system(size: 10)).foregroundStyle(Pal.sub).monospacedDigit()
+                    Text(gainText(b.gain)).font(.system(size: 12, weight: .semibold)).monospacedDigit()
+                        .foregroundStyle(b.gain >= 0 ? Pal.text : Pal.sub)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8).padding(.vertical, 6)
+                .padding(.horizontal, 7).padding(.vertical, 5)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Pal.card2))
+                .help(["Low shelf", "Peak", "High shelf"][Int(min(b.type, 2))] + ", Q \(String(format: "%.1f", b.q))")
             }
         }
     }

@@ -4,11 +4,11 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 
 ## 2.8.0
 
-- **Back to 3-band EQ.** The CMF Headphone Pro's sound chip is built for Nothing's 3-band EQ (bass, mid, treble). It accepts more bands, but in listening tests the extra ones made little difference, and reviews confirm this model only has 3. Every preset is now a 3-band EQ sent exactly like Nothing X sends it, with bigger values so each one sounds clearly different:
-  - Movie: bass +2, mid +2, treble +4 (for the Energy Slider at full bass)
-  - Pop: bass +5, mid +2, treble +3
-  - Rock: bass +4, mid -2, treble +4
-- **Flat instead of Stock.** Stock was the factory Pop preset, which already adds a lot of bass, so the presets were hard to judge against it. Now there is **Flat** (bass, mid and treble at 0), and every preset is measured from it.
+- **8-band EQ, measured from Flat.** A listening test changed only bands 4 to 8 (with Nothing's own 3 bands at 0) and the change was clearly audible, so the headphones really do use all 8 bands. The presets are the bold 8-band versions:
+  - Movie: big rumble and boom for the Energy Slider at full, with clear dialogue and detail
+  - Pop: big bass shelf, vocals up front, softer "s" sounds, shimmer on top
+  - Rock: punchy kick, crunchy guitars, bright cymbals
+- **Flat instead of Stock.** Stock was the factory Pop preset, which already adds a lot of bass, so the presets were hard to judge against it. Now there is **Flat** (bass, mid and treble at 0), and every preset is measured from it. Earlier "no difference" results were mostly because Stock already adds a lot of bass.
 - **New app icon** on Android and Mac: a frosted glass panel with a sound wave over soft violet glows. The Mac app now has an icon at all.
 - **Animated logo on Android.** The new icon sits at the top of the Home screen, and its sound wave bounces while audio plays.
 - **Live Dock icon on Mac.** While the app window is open, the sound wave in the Dock icon bounces with your audio, and faster while talking.
