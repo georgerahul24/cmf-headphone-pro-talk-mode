@@ -2,6 +2,11 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.12.0
+
+- **Talk mode has a time limit.** If you stay in talk mode longer than the battery saver time, you most likely took the headphones off to talk. Talk mode ends, the music is paused (in "lower" mode it's paused first, then your volume is put back, so nothing keeps playing) and noise control turns Off. Your old noise mode comes back when you play something again.
+- **The EQ choice no longer syncs** between phone and Mac, like noise control and Spatial Audio, so each can have its own sound. History, stats, remembered picks and the other settings still sync.
+
 ## 2.11.1
 
 - **Much lighter on battery.**

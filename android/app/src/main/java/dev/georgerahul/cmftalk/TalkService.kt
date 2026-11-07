@@ -53,6 +53,7 @@ class TalkService : Service() {
         const val TAG = "CMFTalk"
         const val ACTION_TOGGLE = "dev.georgerahul.cmftalk.TOGGLE"
         const val ACTION_IDLE = "dev.georgerahul.cmftalk.IDLE"
+        const val ACTION_TALK_TIMEOUT = "dev.georgerahul.cmftalk.TALK_TIMEOUT"
         const val CHANNEL = "status"
         private const val HEADPHONE_NAME = "CMF Headphone Pro"
 
@@ -97,6 +98,10 @@ class TalkService : Service() {
     private var idleSavedAnc: Int? = null
     private var idleScheduled = false
     private lateinit var alarms: AlarmManager
+    private val talkTimeoutIntent by lazy {
+        PendingIntent.getService(this, 3, Intent(this, TalkService::class.java).setAction(ACTION_TALK_TIMEOUT),
+            PendingIntent.FLAG_IMMUTABLE)
+    }
     private val idleIntent by lazy {
         PendingIntent.getService(this, 2, Intent(this, TalkService::class.java).setAction(ACTION_IDLE),
             PendingIntent.FLAG_IMMUTABLE)
@@ -151,6 +156,7 @@ class TalkService : Service() {
         when (intent?.action) {
             ACTION_TOGGLE -> toggleTalk()
             ACTION_IDLE -> idleCheck()
+            ACTION_TALK_TIMEOUT -> talkTimedOut()
         }
         return START_STICKY
     }
@@ -423,10 +429,38 @@ class TalkService : Service() {
         st.talkActive = true
         st.talkSince = System.currentTimeMillis()
         Stats.talkStarted()
+        // Talking longer than the battery saver time: you probably took the headphones off.
+        if (prefs.idleOff) alarms.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            SystemClock.elapsedRealtime() + idleMs, talkTimeoutIntent)
+        refreshNotification()
+    }
+
+    /**
+     * Talk mode ran longer than the battery saver time: you most likely took the headphones off to
+     * talk. Ends talk mode with the music paused (never left playing) and noise control Off; your
+     * old noise mode comes back when audio plays again, like the battery saver.
+     */
+    private fun talkTimedOut() {
+        if (!st.talkActive || !st.connected) return
+        Log.i(TAG, "talk mode timed out: music paused, noise control off")
+        if (!pausedMusic && audio.isMusicActive) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+        savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+        savedVolume = null
+        pausedMusic = false // stays paused
+        idleSavedAnc = savedAnc ?: st.anc
+        send(Proto.ANC_SET, 0x01, Proto.ANC_OFF, 0x00)
+        st.anc = Proto.ANC_OFF; History.log(History.ANC, Proto.ANC_OFF)
+        st.idleOff = true
+        st.idleOffSince = System.currentTimeMillis()
+        Stats.idleTurnedOff()
+        st.talkActive = false
+        st.talkSince?.let { Stats.talkEnded(System.currentTimeMillis() - it) }
+        st.talkSince = null
         refreshNotification()
     }
 
     private fun stopTalk() {
+        alarms.cancel(talkTimeoutIntent)
         Log.i(TAG, "talk OFF (restore ${Proto.ancName(savedAnc)}, vol $savedVolume)")
         savedAnc?.let { send(Proto.ANC_SET, 0x01, it, 0x00) }
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }

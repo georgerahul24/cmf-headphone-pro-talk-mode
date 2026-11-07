@@ -15,6 +15,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 **Talk mode**
 - **One-press talk mode.** A single press turns on Transparency (ambient sound) and lowers or pauses your music. The same idea as Sony Speak-to-Chat or AirPods Conversation Awareness.
 - **Lower or pause.** Lower the music to a volume you pick (10% by default), or pause it and have it play again when you are done.
+- **Time limit.** Talking longer than the battery saver time ends talk mode with the music paused and noise control off, since you probably took the headphones off.
 - **Puts everything back.** Your exact noise mode (Noise Cancelling High, Mid, Low or Adaptive, Off or Transparency) and your exact volume come back when you press again.
 - **Your normal buttons still work.** Talk mode uses its own button. No voice assistant pop-up.
 
@@ -63,7 +64,7 @@ The presets play at the same level as the factory sound.
 
 The phone and the Mac keep each other up to date over your home Wi-Fi. No account, no cloud.
 
-- **What syncs:** headphone history, usage stats, and every setting: talk mode on or off, talk volume, lower or pause, battery saver and its wait time, EQ mode and music preset, and auto-update. ("Open at login" is Mac only.)
+- **What syncs:** headphone history, usage stats, your remembered EQ picks, and settings: talk mode on or off, talk volume, lower or pause, battery saver and its wait time, reminders and auto-update. The live EQ choice, noise control and Spatial Audio don't sync, so each device can have its own. ("Open at login" is Mac only.)
 - **Pairing:** on the Mac, open the app, go to Settings, and click **Pair a phone**. On the phone, go to Settings, then Sync with your Mac, and type the code. Do it once.
 - **When:** while both are on the same Wi-Fi, the phone keeps a link open and changes go across within seconds. If you were apart, everything that piled up goes across as soon as they meet again.
 - **What's left:** each side tracks exactly how much of the other's history it has. Settings shows "Everything is synced" or what is waiting, like "34 history events and 2 settings waiting to sync".

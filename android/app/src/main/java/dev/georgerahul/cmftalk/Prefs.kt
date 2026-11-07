@@ -3,8 +3,9 @@ package dev.georgerahul.cmftalk
 import android.content.Context
 
 /**
- * Settings. Every one of them syncs with the paired Mac: each has a change time ("ts.<name>"),
- * and the newer change wins. Changing one here tells [Sync].
+ * Settings. Most sync with the paired Mac: each has a change time ("ts.<name>"), and the newer
+ * change wins. The EQ choice doesn't sync (like noise control and Spatial Audio, each device keeps
+ * its own), since you may want different sound on each. Changing a synced one tells [Sync].
  */
 class Prefs(ctx: Context) {
     private val p = ctx.applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -13,8 +14,7 @@ class Prefs(ctx: Context) {
         /** Shared sync name to the name stored on this phone. */
         val SYNC_KEYS = linkedMapOf(
             "talk.enabled" to "enabled", "talk.volume" to "talkVolume", "talk.pause" to "talkPause",
-            "saver.on" to "idleOff", "saver.minutes" to "idleMinutes", "eq.mode" to "eqMode",
-            "eq.music" to "musicEq", "update.auto" to "autoUpdate",
+            "saver.on" to "idleOff", "saver.minutes" to "idleMinutes", "update.auto" to "autoUpdate",
             "alert.battery" to "alertBattery", "alert.hearing" to "alertHearing",
         )
         private val LOCAL_TO_SYNC = SYNC_KEYS.entries.associate { (k, v) -> v to k }

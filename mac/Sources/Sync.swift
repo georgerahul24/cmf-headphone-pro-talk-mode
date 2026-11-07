@@ -23,9 +23,10 @@ final class Sync: ObservableObject {
     static let shared = Sync()
     static let serviceType = "_cmftalk._tcp"
 
-    /// The settings that sync, by their shared names.
+    /// The settings that sync, by their shared names. The EQ choice, noise control and Spatial
+    /// Audio don't: each device keeps its own, since you may want different sound on each.
     static let keys = ["talk.enabled", "talk.volume", "talk.pause", "saver.on", "saver.minutes",
-                       "eq.mode", "eq.music", "update.auto", "alert.battery", "alert.hearing"]
+                       "update.auto", "alert.battery", "alert.hearing"]
 
     private let d = UserDefaults.standard
     let deviceId: String

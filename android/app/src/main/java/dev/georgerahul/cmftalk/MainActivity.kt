@@ -482,7 +482,9 @@ private fun SaverCard(ui: UiPrefs, now: Long) {
         !st.connected -> SaverView("Waiting", "Connect your headphones to start.", 0f, listOf(C.Faint, C.Faint))
         st.idleOff -> SaverView("Saving", "Noise control off for ${dur(now - (st.idleOffSince ?: now))}. " +
             "It comes back when audio plays.", 1f, listOf(C.Teal, C.Blue2))
-        st.talkActive -> SaverView("Talking", "The timer waits until you finish talking.", 0f, listOf(C.Faint, C.Faint))
+        st.talkActive -> SaverView("Talking",
+            if (ui.idleOff) "After ${ui.idleMinutes} min of talking, talk mode ends, the music stays paused and noise control turns off."
+            else "The timer waits until you finish talking.", 0f, listOf(C.Faint, C.Faint))
         st.playing -> SaverView("Playing", "The ${ui.idleMinutes} minute timer starts when audio stops.", 0f, listOf(C.Faint, C.Faint))
         deadline != null -> {
             val left = (deadline - now).coerceAtLeast(0)

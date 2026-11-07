@@ -31,9 +31,9 @@ final class TalkMode: ObservableObject {
     /// While talking: true = pause the music, false = lower the volume.
     @Published var talkPause: Bool { didSet { UserDefaults.standard.set(talkPause, forKey: "talkPause"); synced("talk.pause") } }
     /// EQ: "auto", "movie", "pop", "rock" or "flat".
-    @Published var eqMode: String { didSet { UserDefaults.standard.set(eqMode, forKey: "eqMode"); eqSettingChanged(); synced("eq.mode") } }
+    @Published var eqMode: String { didSet { UserDefaults.standard.set(eqMode, forKey: "eqMode"); eqSettingChanged() } }
     /// Preset Auto uses for music: "pop" or "rock".
-    @Published var musicEq: String { didSet { UserDefaults.standard.set(musicEq, forKey: "musicEq"); eqSettingChanged(); synced("eq.music") } }
+    @Published var musicEq: String { didSet { UserDefaults.standard.set(musicEq, forKey: "musicEq"); eqSettingChanged() } }
     /// What's playing, and the remembered name Auto matched, if any.
     @Published private(set) var song: NowPlayingInfo.Song?
     @Published private(set) var songIsVideo = false
@@ -427,6 +427,27 @@ final class TalkMode: ObservableObject {
     }
     private var predictCache: (minute: Int, level: Int, anc: UInt8?, value: BatteryPredict.Forecast)?
 
+    /// Talk mode ran longer than the battery saver time: you most likely took the headphones off to
+    /// talk. Ends talk mode with the music paused (never left playing) and noise control Off; your
+    /// old noise mode comes back when audio plays again, like the battery saver.
+    private func talkTimedOut() {
+        guard active, connected else { return }
+        log("talk mode timed out: music paused, noise control off")
+        if !pausedMusic && SystemVolume.isPlaying() { NowPlaying.pause() }
+        if let v = savedVolume { SystemVolume.set(v) }
+        savedVolume = nil
+        pausedMusic = false // stays paused
+        idleSavedAnc = savedAnc ?? ancMode
+        headset.send(Proto.ancSet, [0x01, Proto.ancOff, 0x00])
+        ancMode = Proto.ancOff
+        idleOffSince = Date()
+        stats.idleOffCount += 1
+        active = false
+        if let t = talkSince { stats.talkSeconds += Date().timeIntervalSince(t) }
+        talkSince = nil
+        saveStats()
+    }
+
     // MARK: battery saver
 
     /// When noise control will be turned off, if the countdown is running.
@@ -449,6 +470,8 @@ final class TalkMode: ObservableObject {
             if started || Date().timeIntervalSince(lastAutoCheck) >= 6 { lastAutoCheck = Date(); autoEq() }
             return
         }
+        // Talking longer than the battery saver time: you probably took the headphones off.
+        if active, idleSaver, let t = talkSince, Date().timeIntervalSince(t) >= idleSeconds { talkTimedOut() }
         guard connected else { return }
         if quietSince == nil { quietSince = Date() }
         if let d = idleDeadline, Date() >= d, let m = ancMode {

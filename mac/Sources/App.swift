@@ -453,7 +453,11 @@ struct Cards {
         else if let t = talk.idleOffSince {
             big = "Saving"; small = "Noise control off for \(dur(now.timeIntervalSince(t))). Comes back when audio plays."
             p = 1; colors = [Pal.teal, Pal.blue2]
-        } else if talk.active { big = "Talking"; small = "The timer waits until you finish talking." }
+        } else if talk.active {
+            big = "Talking"
+            small = talk.idleSaver ? "After \(talk.idleMinutes) min of talking, talk mode ends, the music stays paused and noise control turns off."
+                : "The timer waits until you finish talking."
+        }
         else if talk.playing { big = "Playing"; small = "The \(talk.idleMinutes) minute timer starts when audio stops." }
         else if let d = talk.idleDeadline {
             let left = max(0, d.timeIntervalSince(now))
