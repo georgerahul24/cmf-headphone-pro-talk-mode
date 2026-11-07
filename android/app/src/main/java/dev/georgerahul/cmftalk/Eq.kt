@@ -30,40 +30,40 @@ enum class Eq(val id: String, val label: String, val about: String, val preamp: 
     MOVIE("movie", "Movie",
         "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear.",
         0f, listOf(
-            Band(1, 2.5f, 32f, 1f),      // deep rumble you feel, where movie bass effects live
-            Band(1, 2f, 80f, 1f),        // boom and punch for fights and explosions
-            Band(1, -3f, 220f, 1f),      // keeps the bass from smearing over voices and detail
-            Band(1, 1f, 1000f, 1f),      // body of voices
-            Band(1, 2.5f, 2400f, 1.3f),  // dialogue clarity
-            Band(1, 3f, 3800f, 1.6f),    // consonants and faint sounds; fills the 4 kHz dip
-            Band(1, -2f, 8000f, 3.5f),   // only the narrow harsh peak, so detail stays
-            Band(2, 1.5f, 10500f, 0.7f), // sparkle and space: glass, rattles, room sound
+            Band(1, 5f, 30f, 0.9f), // huge rumble you feel, where movie bass effects live
+            Band(1, 3f, 70f, 1f), // boom and punch for fights and explosions
+            Band(1, -3.5f, 220f, 1f), // keeps the bass from smearing over voices and detail
+            Band(1, 1f, 1000f, 1f), // body of voices
+            Band(1, 3f, 2500f, 1.3f), // dialogue clarity
+            Band(1, 3.5f, 3800f, 1.6f), // consonants and faint sounds; fills the 4 kHz dip
+            Band(1, -2.5f, 8000f, 3.5f), // only the narrow harsh peak, so detail stays
+            Band(2, 2.5f, 10500f, 0.7f), // sparkle and space: glass, rattles, room sound
         )),
     // Slider at zero. English, Hindi and Malayalam pop: Bollywood and Malayalam film mixes put the singer
     // up front over a strong bass line, and bright female vocals meet this headphone's 8 kHz peak.
     POP("pop", "Pop",
         "Big, full bass like the factory Pop, with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs.",
         0f, listOf(
-            Band(0, 4f, 105f, 0.7f),     // bass shelf, like the factory Pop preset
-            Band(1, 1f, 50f, 1f),        // extra deep bass for dance drops
-            Band(1, -2f, 250f, 1f),      // less low-mid mud so vocals stay clean over the bass
-            Band(1, 2f, 2300f, 1.4f),    // vocal body and clarity
-            Band(1, 3.5f, 3800f, 1.6f),  // fills the 4 kHz dip: the main reason vocals sounded muted
-            Band(1, -1f, 6300f, 2f),     // softer "s" on bright female vocals
-            Band(1, -3f, 8000f, 3f),     // tames the stock 8 kHz peak
-            Band(1, -1f, 11000f, 1.5f),  // keeps cymbals from splashing
+            Band(0, 5.5f, 105f, 0.7f), // big warm bass shelf
+            Band(1, 1f, 50f, 1f), // deep bass for dance drops
+            Band(1, -2.5f, 250f, 1f), // less low-mid mud under the vocals
+            Band(1, 2.5f, 2300f, 1.4f), // vocal body and clarity
+            Band(1, 4f, 3800f, 1.6f), // vocals forward; fills the 4 kHz dip
+            Band(1, -1.5f, 6300f, 2f), // softer "s" on bright female vocals
+            Band(1, -3f, 8000f, 3f), // tames the stock 8 kHz peak
+            Band(2, 2f, 12000f, 0.7f), // shimmer and air
         )),
     ROCK("rock", "Rock",
-        "Weighty kick and bass guitar, less muddy guitars, vocals that cut through, and cymbals without the harshness.",
+        "Punchy kick and bass guitar, crunchy guitars, vocals that cut through, and bright cymbals.",
         0f, listOf(
-            Band(0, 3f, 100f, 0.7f),     // weight for kick and bass guitar
-            Band(1, 1f, 60f, 1.2f),      // kick drum punch
-            Band(1, -1.5f, 250f, 1f),    // less guitar and bass mud
-            Band(1, 2f, 2500f, 1.2f),    // guitar bite and snare crack
-            Band(1, 3f, 3800f, 1.6f),    // vocals over dense guitars; fills the dip
-            Band(1, -1f, 6300f, 2f),     // softens distorted guitar fizz
-            Band(1, -3.5f, 8000f, 3f),   // cymbal harshness; rock masters are bright
-            Band(1, -1f, 11000f, 1.5f),  // hi-hat splash
+            Band(0, 3.5f, 90f, 0.7f), // weight for kick and bass guitar
+            Band(1, 2f, 60f, 1.2f), // kick drum punch
+            Band(1, -3f, 300f, 1f), // less guitar and bass mud
+            Band(1, 2.5f, 1500f, 1.2f), // guitar crunch
+            Band(1, 2f, 3000f, 1.4f), // bite and vocals
+            Band(1, 3f, 4200f, 2f), // fills the 4 kHz dip
+            Band(1, -3f, 8000f, 3f), // cymbal harshness
+            Band(2, 3f, 10000f, 0.7f), // cymbal sparkle and air
         ));
 
     /** Payload for [Proto.EQ_CUSTOM_SET]: count, preamp, then type/gain/freq/Q per band (float32 LE), 3 zero bytes per band. */

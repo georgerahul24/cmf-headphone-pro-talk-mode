@@ -21,7 +21,7 @@ enum Eq: String, CaseIterable {
         switch self {
         case .movie: return "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear."
         case .pop: return "Big, full bass like the factory Pop, with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs."
-        case .rock: return "Weighty kick and bass guitar, less muddy guitars, vocals that cut through, and cymbals without the harshness."
+        case .rock: return "Punchy kick and bass guitar, crunchy guitars, vocals that cut through, and bright cymbals."
         }
     }
 
@@ -35,35 +35,35 @@ enum Eq: String, CaseIterable {
         // cut so bass doesn't smear over voices, speech bands lifted, only the narrow 8 kHz peak cut,
         // and a gentle treble lift for environmental detail (glass, rattles, room sound).
         case .movie: return [
-            Band(type: 1, gain: 2.5, freq: 32, q: 1),       // deep rumble you feel
-            Band(type: 1, gain: 2, freq: 80, q: 1),         // boom and punch for fights and explosions
-            Band(type: 1, gain: -3, freq: 220, q: 1),       // keeps bass from smearing over voices
-            Band(type: 1, gain: 1, freq: 1000, q: 1),       // body of voices
-            Band(type: 1, gain: 2.5, freq: 2400, q: 1.3),   // dialogue clarity
-            Band(type: 1, gain: 3, freq: 3800, q: 1.6),     // consonants and faint sounds
-            Band(type: 1, gain: -2, freq: 8000, q: 3.5),    // only the narrow harsh peak
-            Band(type: 2, gain: 1.5, freq: 10500, q: 0.7),  // sparkle and space: glass, rattles
+            Band(type: 1, gain: 5, freq: 30, q: 0.9),  // huge rumble you feel, where movie bass effects live
+            Band(type: 1, gain: 3, freq: 70, q: 1),  // boom and punch for fights and explosions
+            Band(type: 1, gain: -3.5, freq: 220, q: 1),  // keeps the bass from smearing over voices and detail
+            Band(type: 1, gain: 1, freq: 1000, q: 1),  // body of voices
+            Band(type: 1, gain: 3, freq: 2500, q: 1.3),  // dialogue clarity
+            Band(type: 1, gain: 3.5, freq: 3800, q: 1.6),  // consonants and faint sounds; fills the 4 kHz dip
+            Band(type: 1, gain: -2.5, freq: 8000, q: 3.5),  // only the narrow harsh peak, so detail stays
+            Band(type: 2, gain: 2.5, freq: 10500, q: 0.7),  // sparkle and space: glass, rattles, room sound
         ]
         // Slider at zero. English, Hindi and Malayalam pop: singer up front over a strong bass line.
         case .pop: return [
-            Band(type: 0, gain: 4, freq: 105, q: 0.7),      // bass shelf, like the factory Pop preset
-            Band(type: 1, gain: 1, freq: 50, q: 1),         // extra deep bass for dance drops
-            Band(type: 1, gain: -2, freq: 250, q: 1),       // less low-mid mud under the vocals
-            Band(type: 1, gain: 2, freq: 2300, q: 1.4),     // vocal body and clarity
-            Band(type: 1, gain: 3.5, freq: 3800, q: 1.6),   // fills the 4 kHz dip (muted vocals)
-            Band(type: 1, gain: -1, freq: 6300, q: 2),      // softer "s" on bright female vocals
-            Band(type: 1, gain: -3, freq: 8000, q: 3),      // tames the 8 kHz peak
-            Band(type: 1, gain: -1, freq: 11000, q: 1.5),   // keeps cymbals from splashing
+            Band(type: 0, gain: 5.5, freq: 105, q: 0.7),  // big warm bass shelf
+            Band(type: 1, gain: 1, freq: 50, q: 1),  // deep bass for dance drops
+            Band(type: 1, gain: -2.5, freq: 250, q: 1),  // less low-mid mud under the vocals
+            Band(type: 1, gain: 2.5, freq: 2300, q: 1.4),  // vocal body and clarity
+            Band(type: 1, gain: 4, freq: 3800, q: 1.6),  // vocals forward; fills the 4 kHz dip
+            Band(type: 1, gain: -1.5, freq: 6300, q: 2),  // softer "s" on bright female vocals
+            Band(type: 1, gain: -3, freq: 8000, q: 3),  // tames the stock 8 kHz peak
+            Band(type: 2, gain: 2, freq: 12000, q: 0.7),  // shimmer and air
         ]
         case .rock: return [
-            Band(type: 0, gain: 3, freq: 100, q: 0.7),      // weight for kick and bass guitar
-            Band(type: 1, gain: 1, freq: 60, q: 1.2),       // kick drum punch
-            Band(type: 1, gain: -1.5, freq: 250, q: 1),     // less guitar and bass mud
-            Band(type: 1, gain: 2, freq: 2500, q: 1.2),     // guitar bite and snare crack
-            Band(type: 1, gain: 3, freq: 3800, q: 1.6),     // vocals over dense guitars
-            Band(type: 1, gain: -1, freq: 6300, q: 2),      // softens guitar fizz
-            Band(type: 1, gain: -3.5, freq: 8000, q: 3),    // cymbal harshness
-            Band(type: 1, gain: -1, freq: 11000, q: 1.5),   // hi-hat splash
+            Band(type: 0, gain: 3.5, freq: 90, q: 0.7),  // weight for kick and bass guitar
+            Band(type: 1, gain: 2, freq: 60, q: 1.2),  // kick drum punch
+            Band(type: 1, gain: -3, freq: 300, q: 1),  // less guitar and bass mud
+            Band(type: 1, gain: 2.5, freq: 1500, q: 1.2),  // guitar crunch
+            Band(type: 1, gain: 2, freq: 3000, q: 1.4),  // bite and vocals
+            Band(type: 1, gain: 3, freq: 4200, q: 2),  // fills the 4 kHz dip
+            Band(type: 1, gain: -3, freq: 8000, q: 3),  // cymbal harshness
+            Band(type: 2, gain: 3, freq: 10000, q: 0.7),  // cymbal sparkle and air
         ]
         }
     }

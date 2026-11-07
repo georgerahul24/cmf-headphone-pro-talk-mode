@@ -2,6 +2,10 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.7.2
+
+- **Presets with real character.** A listening test confirmed the headphones apply all 8 EQ bands, but the presets were too alike to tell apart. Now each one stands out: Movie has much deeper rumble and boom with clear dialogue, Pop has a big warm bass shelf with vocals up front and sparkle on top, and Rock has guitar crunch, a punchy kick and bright cymbals.
+
 ## 2.7.1
 
 - **See the EQ.** Each preset now shows its curve with a soft shadow under it, a dot on every band, and the frequency and value of all 8 bands. Small curves of Movie, Pop and Rock sit side by side so you can compare them, and tapping one switches to it. On Mac, hover a dot to see its value.
