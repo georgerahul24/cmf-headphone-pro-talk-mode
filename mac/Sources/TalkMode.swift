@@ -413,16 +413,16 @@ final class TalkMode: ObservableObject {
     /// This week's hearing dose from both devices (1.0 = the whole safe amount).
     var allDose: Double { Hearing.shared.week() + Sync.shared.peerDose }
 
-    /// Battery time left, from your own use when there's enough history.
-    func batteryLeft(now: Date) -> (hours: Double, learned: Bool)? {
+    /// The battery forecast, re-worked out every 10 minutes or when the level or mode changes.
+    func batteryForecast(now: Date) -> BatteryPredict.Forecast? {
         guard let b = battery else { return nil }
         let minute = Int(now.timeIntervalSince1970 / 600)
         if let c = predictCache, c.minute == minute, c.level == b, c.anc == ancMode { return c.value }
-        let v = BatteryPredict.hoursLeft(level: b, anc: ancMode, sources: History.shared.loadAll())
+        let v = BatteryPredict.forecast(level: b, anc: ancMode, sources: History.shared.loadAll(), now: now)
         predictCache = (minute, b, ancMode, v)
         return v
     }
-    private var predictCache: (minute: Int, level: Int, anc: UInt8?, value: (hours: Double, learned: Bool))?
+    private var predictCache: (minute: Int, level: Int, anc: UInt8?, value: BatteryPredict.Forecast)?
 
     // MARK: battery saver
 

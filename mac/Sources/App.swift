@@ -325,9 +325,12 @@ struct Cards {
                 Text(talk.active ? (talk.talkPause ? "Transparency on · music paused" : "Transparency on · music at \(talk.talkVolumePercent)%")
                      : (talk.connected ? talk.ancName : talk.status))
                     .font(.system(size: 11)).opacity(0.85).lineLimit(1)
-                if !talk.active, talk.connected, let left = talk.batteryLeft(now: now) {
-                    Text(talk.charging ? "Charging" : BatteryPredict.text(left.hours) + (left.learned ? " · from your use" : " · estimate"))
-                        .font(.system(size: 10)).opacity(0.7).monospacedDigit()
+                if !talk.active, talk.connected, let f = talk.batteryForecast(now: now) {
+                    Text(talk.charging ? "Charging" : BatteryPredict.hoursText(f.hoursLeft))
+                        .font(.system(size: 10)).opacity(0.75).monospacedDigit()
+                    if !talk.charging, let c = BatteryPredict.chargeText(f.daysToCharge, now: now) {
+                        Text(c).font(.system(size: 10)).opacity(0.75).monospacedDigit()
+                    }
                 }
             }
             Spacer()

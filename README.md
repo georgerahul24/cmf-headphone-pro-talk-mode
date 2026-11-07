@@ -24,7 +24,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Noise control and Spatial Audio.** Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive. Spatial Audio Off, Concert or Cinema. For everyday controls you don't need Nothing X.
 
 **Battery and history**
-- **Battery time left.** Learned from how fast your battery drops, like "About 29 h left".
+- **Battery forecast.** Hours of listening left and when you'll need to charge next, learned from how fast each noise mode drains your battery and how much you really use them each day.
 - **Low battery reminder** below 10%.
 - **Hearing safety.** A weekly sound dose ring following the WHO guideline (80 dB for 40 hours a week), with reminders after loud listening. Estimated from your volume.
 - **Battery saver for noise cancelling.** If nothing plays for 10 minutes (pick 5 to 60), noise control turns Off so ANC stops draining the battery. Your old mode comes back when audio starts. A live countdown shows when it kicks in.

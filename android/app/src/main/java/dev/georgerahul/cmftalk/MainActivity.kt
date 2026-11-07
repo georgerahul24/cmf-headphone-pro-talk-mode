@@ -437,14 +437,14 @@ private fun HeroCard(ui: UiPrefs, now: Long) {
                 )
                 val b = st.battery
                 if (!talk && st.connected && b != null) {
-                    val left = remember(b, st.anc, now / 600_000) {
-                        BatteryPredict.hoursLeft(b, st.anc, History.loadAll(), System.currentTimeMillis())
+                    val f = remember(b, st.anc, now / 600_000) {
+                        BatteryPredict.forecast(b, st.anc, History.loadAll(), System.currentTimeMillis())
                     }
-                    Text(
-                        if (st.charging) "Charging" else BatteryPredict.text(left.first).replaceFirstChar { it.uppercase() } +
-                            if (left.second) " · from your use" else " · estimate",
-                        color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, style = tnum(),
-                    )
+                    Text(if (st.charging) "Charging" else BatteryPredict.hoursText(f.hoursLeft),
+                        color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, style = tnum())
+                    if (!st.charging) BatteryPredict.chargeText(f.daysToCharge, now)?.let {
+                        Text(it, color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, style = tnum())
+                    }
                 }
             }
             Box(Modifier.size(86.dp), contentAlignment = Alignment.Center) {

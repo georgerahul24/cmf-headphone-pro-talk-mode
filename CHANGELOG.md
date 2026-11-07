@@ -8,6 +8,7 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 - **The online genre lookup is gone.** Apple's search labels most Indian songs by language (Tamil, Bollywood), not style, so it couldn't tell rock from pop. Nothing is looked up online anymore. The Classical preset stays.
 - **Mac reads what's playing in any app, including YouTube Music or a show in Zen.** macOS 15.4 and newer stopped sharing this with apps, so the Mac app bundles a small, reviewed, read-only part of the open-source [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) (BSD license, pinned version).
   - Safety: only the read part is built; the parts that control playback or start other programs are left out. It has no network access and writes no files. The app runs it with Apple's own `/usr/bin/perl`, fixed paths inside the app, no shell, an empty environment, a time limit and an output size limit. Details in `mac/vendor/mediaremote-adapter/README.md`.
+- **Battery forecast: when to charge next.** Each noise mode (noise cancelling, Transparency, Off) gets its own drain rate learned from your history, blended with CMF's figures until there's enough data. Your real daily use over the last 14 days (counting days you don't use them) turns that into a next charge day, like "Next charge around Fri 13 Nov (in ~6 days)", next to the hours of listening left.
 - **Mac:** the EQ buttons in the menu bar always highlight the current choice.
 
 ## 2.10.0
