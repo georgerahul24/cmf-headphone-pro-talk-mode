@@ -9,6 +9,7 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
   - Pop: bass +5, mid +2, treble +3
   - Rock: bass +4, mid -2, treble +4
 - **New app icon** on Android and Mac: a frosted glass panel with a sound wave over soft violet glows. The Mac app now has an icon at all.
+- **Live Dock icon on Mac.** While the app window is open, the sound wave in the Dock icon bounces with your audio, and faster while talking.
 
 ## 2.7.2
 

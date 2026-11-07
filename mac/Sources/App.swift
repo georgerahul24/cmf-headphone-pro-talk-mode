@@ -126,11 +126,13 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         }
         // Show in the Dock and app switcher while the window is open.
         NSApp.setActivationPolicy(.regular)
+        DockIcon.shared.start(talk)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func windowWillClose(_ notification: Notification) {
+        DockIcon.shared.stop()
         NSApp.setActivationPolicy(.accessory)
     }
 }
