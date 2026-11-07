@@ -2,6 +2,13 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.11.1
+
+- **Much lighter on battery.**
+  - Mac: when no window is open, the app used to wake the processor about 900 times a second. It's now about once a second, at 0 to 0.5% CPU. The closed window is removed instead of updating in the background, the menu's clock and animations only run while it's open, and the Dock icon only animates while audio plays.
+  - Mac: which app is playing is checked every 6 seconds, the song name every 20 seconds or when the app changes, and the hearing dose is saved once a minute.
+  - Android: animations (logo, music bars, talk pulse, connecting dot) only run while they're visible and needed, and the hearing dose is saved once a minute.
+
 ## 2.11.0
 
 - **Auto remembers your picks.** On the Now playing card, tap Movie, Pop, Rock or Classical to remember it for what's playing, by its name and its artist or channel. Episode numbers are ignored, so picking Movie on one Mr. Robot episode covers the whole series, in any app, browsers included. Tap again to forget. Your picks sync between the phone and the Mac.

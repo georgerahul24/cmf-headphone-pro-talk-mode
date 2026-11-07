@@ -1,7 +1,8 @@
 import AppKit
 
-/// The app icon, drawn live in the Dock: the sound-wave bars breathe gently while the window is
-/// open, bounce while this Mac plays audio, and bounce faster while talking. Same design as AppIcon.icns. Only runs while the window is
+/// The app icon, drawn live in the Dock while the window is open: the sound-wave bars bounce while
+/// this Mac plays audio and faster while talking. When it's quiet the icon rests and the timer
+/// stops, so it costs nothing. Same design as AppIcon.icns. Only runs while the window is
 /// open, since that's the only time the app is in the Dock.
 final class DockIcon {
     static let shared = DockIcon()
@@ -13,14 +14,20 @@ final class DockIcon {
 
     func start(_ talk: TalkMode) {
         self.talk = talk
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 15, repeats: true) { [weak self] _ in self?.tick() }
-        timer?.tolerance = 0.02
+        wake()
+    }
+
+    /// Starts the animation if something is playing (called when playback starts or stops).
+    func wake() {
+        guard talk != nil, timer == nil else { return }
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 12, repeats: true) { [weak self] _ in self?.tick() }
+        timer?.tolerance = 0.03
         tick()
     }
 
     func stop() {
         timer?.invalidate(); timer = nil
+        talk = nil
         NSApp.dockTile.contentView = nil
         NSApp.dockTile.display()
     }
@@ -37,9 +44,14 @@ final class DockIcon {
         }
 
         let busy = talk.active || talk.playing
-        let target = busy ? 1.0 : 0.25
-        level += (target - level) * 0.12
-        phase += talk.active ? 0.55 : (busy ? 0.35 : 0.12)
+        level += ((busy ? 1.0 : 0.0) - level) * 0.15
+        if !busy && level < 0.02 {
+            // Quiet: draw the still icon once and stop until playback starts again.
+            level = 0; redraw()
+            timer?.invalidate(); timer = nil
+            return
+        }
+        phase += talk.active ? 0.65 : 0.42
         redraw()
     }
 

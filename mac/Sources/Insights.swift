@@ -94,6 +94,9 @@ final class Hearing {
     private let fmt: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyyMMdd"; f.locale = Locale(identifier: "en_US_POSIX"); return f }()
     private var loudSince: Date?
     private var lastLoudAlert = Date.distantPast
+    /// Not yet saved: written once a minute instead of on every tick, to save energy.
+    private var pending: [String: Double] = [:]
+    private var pendingDay = ""
 
     private var days: [String: [String: Double]] {
         get { d.dictionary(forKey: "hearing") as? [String: [String: Double]] ?? [:] }
@@ -109,14 +112,11 @@ final class Hearing {
         guard seconds > 0, volume > 0 else { loudSince = nil; return nil }
         let level = Self.db(volume)
         let key = fmt.string(from: now)
-        var all = days
-        var today = all[key] ?? [:]
-        today["dose", default: 0] += seconds * pow(2, (level - 80) / 3) / (40 * 3600)
-        today["secs", default: 0] += seconds
-        today["dbs", default: 0] += level * seconds
-        all[key] = today
-        let keep = Set(lastDays(now))
-        days = all.filter { keep.contains($0.key) }
+        if key != pendingDay { flush(); pendingDay = key }
+        pending["dose", default: 0] += seconds * pow(2, (level - 80) / 3) / (40 * 3600)
+        pending["secs", default: 0] += seconds
+        pending["dbs", default: 0] += level * seconds
+        if pending["secs", default: 0] >= 60 { flush() }
         if level >= 85 { if loudSince == nil { loudSince = now } } else { loudSince = nil }
         if let s = loudSince, now.timeIntervalSince(s) > 1800, now.timeIntervalSince(lastLoudAlert) > 3600 {
             lastLoudAlert = now
@@ -129,16 +129,28 @@ final class Hearing {
         return nil
     }
 
+    /// Saves the pending listening time.
+    func flush() {
+        guard !pending.isEmpty, !pendingDay.isEmpty else { return }
+        var all = days
+        var day = all[pendingDay] ?? [:]
+        for (k, v) in pending { day[k, default: 0] += v }
+        all[pendingDay] = day
+        let keep = Set(lastDays(Date()))
+        days = all.filter { keep.contains($0.key) }
+        pending = [:]
+    }
+
     /// This Mac's share of the weekly safe amount (1.0 = 100%).
     func week(_ now: Date = Date()) -> Double {
         let all = days
-        return lastDays(now).reduce(0) { $0 + (all[$1]?["dose"] ?? 0) }
+        return lastDays(now).reduce(0) { $0 + (all[$1]?["dose"] ?? 0) } + (pending["dose"] ?? 0)
     }
 
     func today(_ now: Date = Date()) -> (secs: Double, db: Double) {
         let t = days[fmt.string(from: now)] ?? [:]
-        let s = t["secs"] ?? 0
-        return (s, s > 0 ? (t["dbs"] ?? 0) / s : 0)
+        let s = (t["secs"] ?? 0) + (pending["secs"] ?? 0)
+        return (s, s > 0 ? ((t["dbs"] ?? 0) + (pending["dbs"] ?? 0)) / s : 0)
     }
 }
 

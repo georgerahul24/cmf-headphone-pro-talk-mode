@@ -161,6 +161,7 @@ class TalkService : Service() {
         unregisterReceiver(btReceiver)
         main.removeCallbacks(recheck)
         main.removeCallbacks(updateTick)
+        Hearing.flush()
         Sync.stop()
         audio.unregisterAudioPlaybackCallback(playbackCb)
         cancelIdle()

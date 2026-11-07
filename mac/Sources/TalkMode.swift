@@ -39,6 +39,8 @@ final class TalkMode: ObservableObject {
     @Published private(set) var songIsVideo = false
     @Published private(set) var learnedFor: String?
     private var lastSongCheck = Date.distantPast
+    private var lastSongApp = ""
+    private var lastAutoCheck = Date.distantPast
     /// Notify when the headphone battery drops below 10%.
     @Published var alertBattery: Bool { didSet { UserDefaults.standard.set(alertBattery, forKey: "alertBattery"); synced("alert.battery") } }
     /// Notify about loud listening and the weekly safe amount.
@@ -73,7 +75,7 @@ final class TalkMode: ObservableObject {
     @Published private(set) var battery: Int? { didSet { if let b = battery { History.shared.log("B", b) } } }
     @Published private(set) var charging = false
 
-    @Published private(set) var playing = false
+    @Published private(set) var playing = false { didSet { if playing != oldValue { DockIcon.shared.wake() } } }
     @Published private(set) var quietSince: Date?
     @Published private(set) var idleOffSince: Date?
     @Published private(set) var stats: UsageStats
@@ -134,8 +136,9 @@ final class TalkMode: ObservableObject {
             MainWindowController.shared.show()
         }
         // Checking "is audio playing" every 2 s costs next to nothing.
-        tick = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.checkIdle() }
-        tick?.tolerance = 1
+        // Every 3 s, with slack so macOS can group it with other wakeups.
+        tick = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in self?.checkIdle() }
+        tick?.tolerance = 1.5
         // Updates: first check a minute after start, then every 6 hours.
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in self?.updateCheck() }
         updateTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in self?.updateCheck() }
@@ -344,9 +347,9 @@ final class TalkMode: ObservableObject {
         guard playing, let k = PlayingApps.kind() else { return }
         if eqApp != k.name { eqApp = k.name }
         if songIsVideo != k.video { songIsVideo = k.video }
-        // Asking Music or Spotify for the song costs a little, so at most every 5 seconds.
-        if Date().timeIntervalSince(lastSongCheck) > 5 {
-            lastSongCheck = Date()
+        // Reading the song starts a small helper, so: when the playing app changes, else every 20 s.
+        if k.id != lastSongApp || Date().timeIntervalSince(lastSongCheck) > 20 {
+            lastSongCheck = Date(); lastSongApp = k.id
             // The system's Now Playing works for every app. It's read in the background and used
             // only when it belongs to the app that is playing (its helper processes count too).
             NowPlayingInfo.refreshSystem { [weak self] in self?.lastSongCheck = .distantPast; self?.autoEq() }
@@ -404,7 +407,7 @@ final class TalkMode: ObservableObject {
         let now = Date()
         defer { lastHearTick = playing && connected ? now : nil }
         guard playing, connected, let last = lastHearTick else { return }
-        let dt = min(5, now.timeIntervalSince(last))
+        let dt = min(6, now.timeIntervalSince(last))
         if let msg = Hearing.shared.add(volume: Double(SystemVolume.get() ?? 0), seconds: dt, now: now), alertHearing {
             Notify.show("hearing", "Hearing safety", msg)
         }
@@ -435,12 +438,14 @@ final class TalkMode: ObservableObject {
 
     private func checkIdle() {
         let p = SystemVolume.isPlaying()
+        let started = p && !playing
         if p != playing { playing = p }
         hearingTick()
         if p {
-            quietSince = nil
+            if quietSince != nil { quietSince = nil }
             restoreFromIdle()
-            autoEq()
+            // Which app is playing: right away when audio starts, then every 6 s.
+            if started || Date().timeIntervalSince(lastAutoCheck) >= 6 { lastAutoCheck = Date(); autoEq() }
             return
         }
         guard connected else { return }
@@ -454,7 +459,7 @@ final class TalkMode: ObservableObject {
             stats.idleOffCount += 1
             saveStats()
         }
-        objectWillChange.send() // the countdown moves
+        // No forced redraw here: the screens tick their own clock while they're open.
     }
 
     private func restoreFromIdle() {

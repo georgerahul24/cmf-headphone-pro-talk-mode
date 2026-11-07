@@ -128,6 +128,8 @@ object Hearing {
     /** Bumped on every change, so screens refresh. */
     var version by mutableIntStateOf(0); private set
     private var loudSince = 0L
+    /** Not yet saved: written once a minute instead of on every tick, to save battery. */
+    private var pendDose = 0.0; private var pendSecs = 0.0; private var pendDbs = 0.0; private var pendDay = ""
     private var lastLoudAlert = 0L
     private var lastWeekAlertDay = ""
 
@@ -152,12 +154,9 @@ object Hearing {
         if (seconds <= 0 || volume <= 0) { loudSince = 0; return null }
         val level = db(volume)
         val d = day.format(Date(now))
-        prefs.edit()
-            .putFloat("dose.$d", prefs.getFloat("dose.$d", 0f) + dose(level, seconds).toFloat())
-            .putFloat("secs.$d", prefs.getFloat("secs.$d", 0f) + seconds.toFloat())
-            .putFloat("dbs.$d", prefs.getFloat("dbs.$d", 0f) + (level * seconds).toFloat())
-            .apply()
-        prune(prefs, now)
+        if (d != pendDay) { flush(); pendDay = d }
+        pendDose += dose(level, seconds); pendSecs += seconds; pendDbs += level * seconds
+        if (pendSecs >= 60) { flush(); prune(prefs, now) }
         version++
         // Very loud for 30 minutes in a row: once an hour at most.
         if (level >= 85) { if (loudSince == 0L) loudSince = now } else loudSince = 0
@@ -173,6 +172,19 @@ object Hearing {
         return null
     }
 
+    /** Saves the pending listening time. */
+    fun flush() {
+        val prefs = p ?: return
+        if (pendSecs <= 0 || pendDay.isEmpty()) return
+        val d = pendDay
+        prefs.edit()
+            .putFloat("dose.$d", prefs.getFloat("dose.$d", 0f) + pendDose.toFloat())
+            .putFloat("secs.$d", prefs.getFloat("secs.$d", 0f) + pendSecs.toFloat())
+            .putFloat("dbs.$d", prefs.getFloat("dbs.$d", 0f) + pendDbs.toFloat())
+            .apply()
+        pendDose = 0.0; pendSecs = 0.0; pendDbs = 0.0
+    }
+
     private fun lastDays(now: Long) = (0 until 7).map { day.format(Date(now - it * 24 * 3600_000L)) }
 
     private fun prune(prefs: SharedPreferences, now: Long) {
@@ -183,13 +195,13 @@ object Hearing {
 
     /** This device's share of the weekly safe amount (1.0 = 100%). */
     fun week(now: Long = System.currentTimeMillis()): Double =
-        lastDays(now).sumOf { (p?.getFloat("dose.$it", 0f) ?: 0f).toDouble() }
+        lastDays(now).sumOf { (p?.getFloat("dose.$it", 0f) ?: 0f).toDouble() } + pendDose
 
     /** Today's listening time in seconds and average level in dB. */
     fun today(now: Long = System.currentTimeMillis()): Pair<Double, Double> {
         val d = day.format(Date(now))
-        val s = (p?.getFloat("secs.$d", 0f) ?: 0f).toDouble()
-        val dbs = (p?.getFloat("dbs.$d", 0f) ?: 0f).toDouble()
+        val s = (p?.getFloat("secs.$d", 0f) ?: 0f).toDouble() + if (d == pendDay) pendSecs else 0.0
+        val dbs = (p?.getFloat("dbs.$d", 0f) ?: 0f).toDouble() + if (d == pendDay) pendDbs else 0.0
         return s to (if (s > 0) dbs / s else 0.0)
     }
 }

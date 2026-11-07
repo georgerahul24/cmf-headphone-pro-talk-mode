@@ -300,8 +300,8 @@ private fun NavItem(ico: Ico, selected: Boolean, modifier: Modifier, dot: Boolea
 
 @Composable
 private fun TalkFab(active: Boolean, ready: Boolean, onClick: () -> Unit) {
-    val pulse = rememberInfiniteTransition(label = "pulse")
-    val p by pulse.animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = EaseOutCubic)), label = "p")
+    // The pulse only runs while talking.
+    val p = if (active) loop(1600, EaseOutCubic, RepeatMode.Restart) else 0f
     val c1 by animateColorAsState(if (active) C.Pink else C.Purple, tween(400), label = "c1")
     val c2 by animateColorAsState(if (active) C.Violet else C.Violet, tween(400), label = "c2")
     Box(contentAlignment = Alignment.Center) {
@@ -374,9 +374,9 @@ private fun HomeTab(ui: UiPrefs, setup: Setup, onTab: (Int) -> Unit) {
 @Composable
 private fun StatusPill(connected: Boolean, status: String) {
     val dot by animateColorAsState(if (connected) C.Teal else C.Faint, tween(400), label = "dot")
-    val blink = rememberInfiniteTransition(label = "blink")
-    val a by blink.animateFloat(1f, 0.3f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "a")
     val connecting = status.startsWith("Connecting")
+    // The dot only blinks while connecting.
+    val a = if (connecting) 1f - 0.7f * loop(800, LinearEasing, RepeatMode.Reverse) else 1f
     Row(
         Modifier.clip(CircleShape).background(C.Card).padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -578,8 +578,8 @@ private fun RoundedRectangle(r: Dp) = RoundedCornerShape(r)
 @Composable
 private fun LogoMark(size: Dp, live: Boolean, fast: Boolean) {
     val level by animateFloatAsState(if (live) 1f else 0f, tween(600), label = "logoLevel")
-    val t = rememberInfiniteTransition(label = "logo")
-    val phase by t.animateFloat(0f, (2 * Math.PI).toFloat() * 4, infiniteRepeatable(tween(if (fast) 3600 else 5600, easing = LinearEasing)), label = "logoPhase")
+    // The wave only runs while audio plays; otherwise nothing animates, to save battery.
+    val phase = if (live || level > 0f) livePhase(if (fast) 3600 else 5600) else 0f
     Canvas(Modifier.size(size)) {
         val k = this.size.width / 824f // icon grid: the 824 square of the 1024 design
         fun p(v: Float) = (v - 100f) * k
@@ -652,8 +652,8 @@ private fun NowPlayingCard(ui: UiPrefs) {
         else -> listOf(Color(0xFFB46CF7), Color(0xFFEC5C9A))
     }
     val level by animateFloatAsState(if (st.playing) 1f else 0f, tween(500), label = "npLevel")
-    val t = rememberInfiniteTransition(label = "np")
-    val phase by t.animateFloat(0f, (2 * Math.PI).toFloat() * 3, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "npPhase")
+    // The bars only move while audio plays; otherwise nothing animates, to save battery.
+    val phase = if (st.playing || level > 0f) livePhase(2400) else 0f
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(C.Card).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -717,6 +717,22 @@ private fun NowPlayingCard(ui: UiPrefs) {
             }
         }
     }
+}
+
+/** 0 to 1 on a loop; only composed while it's needed, so nothing animates otherwise. */
+@Composable
+private fun loop(ms: Int, easing: Easing, mode: RepeatMode): Float {
+    val t = rememberInfiniteTransition(label = "loop")
+    val v by t.animateFloat(0f, 1f, infiniteRepeatable(tween(ms, easing = easing), mode), label = "loopValue")
+    return v
+}
+
+/** A looping wave position for small animations; only composed while something should move. */
+@Composable
+private fun livePhase(periodMs: Int): Float {
+    val t = rememberInfiniteTransition(label = "live")
+    val p by t.animateFloat(0f, (2 * Math.PI).toFloat() * 4, infiniteRepeatable(tween(periodMs * 4 / 3, easing = LinearEasing)), label = "livePhase")
+    return p
 }
 
 /** The EQ curve with a soft shadow under it, a 0 dB line and a dot on each band. */

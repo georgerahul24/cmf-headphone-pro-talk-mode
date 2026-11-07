@@ -35,6 +35,10 @@ struct TalkModeApp: App {
 
 /// Clicking the app in Applications, Launchpad or the Dock while it runs opens the window.
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillTerminate(_ notification: Notification) {
+        Hearing.shared.flush()
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         MainWindowController.shared.show()
         return true
@@ -78,11 +82,22 @@ private let spring = Animation.spring(response: 0.4, dampingFraction: 0.8)
 // MARK: - menu bar
 
 /// The small popover: noise control, spatial audio and the battery saver timer.
+/// Whether the menu popover is open, so its clock and animations only run while you can see them.
+final class Visibility: ObservableObject { @Published var open = false }
+
+/// Lets views pause their animations when nobody can see them.
+private struct LiveKey: EnvironmentKey { static let defaultValue = true }
+extension EnvironmentValues {
+    var live: Bool { get { self[LiveKey.self] } set { self[LiveKey.self] = newValue } }
+}
+
 struct MenuPanel: View {
     @ObservedObject var talk: TalkMode
+    @StateObject private var vis = Visibility()
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+        // Ticks every second while open; while closed, effectively never.
+        TimelineView(.periodic(from: .now, by: vis.open ? 1 : 3600)) { ctx in
             let c = Cards(talk: talk)
             VStack(spacing: 12) {
                 c.header
@@ -97,6 +112,9 @@ struct MenuPanel: View {
             .padding(14)
         }
         .frame(width: 320)
+        .environment(\.live, vis.open)
+        .onAppear { vis.open = true }
+        .onDisappear { vis.open = false }
         .background(LinearGradient(stops: [.init(color: Pal.bgTop, location: 0), .init(color: Pal.bg, location: 0.45)],
                                    startPoint: .top, endPoint: .bottom))
         .foregroundStyle(Pal.text)
@@ -145,6 +163,11 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         DockIcon.shared.stop()
         NSApp.setActivationPolicy(.accessory)
+        // Throw the window away, so nothing in it keeps updating; it's rebuilt when opened again.
+        DispatchQueue.main.async { [weak self] in
+            self?.window?.contentView = nil
+            self?.window = nil
+        }
     }
 }
 
@@ -1069,9 +1092,10 @@ struct EqBandList: View {
 /// Music player bars that bounce while playing and rest when paused.
 struct MusicBars: View {
     let playing: Bool
+    @Environment(\.live) private var live
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !playing)) { ctx in
+        TimelineView(.animation(minimumInterval: 1.0 / 12, paused: !playing || !live)) { ctx in
             let t = ctx.date.timeIntervalSinceReferenceDate
             GeometryReader { g in
                 let w = g.size.width / 7
