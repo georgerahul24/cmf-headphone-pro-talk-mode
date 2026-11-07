@@ -675,15 +675,15 @@ struct Cards {
         Eq(rawValue: talk.eqMode == EqMode.auto ? (talk.eqNow ?? talk.musicEq) : talk.eqMode)
     }
 
-    /// Two rows of three, so the names fit.
+    /// Two rows of three, so the names fit. Written out, not in a loop: SwiftUI kept showing the
+    /// first drawing of looped rows in the menu bar, so the highlight didn't move.
     private var eqPicker: some View {
-        VStack(spacing: 6) {
-            ForEach([0, 3], id: \.self) { start in
-                Seg(options: (start..<start + 3).map { (UInt8($0), EqMode.label(EqMode.all[$0])) },
-                    selected: EqMode.all.firstIndex(of: talk.eqMode).map { UInt8($0) }, enabled: true) { v in
-                    withAnimation(spring) { talk.eqMode = EqMode.all[Int(v)] }
-                }
-            }
+        let sel = EqMode.all.firstIndex(of: talk.eqMode).map { UInt8($0) }
+        let talk = talk
+        let pick: (UInt8) -> Void = { v in withAnimation(spring) { talk.eqMode = EqMode.all[Int(v)] } }
+        return VStack(spacing: 6) {
+            Seg(options: (0..<3).map { (UInt8($0), EqMode.label(EqMode.all[$0])) }, selected: sel, enabled: true, pick: pick)
+            Seg(options: (3..<6).map { (UInt8($0), EqMode.label(EqMode.all[$0])) }, selected: sel, enabled: true, pick: pick)
         }
     }
 
