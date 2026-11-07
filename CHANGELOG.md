@@ -8,8 +8,9 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 - **Low battery reminder.** One notification when the headphones drop below 10%, again only after they've charged.
 - **Hearing safety.** A weekly "sound dose" ring following the WHO guideline (80 dB for 40 hours a week; every 3 dB louder halves the safe time), with today's listening time and level. Phone and Mac add up through sync. A notice after 30 minutes of loud listening and when you pass the week's safe amount. Loudness is estimated from the volume, since the headphones can't measure it.
 - **Classical preset.** Natural and open: clean low strings, clear soloists, soft violins and the air of the hall. Auto picks it when the genre lookup finds classical, opera or orchestral music.
-- **Now playing on Mac shows up for browsers too.** macOS doesn't share song names from browsers like Zen, so the card says "Playing in Zen" with the EQ it picked.
+- **Now playing on Mac shows up for browsers too.** For browsers like Zen the card shows the app and the EQ it picked.
 - Both reminders have switches and sync between devices.
+- **Mac:** the EQ picker always shows the current choice, also right after it changes on the phone.
 
 ## 2.9.0
 

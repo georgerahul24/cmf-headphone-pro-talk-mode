@@ -683,6 +683,8 @@ struct Cards {
                     selected: EqMode.all.firstIndex(of: talk.eqMode).map { UInt8($0) }, enabled: true) { v in
                     withAnimation(spring) { talk.eqMode = EqMode.all[Int(v)] }
                 }
+                // Redraw from the current setting whenever it changes (also when it comes from the phone).
+                .id("\(start)-\(talk.eqMode)")
             }
         }
     }
@@ -779,10 +781,11 @@ struct Cards {
                 .frame(width: 52, height: 52)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(talk.songIsVideo ? "Now watching" : "Now playing").font(.system(size: 10)).foregroundStyle(Pal.sub)
-                    Text(s?.title ?? "Playing in \(app)").font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    Text(s.map { [$0.artist, app].filter { !$0.isEmpty }.joined(separator: " · ") }
-                         ?? "macOS doesn't share song names from \(app)")
-                        .font(.system(size: 11)).foregroundStyle(Pal.sub).lineLimit(1)
+                    Text(s?.title ?? app).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    if let s {
+                        Text([s.artist, app].filter { !$0.isEmpty }.joined(separator: " · "))
+                            .font(.system(size: 11)).foregroundStyle(Pal.sub).lineLimit(1)
+                    }
                     Text(line).font(.system(size: 10, weight: .medium)).foregroundStyle(.white)
                         .padding(.horizontal, 8).padding(.vertical, 2)
                         .background(Capsule().fill(LinearGradient(colors: colors.map { $0.opacity(0.55) }, startPoint: .leading, endPoint: .trailing)))

@@ -100,11 +100,16 @@ final class Hearing {
 
 /// Mac notifications for the reminders.
 enum Notify {
+    /// Notifications need a real app bundle (not a bare tool, as in tests).
+    private static var available: Bool { Bundle.main.bundleIdentifier != nil && Bundle.main.bundleURL.pathExtension == "app" }
+
     static func ask() {
+        guard available else { return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
     static func show(_ id: String, _ title: String, _ body: String) {
+        guard available else { return }
         let c = UNMutableNotificationContent()
         c.title = title; c.body = body; c.sound = .default
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: c, trigger: nil))
