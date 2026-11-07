@@ -117,13 +117,13 @@ enum PlayingApps {
         "com.microsoft.edgemac", "com.brave.Browser", "com.operasoftware", "com.vivaldi",
     ]
 
-    /// true = video, false = music, with the app's name. Nil = nothing we can tell.
-    static func kind() -> (Bool, String)? {
+    /// true = video, false = music, with the app's name and bundle ID. Nil = nothing we can tell.
+    static func kind() -> (video: Bool, name: String, id: String)? {
         let ids = playing()
-        if let v = ids.first(where: { id in video.contains(id) || browsers.contains { id.hasPrefix($0) } }) { return (true, name(v)) }
-        if let m = ids.first(where: { music.contains($0) }) { return (false, name(m)) }
+        if let v = ids.first(where: { id in video.contains(id) || browsers.contains { id.hasPrefix($0) } }) { return (true, name(v), v) }
+        if let m = ids.first(where: { music.contains($0) }) { return (false, name(m), m) }
         // Any other app that isn't a macOS system sound: treat as music.
-        if let o = ids.first(where: { !$0.hasPrefix("com.apple.") }) { return (false, name(o)) }
+        if let o = ids.first(where: { !$0.hasPrefix("com.apple.") }) { return (false, name(o), o) }
         return nil
     }
 

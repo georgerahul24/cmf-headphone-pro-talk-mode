@@ -6,11 +6,12 @@
 <key>CFBundleName</key><string>CMF Talk Mode</string>
 <key>CFBundleDisplayName</key><string>CMF Talk Mode</string>
 <key>CFBundlePackageType</key><string>APPL</string>
+<key>NSAppleEventsUsageDescription</key><string>Reads the song playing in Apple Music or Spotify, to pick the EQ by its genre.</string>
 <key>NSLocalNetworkUsageDescription</key><string>Syncs your headphone history, stats and settings with the CMF Talk Mode app on your phone.</string>
 <key>NSBonjourServices</key><array><string>_cmftalk._tcp</string></array>
 <key>CFBundleIconFile</key><string>AppIcon</string>
-<key>CFBundleShortVersionString</key><string>2.8.0</string>
-<key>CFBundleVersion</key><string>15</string>
+<key>CFBundleShortVersionString</key><string>2.9.0</string>
+<key>CFBundleVersion</key><string>16</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSBluetoothAlwaysUsageDescription</key><string>CMF Talk Mode talks to your CMF Headphone Pro to switch noise control.</string>

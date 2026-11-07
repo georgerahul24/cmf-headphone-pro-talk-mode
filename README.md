@@ -49,6 +49,8 @@ The Nothing X app only shows bass, mid and treble, but the CMF Headphone Pro app
 
 Both apps draw each preset's curve and list all 8 bands with their values.
 
+**Genre lookup:** in Auto, each song is looked up on Apple's iTunes Search (only the title and artist are sent) and gets Rock if it's a rock-type genre, otherwise Pop. A "Now playing" card shows the song, its genre and the EQ it picked. On Android this needs Notification access; on Mac it works with Apple Music and Spotify, and with browsers when macOS shares the song. You can turn it off.
+
 **Auto** picks Movie for video apps (Netflix, Prime Video, JioHotstar, YouTube, VLC and more) and for web browsers on Mac. It picks your music preset for music apps (Spotify, YouTube Music, JioSaavn, Apple Music and more). On Mac, the Zen browser counts as music. Nothing playing means no change.
 
 The presets play at the same level as the factory sound.

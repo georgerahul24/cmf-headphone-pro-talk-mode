@@ -15,6 +15,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -117,12 +118,13 @@ private class UiPrefs(val p: Prefs) {
     var eqMode by mutableStateOf(p.eqMode)
     var musicEq by mutableStateOf(p.musicEq)
     var autoUpdate by mutableStateOf(p.autoUpdate)
+    var eqGenre by mutableStateOf(p.eqGenre)
 
     /** Settings came from the Mac: show them. */
     fun reload() {
         talkEnabled = p.enabled; talkVolume = p.talkVolume; talkPause = p.talkPause
         idleOff = p.idleOff; idleMinutes = p.idleMinutes
-        eqMode = p.eqMode; musicEq = p.musicEq; autoUpdate = p.autoUpdate
+        eqMode = p.eqMode; musicEq = p.musicEq; autoUpdate = p.autoUpdate; eqGenre = p.eqGenre
     }
 }
 
@@ -352,6 +354,9 @@ private fun HomeTab(ui: UiPrefs, setup: Setup, onTab: (Int) -> Unit) {
     }
     if (setup.needed) Reveal(2) { SetupCard(setup) }
     Reveal(3) { HeroCard(ui, now) }
+    AnimatedVisibility(st.songTitle != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+        NowPlayingCard(ui)
+    }
     Reveal(4) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MiniTile(Modifier.weight(1f), "Noise control", ancShort(st.anc), Brush.linearGradient(listOf(C.Blue1, C.Blue2))) { onTab(1) }
@@ -584,6 +589,68 @@ private fun LogoMark(size: Dp, live: Boolean, fast: Boolean) {
     }
 }
 
+/**
+ * What's playing: an artwork tile with bouncing music bars, the song, the artist and app, and
+ * which genre was found and which EQ it picked.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun NowPlayingCard(ui: UiPrefs) {
+    val st = HeadphoneState
+    val eq = Eq.of(st.eqNow ?: "")
+    val colors = when (eq) {
+        Eq.MOVIE -> listOf(Color(0xFF8B5CF6), Color(0xFF3B6FF5))
+        Eq.ROCK -> listOf(Color(0xFFEC5C9A), Color(0xFFC0832B))
+        else -> listOf(Color(0xFFB46CF7), Color(0xFFEC5C9A))
+    }
+    val level by animateFloatAsState(if (st.playing) 1f else 0f, tween(500), label = "npLevel")
+    val t = rememberInfiniteTransition(label = "np")
+    val phase by t.animateFloat(0f, (2 * Math.PI).toFloat() * 3, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "npPhase")
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(C.Card).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(colors)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(Modifier.size(30.dp, 26.dp)) {
+                val n = 4
+                val w = size.width / (n * 2 - 1)
+                for (i in 0 until n) {
+                    val wave = ((Math.sin(phase + i * 1.7) + 1) / 2).toFloat()
+                    val h = size.height * (0.25f + 0.75f * (if (level > 0f) (0.35f + 0.65f * wave) * level + 0.3f * (1 - level) else 0.3f))
+                    drawRoundRect(Color.White, Offset(i * 2 * w, size.height - h), Size(w, h), CornerRadius(w / 2))
+                }
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(if (st.songIsVideo) "Now watching" else "Now playing", color = C.Sub, fontSize = 11.sp)
+            Text(st.songTitle ?: "", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                modifier = Modifier.basicMarquee())
+            Text(listOfNotNull(st.songArtist, st.eqApp).joinToString(" · "), color = C.Sub, fontSize = 12.sp, maxLines = 1,
+                modifier = Modifier.basicMarquee())
+            Spacer(Modifier.height(6.dp))
+            val line = when {
+                st.songIsVideo -> "Video → Movie EQ"
+                ui.eqMode != EqMode.AUTO -> "EQ: ${EqMode.label(ui.eqMode)}"
+                !ui.eqGenre -> "Music → ${EqMode.label(ui.musicEq)} EQ"
+                st.genreLooking -> "Looking up the genre..."
+                st.genre != null -> "${st.genre} → ${EqMode.label(st.eqNow ?: ui.musicEq)} EQ"
+                else -> "Genre unknown → ${EqMode.label(ui.musicEq)} EQ"
+            }
+            AnimatedContent(line, transitionSpec = {
+                (fadeIn(tween(250)) + slideInVertically { it / 2 }).togetherWith(fadeOut(tween(120)))
+            }, label = "npLine") {
+                Text(it, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                    modifier = Modifier.clip(CircleShape).background(Brush.horizontalGradient(colors.map { c -> c.copy(alpha = 0.55f) }))
+                        .padding(horizontal = 10.dp, vertical = 3.dp))
+            }
+        }
+    }
+}
+
 /** The EQ curve with a soft shadow under it, a 0 dB line and a dot on each band. */
 @Composable
 private fun EqCurve(eq: Eq?, height: Dp, full: Boolean) {
@@ -709,6 +776,10 @@ private fun EqCard(ui: UiPrefs) {
                         val id = if (it == 1) Eq.ROCK.id else Eq.POP.id
                         ui.musicEq = id; ui.p.musicEq = id; svc?.eqSettingChanged()
                     }
+                    SwitchRow("Pick Pop or Rock by song",
+                        "Looks up each song's genre on Apple's iTunes Search (only the title and artist are sent). Rock songs get Rock, the rest Pop. Above is used when the genre is unknown.",
+                        ui.eqGenre) { ui.eqGenre = it; ui.p.eqGenre = it; svc?.eqSettingChanged() }
+                    if (st.songTitle != null) NowPlayingCard(ui)
                     st.eqApp?.let { Text("Last playing: $it", color = C.Faint, fontSize = 12.sp) }
                     MainActivity.resumes
                     val access = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(ctx)

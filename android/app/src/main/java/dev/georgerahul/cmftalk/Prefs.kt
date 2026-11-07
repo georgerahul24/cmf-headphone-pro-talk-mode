@@ -14,7 +14,7 @@ class Prefs(ctx: Context) {
         val SYNC_KEYS = linkedMapOf(
             "talk.enabled" to "enabled", "talk.volume" to "talkVolume", "talk.pause" to "talkPause",
             "saver.on" to "idleOff", "saver.minutes" to "idleMinutes", "eq.mode" to "eqMode",
-            "eq.music" to "musicEq", "update.auto" to "autoUpdate",
+            "eq.music" to "musicEq", "eq.genre" to "eqGenre", "update.auto" to "autoUpdate",
         )
         private val LOCAL_TO_SYNC = SYNC_KEYS.entries.associate { (k, v) -> v to k }
     }
@@ -58,6 +58,11 @@ class Prefs(ctx: Context) {
         get() = p.getString("musicEq", "pop") ?: "pop"
         set(v) { p.edit().putString("musicEq", v).apply(); changed("musicEq") }
 
+    /** Auto picks Pop or Rock by the song's genre, looked up on Apple's iTunes Search. */
+    var eqGenre: Boolean
+        get() = p.getBoolean("eqGenre", true)
+        set(v) { p.edit().putBoolean("eqGenre", v).apply(); changed("eqGenre") }
+
     /** Check GitHub for new versions and install them. */
     var autoUpdate: Boolean
         get() = p.getBoolean("autoUpdate", true)
@@ -73,6 +78,7 @@ class Prefs(ctx: Context) {
         "saver.minutes" -> idleMinutes
         "eq.mode" -> eqMode
         "eq.music" -> musicEq
+        "eq.genre" -> eqGenre
         "update.auto" -> autoUpdate
         else -> null
     }
@@ -84,7 +90,7 @@ class Prefs(ctx: Context) {
         val local = SYNC_KEYS[key] ?: return false
         val e = p.edit()
         when (key) {
-            "talk.enabled", "talk.pause", "saver.on", "update.auto" -> e.putBoolean(local, v as? Boolean ?: return false)
+            "talk.enabled", "talk.pause", "saver.on", "update.auto", "eq.genre" -> e.putBoolean(local, v as? Boolean ?: return false)
             "talk.volume" -> e.putInt(local, ((v as? Number)?.toInt() ?: return false).coerceIn(0, 100))
             "saver.minutes" -> e.putInt(local, ((v as? Number)?.toInt() ?: return false).coerceAtLeast(1))
             "eq.mode" -> e.putString(local, (v as? String)?.let { EqMode.normalize(it) }?.takeIf { it == EqMode.AUTO || Eq.of(it) != null } ?: return false)

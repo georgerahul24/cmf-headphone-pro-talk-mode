@@ -87,6 +87,7 @@ struct MenuPanel: View {
             VStack(spacing: 12) {
                 c.header
                 if talk.connected { c.compactTalk(ctx.date) } else { c.connectCard }
+                c.nowPlayingCard
                 c.noiseCard
                 c.spatialCard
                 c.eqMenuCard
@@ -103,6 +104,7 @@ struct MenuPanel: View {
         .animation(spring, value: talk.active)
         .animation(spring, value: talk.ancMode)
         .animation(spring, value: talk.connected)
+        .animation(spring, value: talk.song)
     }
 }
 
@@ -249,6 +251,7 @@ struct MainWindow: View {
             case .home:
                 if !talk.connected { c.connectCard }
                 c.hero(now)
+                c.nowPlayingCard
                 c.talkButton(now)
                 LazyVGrid(columns: grid, spacing: 16) {
                     c.saverCard(now)
@@ -701,6 +704,11 @@ struct Cards {
                 Seg(options: [(0, "Pop"), (1, "Rock")], selected: talk.musicEq == Eq.rock.rawValue ? 1 : 0, enabled: true) { v in
                     talk.musicEq = v == 1 ? Eq.rock.rawValue : Eq.pop.rawValue
                 }
+                Toggle("Pick Pop or Rock by song", isOn: $talk.eqGenre)
+                    .toggleStyle(.switch).tint(Pal.purple).controlSize(.small).font(.system(size: 12))
+                Text("Looks up each song's genre on Apple's iTunes Search (only the title and artist are sent). Rock songs get Rock, the rest Pop. Works with Apple Music and Spotify, and with browsers when macOS shares the song.")
+                    .font(.system(size: 10)).foregroundStyle(Pal.faint).fixedSize(horizontal: false, vertical: true)
+                nowPlayingCard
                 if let app = talk.eqApp {
                     Text("Last playing: \(app)").font(.system(size: 10)).foregroundStyle(Pal.faint)
                 }
@@ -730,6 +738,46 @@ struct Cards {
                     .help("Use \(e.label)")
                 }
             }
+        }
+    }
+
+    /// What's playing: artwork tile with bouncing music bars, song, artist and app, and the genre
+    /// that was found and the EQ it picked.
+    @ViewBuilder var nowPlayingCard: some View {
+        if let s = talk.song {
+            let eq = Eq(rawValue: talk.eqNow ?? "")
+            let colors: [Color] = eq == .movie ? [Pal.purple, Pal.blue1] : eq == .rock ? [Pal.pink, Color(hex: 0xC0832B)] : [Pal.violet, Pal.pink]
+            let line: String = {
+                if talk.songIsVideo { return "Video → Movie EQ" }
+                if talk.eqMode != EqMode.auto { return "EQ: \(EqMode.label(talk.eqMode))" }
+                if !talk.eqGenre { return "Music → \(EqMode.label(talk.musicEq)) EQ" }
+                if talk.genreLooking { return "Looking up the genre..." }
+                if let g = talk.genre { return "\(g) → \(EqMode.label(talk.eqNow ?? talk.musicEq)) EQ" }
+                return "Genre unknown → \(EqMode.label(talk.musicEq)) EQ"
+            }()
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12).fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+                    MusicBars(playing: talk.playing).frame(width: 26, height: 22)
+                }
+                .frame(width: 52, height: 52)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(talk.songIsVideo ? "Now watching" : "Now playing").font(.system(size: 10)).foregroundStyle(Pal.sub)
+                    Text(s.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    Text([s.artist, talk.eqApp ?? ""].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.system(size: 11)).foregroundStyle(Pal.sub).lineLimit(1)
+                    Text(line).font(.system(size: 10, weight: .medium)).foregroundStyle(.white)
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(Capsule().fill(LinearGradient(colors: colors.map { $0.opacity(0.55) }, startPoint: .leading, endPoint: .trailing)))
+                        .contentTransition(.opacity)
+                        .padding(.top, 3)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Pal.card))
+            .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 
@@ -958,6 +1006,28 @@ struct EqBandList: View {
                 .padding(.horizontal, 7).padding(.vertical, 5)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Pal.card2))
                 .help(["Low shelf", "Peak", "High shelf"][Int(min(b.type, 2))] + ", Q \(String(format: "%.1f", b.q))")
+            }
+        }
+    }
+}
+
+/// Music player bars that bounce while playing and rest when paused.
+struct MusicBars: View {
+    let playing: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !playing)) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate
+            GeometryReader { g in
+                let w = g.size.width / 7
+                HStack(alignment: .bottom, spacing: w) {
+                    ForEach(0..<4, id: \.self) { i in
+                        let wave = (sin(t * 5 + Double(i) * 1.7) + 1) / 2
+                        Capsule().fill(.white)
+                            .frame(width: w, height: g.size.height * (playing ? 0.3 + 0.7 * wave : 0.3))
+                    }
+                }
+                .frame(width: g.size.width, height: g.size.height, alignment: .bottom)
             }
         }
     }

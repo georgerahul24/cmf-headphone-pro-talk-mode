@@ -2,6 +2,13 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.9.0
+
+- **EQ by song genre.** In Auto, each song is looked up on Apple's iTunes Search (only the title and artist are sent). Rock-type songs get Rock, everything else (Bollywood, Regional Indian, Pop, R&B...) gets Pop. Videos still get Movie. On by default, with a switch to turn it off; the setting syncs.
+- **Now playing card** with bouncing music bars: the song, the artist, the app, the genre that was found and the EQ it picked, like "Bollywood → Pop EQ".
+  - Android: works with YouTube Music, Spotify, JioSaavn and others (needs Notification access).
+  - Mac: works with Apple Music and Spotify (macOS asks once), and with browsers like Zen when macOS shares the song.
+
 ## 2.8.0
 
 - **8-band EQ, measured from Flat.** A listening test changed only bands 4 to 8 (with Nothing's own 3 bands at 0) and the change was clearly audible, so the headphones really do use all 8 bands. The presets are the bold 8-band versions:

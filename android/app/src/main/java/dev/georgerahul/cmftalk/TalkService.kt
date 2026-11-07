@@ -458,12 +458,48 @@ class TalkService : Service() {
         if (prefs.eqMode == EqMode.AUTO) autoPick ?: prefs.musicEq else prefs.eqMode
 
     /** Auto: Movie while a video app plays, the music preset while music plays. Nothing playing: no change. */
+    /**
+     * Auto: Movie while a video app plays; for music, Pop or Rock by the song's genre (looked up
+     * online, if that's on), else the music preset. Nothing playing: no change.
+     * Also keeps the "Now playing" card up to date.
+     */
     private fun autoEq() {
-        if (prefs.eqMode != EqMode.AUTO || !isPlaying()) return
-        val (video, app) = playingKind() ?: return
+        if (!isPlaying()) return
+        val ctrl = playingController()
+        val (video, app) = playingKind(ctrl) ?: return
         st.eqApp = app
-        autoPick = if (video) Eq.MOVIE.id else prefs.musicEq
+        nowPlaying(ctrl, video)
+        if (prefs.eqMode != EqMode.AUTO) return
+        autoPick = if (video) Eq.MOVIE.id else genrePick() ?: autoPick?.takeIf { it != Eq.MOVIE.id } ?: prefs.musicEq
         applyEq()
+    }
+
+    /** Title and artist of what's playing, for the "Now playing" card and the genre lookup. */
+    private fun nowPlaying(ctrl: android.media.session.MediaController?, video: Boolean) {
+        val md = ctrl?.metadata
+        val title = md?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE)?.trim().orEmpty()
+        val artist = (md?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
+            ?: md?.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST))?.trim().orEmpty()
+        st.songTitle = title.ifEmpty { null }
+        st.songArtist = artist.ifEmpty { null }
+        st.songIsVideo = video
+    }
+
+    /** Pop or Rock from the song's genre, or null if off, unknown or still looking it up. */
+    private fun genrePick(): String? {
+        val title = st.songTitle
+        if (!prefs.eqGenre || title == null) { st.genre = null; st.genreLooking = false; return null }
+        val artist = st.songArtist.orEmpty()
+        val key = Genre.key(artist, title)
+        val g = Genre.cached(key)
+        if (g == null) {
+            st.genre = null; st.genreLooking = true
+            Genre.lookup(artist, title) { autoEq() }
+            return null
+        }
+        st.genreLooking = false
+        st.genre = g.ifEmpty { null }
+        return Genre.presetFor(g, prefs.musicEq)
     }
 
     private fun applyEq() {
@@ -481,8 +517,8 @@ class TalkService : Service() {
     }
 
     /** true = video, false = music, with the app's name if known. Null = can't tell. */
-    private fun playingKind(): Pair<Boolean, String?>? {
-        val pkg = playingPackage()
+    private fun playingKind(ctrl: android.media.session.MediaController?): Pair<Boolean, String?>? {
+        val pkg = ctrl?.packageName
         val label = pkg?.let { EqApps.label(this, it) }
         if (pkg != null) EqApps.isVideo(this, pkg)?.let { return it to label }
         // What the playing apps say they play. (May include a paused app, so it comes second.)
@@ -492,11 +528,11 @@ class TalkService : Service() {
         return if (pkg != null) false to label else null
     }
 
-    /** The app that is playing, if Notification access is on for this app. */
-    private fun playingPackage(): String? = runCatching {
+    /** The media session that is playing, if Notification access is on for this app. */
+    private fun playingController(): android.media.session.MediaController? = runCatching {
         getSystemService(MediaSessionManager::class.java)
             .getActiveSessions(ComponentName(this, MediaListener::class.java))
-            .firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }?.packageName
+            .firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
     }.getOrNull()
 
     // ---- idle saver (main thread) ----
@@ -528,7 +564,7 @@ class TalkService : Service() {
         if (playing) {
             // Keep checking while playing, in case a stop is missed. The phone is awake anyway.
             main.removeCallbacks(recheck)
-            main.postDelayed(recheck, 30_000)
+            main.postDelayed(recheck, 10_000) // also catches the next song starting
             st.quietSince = null
             cancelIdle()
             restoreFromIdle()

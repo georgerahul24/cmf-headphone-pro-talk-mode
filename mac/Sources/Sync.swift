@@ -25,7 +25,7 @@ final class Sync: ObservableObject {
 
     /// The settings that sync, by their shared names.
     static let keys = ["talk.enabled", "talk.volume", "talk.pause", "saver.on", "saver.minutes",
-                       "eq.mode", "eq.music", "update.auto"]
+                       "eq.mode", "eq.music", "eq.genre", "update.auto"]
 
     private let d = UserDefaults.standard
     let deviceId: String
