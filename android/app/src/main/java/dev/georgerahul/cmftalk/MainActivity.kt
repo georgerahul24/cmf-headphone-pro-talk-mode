@@ -596,17 +596,14 @@ private fun EqCurve(eq: Eq?, height: Dp, full: Boolean) {
     }
 }
 
-/** Every band of a preset, low to high: frequency and gain. */
+/** The preset's bass, mid and treble. */
 @Composable
 private fun EqBandList(eq: Eq) {
-    val bands = eq.bands.sortedBy { it.freq }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        for (row in bands.chunked(4)) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (b in row) Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(C.Card2).padding(horizontal = 8.dp, vertical = 6.dp),
-            ) {
-                Text(Eq.freqText(b.freq), color = C.Sub, fontSize = 11.sp, style = tnum(), maxLines = 1)
-                Text(Eq.gainText(b.gain), color = if (b.gain >= 0) C.Text else C.Sub, fontSize = 13.sp,
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        for ((name, f, g) in listOf(Triple("Bass", "140 Hz", eq.bass), Triple("Mid", "980 Hz", eq.mid), Triple("Treble", "3.5 kHz", eq.treble))) {
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(C.Card2).padding(horizontal = 8.dp, vertical = 6.dp)) {
+                Text("$name · $f", color = C.Sub, fontSize = 11.sp, maxLines = 1)
+                Text(Eq.gainText(g), color = if (g >= 0) C.Text else C.Sub, fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold, style = tnum(), maxLines = 1)
             }
         }

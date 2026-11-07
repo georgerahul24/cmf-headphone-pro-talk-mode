@@ -2,6 +2,14 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.8.0
+
+- **Back to 3-band EQ.** The CMF Headphone Pro's sound chip is built for Nothing's 3-band EQ (bass, mid, treble). It accepts more bands, but in listening tests the extra ones made little difference, and reviews confirm this model only has 3. Every preset is now a 3-band EQ sent exactly like Nothing X sends it, with bigger values so each one sounds clearly different:
+  - Movie: bass +2, mid +2, treble +4 (for the Energy Slider at full bass)
+  - Pop: bass +5, mid +2, treble +3
+  - Rock: bass +4, mid -2, treble +4
+- **New app icon** on Android and Mac: a frosted glass panel with a sound wave over soft violet glows. The Mac app now has an icon at all.
+
 ## 2.7.2
 
 - **Presets with real character.** A listening test confirmed the headphones apply all 8 EQ bands, but the presets were too alike to tell apart. Now each one stands out: Movie has much deeper rumble and boom with clear dialogue, Pop has a big warm bass shelf with vocals up front and sparkle on top, and Rock has guitar crunch, a punchy kick and bright cymbals.

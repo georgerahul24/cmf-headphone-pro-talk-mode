@@ -19,7 +19,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Your normal buttons still work.** Talk mode uses its own button. No voice assistant pop-up.
 
 **Sound**
-- **EQ tuned for these headphones.** Movie, Pop and Rock presets built from measurements and audio enthusiast research, not copied from the factory presets. Each uses all 8 EQ bands the headphones support. Stock brings back the factory sound. [More below](#eq).
+- **EQ tuned for these headphones.** Movie, Pop and Rock presets picked for what each one is for, not copied from the factory presets. Stock brings back the factory sound. [More below](#eq).
 - **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows what it picked, like "Auto (Movie)", in the app and in the Android notification.
 - **Noise control and Spatial Audio.** Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive. Spatial Audio Off, Concert or Cinema. For everyday controls you don't need Nothing X.
 
@@ -38,22 +38,20 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 
 ## EQ
 
-The CMF Headphone Pro takes up to 8 EQ filters, each with its own frequency, strength and width. The Nothing X app only shows bass, mid and treble, so these presets can fix things it can't.
-
-Out of the box, measurements show these headphones have strong bass, a dip around 2 to 4 kHz (voices sound a bit far away) and a sharp peak at 8 kHz (harsh "s" sounds and cymbals). Every preset fixes the dip and the peak, then shapes the rest for its job:
+The CMF Headphone Pro has a 3-band EQ: bass (140 Hz), mid (980 Hz) and treble (3.5 kHz). The headphones accept more bands, but their sound chip is built for these 3, so the app uses exactly what Nothing X uses, with values picked for each job:
 
 | Preset | Made for | What you hear |
 |---|---|---|
-| **Movie** | Energy Slider at full bass | Big rumble and boom for fights and explosions. Dialogue, faint sounds and details like clinking glass stay clear. |
-| **Pop** | Energy Slider at zero | Big bass like the factory Pop, vocals clearly in front and smooth. Tuned for English, Hindi and Malayalam songs. |
-| **Rock** | Energy Slider at zero | Weighty kick and bass guitar, less mud, vocals that cut through, smoother cymbals. |
+| **Movie** (bass +2, mid +2, treble +4) | Energy Slider at full bass | Big rumble and boom for fights and explosions. Dialogue, faint sounds and details like clinking glass stay clear. |
+| **Pop** (bass +5, mid +2, treble +3) | Energy Slider at zero | Big bass like the factory Pop, vocals clearly in front and smooth. Tuned for English, Hindi and Malayalam songs. |
+| **Rock** (bass +4, mid -2, treble +4) | Energy Slider at zero | Weighty kick and bass guitar, less mud, vocals that cut through, smoother cymbals. |
 | **Stock** | Anything | The headphones' own factory sound. |
 
-Both apps draw each preset's curve and list all 8 bands with their values, so you can see exactly what it does.
+Both apps draw each preset's curve and show its bass, mid and treble values.
 
 **Auto** picks Movie for video apps (Netflix, Prime Video, JioHotstar, YouTube, VLC and more) and for web browsers on Mac. It picks your music preset for music apps (Spotify, YouTube Music, JioSaavn, Apple Music and more). On Mac, the Zen browser counts as music. Nothing playing means no change.
 
-The presets play at the same level as the factory sound. Sources for the tuning: SoundGuys measurements, RTINGS, Kuulokenurkka, Pragmatic Audio (which measured the factory presets), Harman research on listener preferences, and Sound on Sound on how Bollywood mixes are made.
+The presets play at the same level as the factory sound.
 
 ## Sync
 

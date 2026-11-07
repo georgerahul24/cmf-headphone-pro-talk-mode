@@ -12,6 +12,8 @@ done
 lipo -create build/CMFTalkMode-arm64 build/CMFTalkMode-x86_64 -output "$APP/Contents/MacOS/CMFTalkMode"
 rm build/CMFTalkMode-*
 cp Info.plist "$APP/Contents/Info.plist"
+mkdir -p "$APP/Contents/Resources"
+cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 mkdir -p "$APP/Contents/Library/LaunchAgents"
 cp LaunchAgent.plist "$APP/Contents/Library/LaunchAgents/dev.georgerahul.cmftalkmode.agent.plist"
 codesign --force --deep -s - "$APP"

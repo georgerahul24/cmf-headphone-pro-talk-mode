@@ -9,62 +9,28 @@ import java.nio.ByteOrder
 class Band(val type: Int, val gain: Float, val freq: Float, val q: Float)
 
 /**
- * EQ presets, tuned for the CMF Headphone Pro from measurements, not copied from the factory presets.
- *
- * Out of the box these headphones have (vs. the Harman target): about +2.5 dB sub-bass, +2 dB
- * mid-bass and 200-250 Hz, a 3-6 dB dip at 2-4.5 kHz (voices sound a bit far away) and a +4 dB
- * peak at 8 kHz (sharp "s" sounds). Sources: SoundGuys B&K 5128 data, RTINGS, Kuulokenurkka,
- * Pragmatic Audio. The headphones take up to 8 filters with any frequency and Q (checked on a
- * real pair), so each preset uses all 8 to fix these one by one, instead of plain bass/mid/treble.
+ * EQ presets for the CMF Headphone Pro, picked for what each one is for rather than copied from
+ * the factory presets. Same values as the Mac app.
  */
 enum class Eq(val id: String, val label: String, val about: String, val preamp: Float, val bands: List<Band>) {
-    // All presets: preamp 0. The factory presets lift bass 6-10 dB with no loss of level (Pragmatic Audio
-    // measurements), and the Energy Slider adds +8-10 dB the same way, so the headphones' DSP has the
-    // headroom. A negative preamp only made ours sound quieter and thinner than stock.
-
-    // Energy Slider at full bass (+8-10 dB below ~150 Hz), for a basshead who also wants every detail.
-    // Big rumble (movie bass effects live at 20-40 Hz) and boom for fights and explosions, then a cut at
-    // 220 Hz so the bass doesn't smear over voices and small sounds. Speech bands lifted for dialogue and
-    // faint sounds. Only the narrow 8 kHz peak is cut, and a gentle treble lift brings out environmental
-    // detail: glass clinking, a train's rattle, footsteps, room sound.
+    // The CMF Headphone Pro's sound chip is built for Nothing's 3-band custom EQ (bass, mid, treble).
+    // It will store more bands, but a listening test and every review point to only the 3 being
+    // used properly, so each preset is a 3-band EQ sent exactly like Nothing X sends it.
+    // Preamp 0: the factory presets and the Energy Slider boost a lot with no volume drop.
     MOVIE("movie", "Movie",
-        "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear.",
-        0f, listOf(
-            Band(1, 5f, 30f, 0.9f), // huge rumble you feel, where movie bass effects live
-            Band(1, 3f, 70f, 1f), // boom and punch for fights and explosions
-            Band(1, -3.5f, 220f, 1f), // keeps the bass from smearing over voices and detail
-            Band(1, 1f, 1000f, 1f), // body of voices
-            Band(1, 3f, 2500f, 1.3f), // dialogue clarity
-            Band(1, 3.5f, 3800f, 1.6f), // consonants and faint sounds; fills the 4 kHz dip
-            Band(1, -2.5f, 8000f, 3.5f), // only the narrow harsh peak, so detail stays
-            Band(2, 2.5f, 10500f, 0.7f), // sparkle and space: glass, rattles, room sound
-        )),
-    // Slider at zero. English, Hindi and Malayalam pop: Bollywood and Malayalam film mixes put the singer
-    // up front over a strong bass line, and bright female vocals meet this headphone's 8 kHz peak.
+        "Made for the Energy Slider at full bass, which brings the rumble and boom. Mid and treble are lifted so dialogue, faint sounds and small details stay clear.",
+        0f, threeBand(bass = 2f, mid = 2f, treble = 4f)),
     POP("pop", "Pop",
-        "Big, full bass like the factory Pop, with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs.",
-        0f, listOf(
-            Band(0, 5.5f, 105f, 0.7f), // big warm bass shelf
-            Band(1, 1f, 50f, 1f), // deep bass for dance drops
-            Band(1, -2.5f, 250f, 1f), // less low-mid mud under the vocals
-            Band(1, 2.5f, 2300f, 1.4f), // vocal body and clarity
-            Band(1, 4f, 3800f, 1.6f), // vocals forward; fills the 4 kHz dip
-            Band(1, -1.5f, 6300f, 2f), // softer "s" on bright female vocals
-            Band(1, -3f, 8000f, 3f), // tames the stock 8 kHz peak
-            Band(2, 2f, 12000f, 0.7f), // shimmer and air
-        )),
+        "Big bass, vocals pushed forward and a brighter top. Good for English, Hindi and Malayalam songs.",
+        0f, threeBand(bass = 5f, mid = 2f, treble = 3f)),
     ROCK("rock", "Rock",
-        "Punchy kick and bass guitar, crunchy guitars, vocals that cut through, and bright cymbals.",
-        0f, listOf(
-            Band(0, 3.5f, 90f, 0.7f), // weight for kick and bass guitar
-            Band(1, 2f, 60f, 1.2f), // kick drum punch
-            Band(1, -3f, 300f, 1f), // less guitar and bass mud
-            Band(1, 2.5f, 1500f, 1.2f), // guitar crunch
-            Band(1, 2f, 3000f, 1.4f), // bite and vocals
-            Band(1, 3f, 4200f, 2f), // fills the 4 kHz dip
-            Band(1, -3f, 8000f, 3f), // cymbal harshness
-            Band(2, 3f, 10000f, 0.7f), // cymbal sparkle and air
-        ));
+        "Punchy bass and bright, crisp top with the mids pulled back a little, for drums and guitars.",
+        0f, threeBand(bass = 4f, mid = -2f, treble = 4f));
+
+    /** Bass, mid and treble, in the order and shape Nothing X sends them. */
+    val bass get() = bands[2].gain
+    val mid get() = bands[0].gain
+    val treble get() = bands[1].gain
 
     /** Payload for [Proto.EQ_CUSTOM_SET]: count, preamp, then type/gain/freq/Q per band (float32 LE), 3 zero bytes per band. */
     fun payload(): IntArray {
@@ -113,6 +79,11 @@ enum class Eq(val id: String, val label: String, val about: String, val preamp: 
         }
     }
 }
+
+/** Nothing's 3 bands for the CMF Headphone Pro: mid peak 980 Hz, treble high shelf 3.5 kHz, bass low shelf 140 Hz. */
+fun threeBand(bass: Float, mid: Float, treble: Float) = listOf(
+    Band(1, mid, 980f, 0.7f), Band(2, treble, 3500f, 1f), Band(0, bass, 140f, 0.8f),
+)
 
 /** EQ choices on the screen. "stock" = the headphones' own factory sound. */
 object EqMode {

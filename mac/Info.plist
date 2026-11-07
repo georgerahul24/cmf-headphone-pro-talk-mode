@@ -8,8 +8,9 @@
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>NSLocalNetworkUsageDescription</key><string>Syncs your headphone history, stats and settings with the CMF Talk Mode app on your phone.</string>
 <key>NSBonjourServices</key><array><string>_cmftalk._tcp</string></array>
-<key>CFBundleShortVersionString</key><string>2.7.2</string>
-<key>CFBundleVersion</key><string>14</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>CFBundleShortVersionString</key><string>2.8.0</string>
+<key>CFBundleVersion</key><string>15</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSBluetoothAlwaysUsageDescription</key><string>CMF Talk Mode talks to your CMF Headphone Pro to switch noise control.</string>
