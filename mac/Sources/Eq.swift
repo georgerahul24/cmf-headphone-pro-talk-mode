@@ -155,3 +155,51 @@ enum PlayingApps {
         }
     }
 }
+
+// MARK: - curve for drawing
+
+extension Eq {
+    /// Frequencies to draw the curve at: 20 Hz to 20 kHz, evenly on a log scale.
+    static let plotFreqs: [Double] = (0..<160).map { 20 * pow(1000, Double($0) / 159) }
+
+    /// The preset's EQ curve in dB at `f` Hz, from standard biquad filters (RBJ cookbook) at 48 kHz.
+    /// Close to what the headphones' DSP does; for drawing only.
+    func gain(at f: Double) -> Double {
+        Double(preamp) + bands.reduce(0) { $0 + Self.bandGain($1, f) }
+    }
+
+    static func bandGain(_ b: Band, _ f: Double) -> Double {
+        let fs = 48_000.0
+        let a = pow(10, Double(b.gain) / 40)
+        let w0 = 2 * Double.pi * Double(b.freq) / fs
+        let cw = cos(w0), alpha = sin(w0) / (2 * Double(b.q)), sa = 2 * sqrt(a) * alpha
+        var b0, b1, b2, a0, a1, a2: Double
+        switch b.type {
+        case 0: // low shelf
+            b0 = a * ((a + 1) - (a - 1) * cw + sa); b1 = 2 * a * ((a - 1) - (a + 1) * cw); b2 = a * ((a + 1) - (a - 1) * cw - sa)
+            a0 = (a + 1) + (a - 1) * cw + sa; a1 = -2 * ((a - 1) + (a + 1) * cw); a2 = (a + 1) + (a - 1) * cw - sa
+        case 2: // high shelf
+            b0 = a * ((a + 1) + (a - 1) * cw + sa); b1 = -2 * a * ((a - 1) + (a + 1) * cw); b2 = a * ((a + 1) + (a - 1) * cw - sa)
+            a0 = (a + 1) - (a - 1) * cw + sa; a1 = 2 * ((a - 1) - (a + 1) * cw); a2 = (a + 1) - (a - 1) * cw - sa
+        default: // peak
+            b0 = 1 + alpha * a; b1 = -2 * cw; b2 = 1 - alpha * a
+            a0 = 1 + alpha / a; a1 = -2 * cw; a2 = 1 - alpha / a
+        }
+        let w = 2 * Double.pi * f / fs
+        func mag2(_ c0: Double, _ c1: Double, _ c2: Double) -> Double {
+            c0 * c0 + c1 * c1 + c2 * c2 + 2 * (c0 * c1 + c1 * c2) * cos(w) + 2 * c0 * c2 * cos(2 * w)
+        }
+        return 10 * log10(mag2(b0, b1, b2) / mag2(a0, a1, a2))
+    }
+}
+
+/// "40 Hz", "1.8 kHz".
+func freqText(_ f: Float) -> String {
+    f < 1000 ? "\(Int(f)) Hz" : (f.truncatingRemainder(dividingBy: 1000) == 0 ? "\(Int(f / 1000)) kHz" : String(format: "%.1f kHz", f / 1000))
+}
+
+/// "+2.5 dB", "-3 dB".
+func gainText(_ g: Float) -> String {
+    let s = g.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(g)) : String(format: "%.1f", g)
+    return (g > 0 ? "+" : "") + s + " dB"
+}

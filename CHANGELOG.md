@@ -2,6 +2,11 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.7.1
+
+- **See the EQ.** Each preset now shows its curve with a soft shadow under it, a dot on every band, and the frequency and value of all 8 bands. Small curves of Movie, Pop and Rock sit side by side so you can compare them, and tapping one switches to it. On Mac, hover a dot to see its value.
+- **EQ in the Mac menu bar**, with the curve, next to noise control and spatial audio.
+
 ## 2.7.0
 
 - **Sync between your phone and Mac.** History, stats and every setting (talk mode, volume, lower or pause, battery saver and its wait time, EQ mode and music preset, auto-update) sync over your Wi-Fi. Nothing goes to the internet, and everything is encrypted.

@@ -49,6 +49,8 @@ Out of the box, measurements show these headphones have strong bass, a dip aroun
 | **Rock** | Energy Slider at zero | Weighty kick and bass guitar, less mud, vocals that cut through, smoother cymbals. |
 | **Stock** | Anything | The headphones' own factory sound. |
 
+Both apps draw each preset's curve and list all 8 bands with their values, so you can see exactly what it does.
+
 **Auto** picks Movie for video apps (Netflix, Prime Video, JioHotstar, YouTube, VLC and more) and for web browsers on Mac. It picks your music preset for music apps (Spotify, YouTube Music, JioSaavn, Apple Music and more). On Mac, the Zen browser counts as music. Nothing playing means no change.
 
 The presets play at the same level as the factory sound. Sources for the tuning: SoundGuys measurements, RTINGS, Kuulokenurkka, Pragmatic Audio (which measured the factory presets), Harman research on listener preferences, and Sound on Sound on how Bollywood mixes are made.

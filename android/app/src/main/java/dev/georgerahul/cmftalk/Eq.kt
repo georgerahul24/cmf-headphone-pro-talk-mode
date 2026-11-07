@@ -74,8 +74,43 @@ enum class Eq(val id: String, val label: String, val about: String, val preamp: 
         return b.array().map { it.toInt() and 0xFF }.toIntArray()
     }
 
+    /**
+     * The preset's EQ curve in dB at [f] Hz, from standard biquad filters (RBJ cookbook) at
+     * 48 kHz. Close to what the headphones' DSP does; for drawing only. Same math as the Mac.
+     */
+    fun gain(f: Double): Double = preamp + bands.sumOf { bandGain(it, f) }
+
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.id == id }
+
+        /** 20 Hz to 20 kHz, evenly on a log scale. */
+        val PLOT_FREQS: List<Double> = List(120) { 20.0 * Math.pow(1000.0, it / 119.0) }
+
+        fun bandGain(b: Band, f: Double): Double {
+            val fs = 48_000.0
+            val a = Math.pow(10.0, b.gain / 40.0)
+            val w0 = 2 * Math.PI * b.freq / fs
+            val cw = Math.cos(w0); val alpha = Math.sin(w0) / (2 * b.q); val sa = 2 * Math.sqrt(a) * alpha
+            val c: DoubleArray = when (b.type) {
+                0 -> doubleArrayOf(a * ((a + 1) - (a - 1) * cw + sa), 2 * a * ((a - 1) - (a + 1) * cw), a * ((a + 1) - (a - 1) * cw - sa),
+                    (a + 1) + (a - 1) * cw + sa, -2 * ((a - 1) + (a + 1) * cw), (a + 1) + (a - 1) * cw - sa)
+                2 -> doubleArrayOf(a * ((a + 1) + (a - 1) * cw + sa), -2 * a * ((a - 1) + (a + 1) * cw), a * ((a + 1) + (a - 1) * cw - sa),
+                    (a + 1) - (a - 1) * cw + sa, 2 * ((a - 1) - (a + 1) * cw), (a + 1) - (a - 1) * cw - sa)
+                else -> doubleArrayOf(1 + alpha * a, -2 * cw, 1 - alpha * a, 1 + alpha / a, -2 * cw, 1 - alpha / a)
+            }
+            val w = 2 * Math.PI * f / fs
+            fun mag2(c0: Double, c1: Double, c2: Double) =
+                c0 * c0 + c1 * c1 + c2 * c2 + 2 * (c0 * c1 + c1 * c2) * Math.cos(w) + 2 * c0 * c2 * Math.cos(2 * w)
+            return 10 * Math.log10(mag2(c[0], c[1], c[2]) / mag2(c[3], c[4], c[5]))
+        }
+
+        fun freqText(f: Float) = if (f < 1000) "${f.toInt()} Hz"
+            else if (f % 1000 == 0f) "${(f / 1000).toInt()} kHz" else "%.1f kHz".format(f / 1000)
+
+        fun gainText(g: Float): String {
+            val s = if (g % 1 == 0f) g.toInt().toString() else "%.1f".format(g)
+            return (if (g > 0) "+" else "") + s + " dB"
+        }
     }
 }
 

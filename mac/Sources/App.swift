@@ -80,6 +80,7 @@ struct MenuPanel: View {
                 if talk.connected { c.compactTalk(ctx.date) } else { c.connectCard }
                 c.noiseCard
                 c.spatialCard
+                c.eqMenuCard
                 c.saverCard(ctx.date)
                 c.openAppRow
             }
@@ -648,6 +649,31 @@ struct Cards {
         }
     }
 
+    /// The preset whose curve to show: the one in use (Auto shows what it picked). Nil = Stock.
+    var shownEq: Eq? {
+        Eq(rawValue: talk.eqMode == EqMode.auto ? (talk.eqNow ?? talk.musicEq) : talk.eqMode)
+    }
+
+    private var eqPicker: some View {
+        Seg(options: EqMode.all.indices.map { (UInt8($0), EqMode.label(EqMode.all[$0])) },
+            selected: EqMode.all.firstIndex(of: talk.eqMode).map { UInt8($0) }, enabled: true) { v in
+            withAnimation(spring) { talk.eqMode = EqMode.all[Int(v)] }
+        }
+    }
+
+    /// Menu bar: picker and the curve.
+    var eqMenuCard: some View {
+        Card(title: "EQ") {
+            HStack {
+                Text(talk.eqTitle).font(.system(size: 15, weight: .semibold)).contentTransition(.opacity)
+                Spacer()
+                if let e = shownEq { Text("\(e.bands.count) bands").font(.system(size: 10)).foregroundStyle(Pal.faint) }
+            }
+            eqPicker
+            EqCurve(eq: shownEq, height: 74, labels: true)
+        }
+    }
+
     var eqCard: some View {
         let about: String = {
             switch talk.eqMode {
@@ -658,10 +684,7 @@ struct Cards {
         }()
         return Card(title: "EQ") {
             Text(talk.eqTitle).font(.system(size: 18, weight: .semibold)).contentTransition(.opacity)
-            Seg(options: EqMode.all.indices.map { (UInt8($0), EqMode.label(EqMode.all[$0])) },
-                selected: EqMode.all.firstIndex(of: talk.eqMode).map { UInt8($0) }, enabled: true) { v in
-                withAnimation(spring) { talk.eqMode = EqMode.all[Int(v)] }
-            }
+            eqPicker
             Text(about).font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
             if talk.eqMode == EqMode.auto {
                 Text("Music plays with").font(.system(size: 11)).foregroundStyle(Pal.sub)
@@ -670,6 +693,31 @@ struct Cards {
                 }
                 if let app = talk.eqApp {
                     Text("Last playing: \(app)").font(.system(size: 10)).foregroundStyle(Pal.faint)
+                }
+            }
+            Divider().overlay(Pal.card2)
+            HStack {
+                Text(shownEq.map { "\($0.label) curve" } ?? "Stock: no changes").font(.system(size: 12, weight: .medium))
+                Spacer()
+                if shownEq == .movie { Text("plus the Energy Slider at full").font(.system(size: 10)).foregroundStyle(Pal.faint) }
+            }
+            EqCurve(eq: shownEq, height: 130, labels: true)
+            if let e = shownEq { EqBandList(eq: e) }
+            Divider().overlay(Pal.card2)
+            Text("All presets").font(.system(size: 12, weight: .medium)).foregroundStyle(Pal.sub)
+            HStack(spacing: 8) {
+                ForEach(Eq.allCases, id: \.self) { e in
+                    let on = talk.eqMode == e.rawValue
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(e.label).font(.system(size: 11, weight: .medium)).foregroundStyle(on ? Pal.text : Pal.sub)
+                        EqCurve(eq: e, height: 44, labels: false, dots: false)
+                    }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(on ? Pal.card2 : Pal.card2.opacity(0.4)))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(on ? Pal.purple : .clear, lineWidth: 1))
+                    .contentShape(Rectangle())
+                    .onTapGesture { withAnimation(spring) { talk.eqMode = e.rawValue } }
+                    .help("Use \(e.label)")
                 }
             }
         }
@@ -807,6 +855,101 @@ struct Seg: View {
         }
         .frame(height: 34)
         .background(RoundedRectangle(cornerRadius: 12).fill(Pal.card2))
+    }
+}
+
+/// The EQ curve with a soft shadow under it, a 0 dB line and a dot on each band.
+/// Hover a dot to see its frequency and gain.
+struct EqCurve: View {
+    let eq: Eq?
+    var height: CGFloat = 90
+    var labels = true
+    var dots = true
+    private let range = 8.0
+
+    var body: some View {
+        let fs = Eq.plotFreqs
+        let g = fs.map { eq?.gain(at: $0) ?? 0 }
+        VStack(spacing: 3) {
+            GeometryReader { geo in
+                let w = geo.size.width, h = geo.size.height
+                let x = { (f: Double) in CGFloat(log10(f / 20) / 3) * w }
+                let y = { (db: Double) in h / 2 - CGFloat(max(-range, min(range, db)) / range) * h / 2 }
+                let line = Path { p in
+                    for (i, f) in fs.enumerated() {
+                        let pt = CGPoint(x: x(f), y: y(g[i]))
+                        if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+                    }
+                }
+                ZStack {
+                    Path { p in
+                        for db in [-6.0, 6] { p.move(to: CGPoint(x: 0, y: y(db))); p.addLine(to: CGPoint(x: w, y: y(db))) }
+                        for f in [100.0, 1000, 10000] { p.move(to: CGPoint(x: x(f), y: 0)); p.addLine(to: CGPoint(x: x(f), y: h)) }
+                    }
+                    .stroke(Pal.card2, style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
+                    Path { p in p.move(to: CGPoint(x: 0, y: y(0))); p.addLine(to: CGPoint(x: w, y: y(0))) }
+                        .stroke(Pal.faint.opacity(0.7), lineWidth: 1)
+                    // the shadow: area between the curve and 0 dB
+                    Path { p in
+                        p.move(to: CGPoint(x: 0, y: y(0)))
+                        for (i, f) in fs.enumerated() { p.addLine(to: CGPoint(x: x(f), y: y(g[i]))) }
+                        p.addLine(to: CGPoint(x: w, y: y(0)))
+                        p.closeSubpath()
+                    }
+                    .fill(LinearGradient(colors: [Pal.purple.opacity(0.5), Pal.purple.opacity(0.08)], startPoint: .top, endPoint: .bottom))
+                    line.stroke(LinearGradient(colors: [Pal.purple, Pal.violet, Pal.pink], startPoint: .leading, endPoint: .trailing),
+                                style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    if dots, let eq {
+                        ForEach(eq.bands.indices, id: \.self) { i in
+                            let b = eq.bands[i]
+                            Circle().fill(.white).frame(width: 6, height: 6)
+                                .overlay(Circle().stroke(Pal.card, lineWidth: 2))
+                                .frame(width: 14, height: 14).contentShape(Circle())
+                                .position(x: x(Double(b.freq)), y: y(eq.gain(at: Double(b.freq))))
+                                .help("\(freqText(b.freq)): \(gainText(b.gain))")
+                        }
+                    }
+                    if labels {
+                        Text("+6").font(.system(size: 8)).foregroundStyle(Pal.faint).position(x: 9, y: y(6) - 6)
+                        Text("-6").font(.system(size: 8)).foregroundStyle(Pal.faint).position(x: 9, y: y(-6) + 6)
+                    }
+                }
+                .id(eq?.rawValue ?? "stock")
+                .transition(.opacity)
+            }
+            .frame(height: height)
+            if labels {
+                GeometryReader { geo in
+                    ForEach([(20.0, "20"), (100, "100"), (1000, "1k"), (10000, "10k"), (20000, "20k")], id: \.0) { f, t in
+                        Text(t).font(.system(size: 8)).foregroundStyle(Pal.faint).monospacedDigit()
+                            .position(x: min(max(CGFloat(log10(f / 20) / 3) * geo.size.width, 8), geo.size.width - 9), y: 5)
+                    }
+                }
+                .frame(height: 10)
+            }
+        }
+    }
+}
+
+/// Every band of a preset: frequency and gain.
+struct EqBandList: View {
+    let eq: Eq
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+            ForEach(eq.bands.indices.sorted { eq.bands[$0].freq < eq.bands[$1].freq }, id: \.self) { i in
+                let b = eq.bands[i]
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(freqText(b.freq)).font(.system(size: 10)).foregroundStyle(Pal.sub).monospacedDigit()
+                    Text(gainText(b.gain)).font(.system(size: 12, weight: .semibold)).monospacedDigit()
+                        .foregroundStyle(b.gain >= 0 ? Pal.text : Pal.sub)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 7).padding(.vertical, 5)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Pal.card2))
+                .help(["Low shelf", "Peak", "High shelf"][Int(min(b.type, 2))] + ", Q \(String(format: "%.1f", b.q))")
+            }
+        }
     }
 }
 

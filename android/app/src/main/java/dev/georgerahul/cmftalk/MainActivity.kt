@@ -549,6 +549,70 @@ private fun SoundTab(ui: UiPrefs, ready: Boolean) {
     Reveal(3) { EqCard(ui) }
 }
 
+@Suppress("FunctionName")
+private fun RoundedRectangle(r: Dp) = RoundedCornerShape(r)
+
+/** The EQ curve with a soft shadow under it, a 0 dB line and a dot on each band. */
+@Composable
+private fun EqCurve(eq: Eq?, height: Dp, full: Boolean) {
+    val fs = Eq.PLOT_FREQS
+    val g = remember(eq) { fs.map { eq?.gain(it) ?: 0.0 } }
+    val range = 8.0
+    Column {
+        Canvas(Modifier.fillMaxWidth().height(height)) {
+            val w = size.width; val h = size.height
+            fun x(f: Double) = (Math.log10(f / 20) / 3).toFloat() * w
+            fun y(db: Double) = h / 2 - (db.coerceIn(-range, range) / range).toFloat() * h / 2
+            val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 6f))
+            if (full) {
+                for (db in listOf(-6.0, 6.0)) drawLine(C.Card2, Offset(0f, y(db)), Offset(w, y(db)), 2f, pathEffect = dash)
+                for (f in listOf(100.0, 1000.0, 10000.0)) drawLine(C.Card2, Offset(x(f), 0f), Offset(x(f), h), 2f, pathEffect = dash)
+            }
+            drawLine(C.Faint.copy(alpha = 0.7f), Offset(0f, y(0.0)), Offset(w, y(0.0)), 2f)
+            val line = Path()
+            val area = Path().apply { moveTo(0f, y(0.0)) }
+            fs.forEachIndexed { i, f ->
+                if (i == 0) line.moveTo(x(f), y(g[i])) else line.lineTo(x(f), y(g[i]))
+                area.lineTo(x(f), y(g[i]))
+            }
+            area.lineTo(w, y(0.0)); area.close()
+            // the shadow: area between the curve and 0 dB
+            drawPath(area, Brush.verticalGradient(listOf(C.Purple.copy(alpha = 0.5f), C.Purple.copy(alpha = 0.08f))))
+            drawPath(line, Brush.horizontalGradient(listOf(C.Purple, C.Violet, C.Pink)),
+                style = Stroke(width = if (full) 5f else 3.5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            if (full && eq != null) for (b in eq.bands) {
+                val c = Offset(x(b.freq.toDouble()), y(eq.gain(b.freq.toDouble())))
+                drawCircle(C.Card, 9f, c)
+                drawCircle(Color.White, 6f, c)
+            }
+        }
+        if (full) BoxWithConstraints(Modifier.fillMaxWidth().height(14.dp)) {
+            for ((f, t) in listOf(20.0 to "20", 100.0 to "100", 1000.0 to "1k", 10000.0 to "10k", 20000.0 to "20k")) {
+                val pos = (Math.log10(f / 20) / 3).toFloat()
+                Text(t, color = C.Faint, fontSize = 10.sp, style = tnum(),
+                    modifier = Modifier.offset(x = (maxWidth * pos - 8.dp).coerceIn(0.dp, maxWidth - 24.dp)))
+            }
+        }
+    }
+}
+
+/** Every band of a preset, low to high: frequency and gain. */
+@Composable
+private fun EqBandList(eq: Eq) {
+    val bands = eq.bands.sortedBy { it.freq }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (row in bands.chunked(4)) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (b in row) Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(C.Card2).padding(horizontal = 8.dp, vertical = 6.dp),
+            ) {
+                Text(Eq.freqText(b.freq), color = C.Sub, fontSize = 11.sp, style = tnum(), maxLines = 1)
+                Text(Eq.gainText(b.gain), color = if (b.gain >= 0) C.Text else C.Sub, fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold, style = tnum(), maxLines = 1)
+            }
+        }
+    }
+}
+
 private val EqModes = listOf(EqMode.AUTO, Eq.MOVIE.id, Eq.POP.id, Eq.ROCK.id, EqMode.STOCK)
 
 /** "Auto (Movie)" in Auto mode, else the preset name. */
@@ -570,6 +634,31 @@ private fun EqCard(ui: UiPrefs) {
         }
         Segmented(EqModes.mapIndexed { i, id -> i to EqMode.label(id) }, EqModes.indexOf(ui.eqMode), true) {
             ui.eqMode = EqModes[it]; ui.p.eqMode = EqModes[it]; svc?.eqSettingChanged()
+        }
+        // The preset in use (Auto shows what it picked). Null = Stock.
+        val shown = Eq.of(if (ui.eqMode == EqMode.AUTO) st.eqNow ?: ui.musicEq else ui.eqMode)
+        Row {
+            Text(shown?.let { "${it.label} curve" } ?: "Stock: no changes", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.weight(1f))
+            if (shown == Eq.MOVIE) Text("plus the Energy Slider at full", color = C.Faint, fontSize = 11.sp)
+        }
+        Crossfade(shown, animationSpec = tween(300), label = "eqCurve") { EqCurve(it, 130.dp, true) }
+        AnimatedVisibility(shown != null) { shown?.let { EqBandList(it) } }
+        Text("All presets", color = C.Sub, fontSize = 13.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (e in Eq.entries) {
+                val on = ui.eqMode == e.id
+                Column(
+                    Modifier.weight(1f).clip(RoundedRectangle(12.dp)).background(if (on) C.Card2 else C.Card2.copy(alpha = 0.4f))
+                        .border(1.dp, if (on) C.Purple else Color.Transparent, RoundedRectangle(12.dp))
+                        .pressable { ui.eqMode = e.id; ui.p.eqMode = e.id; svc?.eqSettingChanged() }
+                        .padding(8.dp),
+                ) {
+                    Text(e.label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = if (on) C.Text else C.Sub)
+                    Spacer(Modifier.height(4.dp))
+                    EqCurve(e, 40.dp, false)
+                }
+            }
         }
         AnimatedContent(ui.eqMode, transitionSpec = {
             (fadeIn() + expandVertically()).togetherWith(fadeOut() + shrinkVertically())
