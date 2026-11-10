@@ -1,6 +1,6 @@
 name: Build
 
-# Builds the Android APK and the macOS app on every push, and attaches both to
+# Builds the Android APKs (phone and TV) and the macOS app on every push, and attaches them to
 # a GitHub Release when a tag like v1.0.0 is pushed.
 #
 # Optional secret ANDROID_KEYSTORE_B64: base64 of a keystore (alias
@@ -39,11 +39,12 @@ jobs:
           fi
       - name: Build APK
         working-directory: android
-        run: gradle --no-daemon :app:testReleaseUnitTest :app:assembleRelease
+        run: gradle --no-daemon :app:testPhoneReleaseUnitTest :app:assembleRelease
       - name: Rename
         run: |
           version=$(grep versionName android/app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
-          cp android/app/build/outputs/apk/release/app-release.apk "CMF-Talk-Mode-$version.apk"
+          cp android/app/build/outputs/apk/phone/release/app-phone-release.apk "CMF-Talk-Mode-$version.apk"
+          cp android/app/build/outputs/apk/tv/release/app-tv-release.apk "CMF-Talk-Mode-TV-$version.apk"
       - uses: actions/upload-artifact@v5
         with:
           name: android-apk
@@ -76,7 +77,13 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      # The TV APK goes up last: phone apps before 2.13.0 take the first .apk in the release.
+      - name: Hold back the TV APK
+        run: mkdir dist-tv && mv dist/CMF-Talk-Mode-TV-*.apk dist-tv/
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist-tv/*

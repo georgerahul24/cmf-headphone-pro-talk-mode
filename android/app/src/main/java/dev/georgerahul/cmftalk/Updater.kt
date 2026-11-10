@@ -107,6 +107,10 @@ object Updater {
         connectTimeout = 15_000; readTimeout = 15_000
     }
 
+    /** This app's APK in a release: CMF-Talk-Mode-2.13.0.apk for the phone, CMF-Talk-Mode-TV-2.13.0.apk for the TV. */
+    private fun isOurApk(name: String) =
+        name.endsWith(".apk") && name.startsWith(Flavor.APK_PREFIX) && name.removePrefix(Flavor.APK_PREFIX).firstOrNull()?.isDigit() == true
+
     /** Latest release from the GitHub API. */
     private fun fromApi(): Latest {
         val c = open(API)
@@ -115,7 +119,7 @@ object Updater {
         val tag = j.getString("tag_name").removePrefix("v")
         val assets = j.getJSONArray("assets")
         val asset = (0 until assets.length()).map { assets.getJSONObject(it) }
-            .firstOrNull { it.getString("name").endsWith(".apk") }
+            .firstOrNull { isOurApk(it.getString("name")) }
             ?: throw java.io.IOException("Version $tag has no APK yet")
         return Latest(tag, asset.getString("browser_download_url"), asset.getLong("size"))
     }
@@ -127,7 +131,7 @@ object Updater {
         val loc = c.getHeaderField("Location") ?: throw java.io.IOException("github.com gave no release (${c.responseCode})")
         val tag = loc.substringAfterLast("/tag/").removePrefix("v")
         if (tag.isEmpty() || tag.contains('/')) throw java.io.IOException("Unexpected release link: $loc")
-        val url = "https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases/download/v$tag/CMF-Talk-Mode-$tag.apk"
+        val url = "https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases/download/v$tag/${Flavor.APK_PREFIX}$tag.apk"
         return Latest(tag, url, -1)
     }
 
@@ -195,7 +199,7 @@ class UpdateReceiver : BroadcastReceiver() {
                     else intent.getParcelableExtra(Intent.EXTRA_INTENT)) ?: return
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 Updater.status = "Tap Install to finish the update"
-                if (MainActivity.visible) { runCatching { ctx.startActivity(confirm) }; return }
+                if (Screen.visible) { runCatching { ctx.startActivity(confirm) }; return }
                 val nm = ctx.getSystemService(NotificationManager::class.java)
                 nm.createNotificationChannel(NotificationChannel(Updater.CHANNEL, "Updates", NotificationManager.IMPORTANCE_DEFAULT))
                 val open = PendingIntent.getActivity(ctx, 8, confirm, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -220,3 +224,8 @@ class UpdateReceiver : BroadcastReceiver() {
  * (Netflix, Spotify...). It reads no notifications.
  */
 class MediaListener : NotificationListenerService()
+
+/** Whether the app's screen is open, so the update installer can show its Install screen directly. */
+object Screen {
+    var visible = false
+}

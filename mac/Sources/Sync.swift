@@ -2,20 +2,57 @@ import Foundation
 import Network
 import CryptoKit
 
-/// Syncs everything with the paired phone over the local network: history, stats and settings.
+/// One paired device (a phone or a TV), saved between launches.
+struct PeerInfo: Codable, Identifiable {
+    var id: String
+    var name: String
+    var secret: Data
+    /// How many of this Mac's own history lines the device has.
+    var has = 0
+    /// How many of the device's history lines this Mac has.
+    var haveFrom = 0
+    /// The device's own counters and hearing dose, from its last sync.
+    var stats: UsageStats?
+    var dose = 0.0
+    var lastSync: Date?
+    /// Settings ("eq.learned" for remembered picks) changed here and not yet sent to the device.
+    var dirty: Set<String> = []
+    var statsDirty = false
+
+    var historyWaiting: Int { max(0, History.shared.ownCount - has) }
+    var everythingSynced: Bool { historyWaiting == 0 && dirty.isEmpty && !statsDirty }
+
+    /// "34 history events, 2 settings and stats waiting to sync", or nil when nothing is waiting.
+    var waitingText: String? {
+        var parts: [String] = []
+        let h = historyWaiting
+        if h > 0 { parts.append("\(h) history event\(h == 1 ? "" : "s")") }
+        if !dirty.isEmpty { parts.append("\(dirty.count) setting\(dirty.count == 1 ? "" : "s")") }
+        if statsDirty { parts.append("stats") }
+        guard !parts.isEmpty else { return nil }
+        let list = parts.count == 1 ? parts[0] : parts.dropLast().joined(separator: ", ") + " and " + parts.last!
+        return "\(list) waiting to sync"
+    }
+}
+
+/// Syncs everything with the paired phones and TVs over the local network: history, stats and settings.
 ///
-/// The Mac listens (Bonjour "_cmftalk._tcp"); the phone finds it and keeps a link open while both
-/// are on the same network, so changes go across within seconds.
+/// The Mac listens (Bonjour "_cmftalk._tcp"); each device finds it and keeps a link open while
+/// both are on the same network, so changes go across within seconds. Several devices can be
+/// paired at once (say a phone and a Fire TV); the Mac is the hub between them.
 ///
-/// Pairing (once): the Mac shows a 6-digit code. Both sides make an X25519 key pair and swap the
-/// public keys; the shared secret is HKDF(X25519 result, salt = code). Each side proves it has the
-/// same secret with an HMAC before it is saved. After that, every message is AES-GCM encrypted.
+/// Pairing (once per device): the Mac shows a 6-digit code. Both sides make an X25519 key pair and
+/// swap the public keys; the shared secret is HKDF(X25519 result, salt = code). Each side proves it
+/// has the same secret with an HMAC before it is saved. After that, every message is AES-GCM encrypted.
 ///
 /// What each side has:
-/// - History: each device appends to its own log; the other side keeps an exact copy, line for
-///   line. "have" = how many of the other side's lines I hold, so only missing lines are sent.
-/// - Settings: each has a change time; the newer one wins.
-/// - Stats: each device sends its own counters; screens show the total. A reset resets both.
+/// - History: each device appends to its own log; the Mac keeps an exact copy of each device's log,
+///   line for line, and each device keeps a copy of the Mac's. "have" = how many of the other
+///   side's lines I hold, so only missing lines are sent.
+/// - Settings: each has a change time; the newer one wins. A change from one device is passed on
+///   to the others.
+/// - Stats: each device sends its own counters. The Mac sends each device its own counters plus
+///   every other device's, so every screen shows the total. A reset resets all of them.
 ///
 /// Wire format: 4-byte big-endian length, then the message. Plain JSON until "hi"; after that
 /// AES-GCM (12-byte nonce + ciphertext + 16-byte tag) of the JSON.
@@ -32,22 +69,12 @@ final class Sync: ObservableObject {
     let deviceId: String
     let deviceName = Host.current().localizedName ?? "Mac"
 
-    @Published private(set) var peerId: String?
-    @Published private(set) var peerName: String?
-    @Published private(set) var connected = false
-    @Published private(set) var lastSync: Date?
+    /// Paired devices, in the order they were paired.
+    @Published private(set) var peers: [PeerInfo] = []
+    /// Ids of the devices connected right now.
+    @Published private(set) var live: Set<String> = []
     @Published private(set) var pairCode: String?
     @Published private(set) var note: String?
-    /// How many of this Mac's own history lines the phone has.
-    @Published private(set) var peerHas: Int
-    /// How many of the phone's history lines this Mac has.
-    @Published private(set) var haveFromPeer = 0
-    @Published private(set) var dirtySettings: Set<String>
-    @Published private(set) var statsDirty: Bool
-    /// The phone's own counters, from its last sync.
-    @Published private(set) var peerStats: UsageStats?
-    /// The phone's hearing dose this week, from its last sync.
-    @Published private(set) var peerDose: Double
 
     /// Hooks into the app, set by TalkMode.
     var settingValue: (String) -> Any? = { _ in nil }
@@ -55,17 +82,18 @@ final class Sync: ObservableObject {
     var ownStats: () -> UsageStats = { UsageStats() }
     var resetOwnStats: (Date) -> Void = { _ in }
 
-    private var secret: SymmetricKey?
     private var listener: NWListener?
-    private var session: Session?
+    /// The open, checked link to each device, by device id.
+    private var sessions: [String: Session] = [:]
     private var pending: Session?
     /// Every open connection, kept alive until it closes.
     private var open: [ObjectIdentifier: Session] = [:]
     private var pendingPeer: (id: String, name: String, secret: SymmetricKey)?
     private var pairTimer: Timer?
     private var failures = 0
-    private var sentUpTo = 0
-    private var lastHeard = Date()
+    /// History lines sent to each device but not yet acknowledged.
+    private var sentUpTo: [String: Int] = [:]
+    private var lastHeard: [String: Date] = [:]
     private var watchdog: Timer?
 
     private init() {
@@ -73,44 +101,68 @@ final class Sync: ObservableObject {
             deviceId = UUID().uuidString.lowercased()
             d.set(deviceId, forKey: "sync.deviceId")
         }
-        peerId = d.string(forKey: "sync.peerId")
-        peerName = d.string(forKey: "sync.peerName")
-        if let s = d.data(forKey: "sync.secret") { secret = SymmetricKey(data: s) }
-        peerHas = d.integer(forKey: "sync.peerHas")
-        peerDose = d.double(forKey: "sync.peerDose")
-        dirtySettings = Set(d.stringArray(forKey: "sync.dirty") ?? [])
-        statsDirty = d.bool(forKey: "sync.statsDirty")
-        if let ms = d.object(forKey: "sync.lastSync") as? Double { lastSync = Date(timeIntervalSince1970: ms / 1000) }
-        if let data = d.data(forKey: "sync.peerStats") { peerStats = try? JSONDecoder().decode(UsageStats.self, from: data) }
-        if let p = peerId { haveFromPeer = History.shared.peerCount(p) }
+        if let data = d.data(forKey: "sync.peers"), let list = try? JSONDecoder().decode([PeerInfo].self, from: data) {
+            peers = list
+        } else if let id = d.string(forKey: "sync.peerId"), let s = d.data(forKey: "sync.secret") {
+            // Before 2.13.0 the Mac kept one phone, under single keys: move it into the list.
+            var p = PeerInfo(id: id, name: d.string(forKey: "sync.peerName") ?? "Phone", secret: s)
+            p.has = d.integer(forKey: "sync.peerHas")
+            p.dose = d.double(forKey: "sync.peerDose")
+            p.dirty = Set(d.stringArray(forKey: "sync.dirty") ?? [])
+            p.statsDirty = d.bool(forKey: "sync.statsDirty")
+            if let ms = d.object(forKey: "sync.lastSync") as? Double { p.lastSync = Date(timeIntervalSince1970: ms / 1000) }
+            if let data = d.data(forKey: "sync.peerStats") { p.stats = try? JSONDecoder().decode(UsageStats.self, from: data) }
+            peers = [p]
+            savePeers()
+            for k in ["sync.peerId", "sync.peerName", "sync.secret", "sync.peerHas", "sync.peerDose", "sync.dirty",
+                      "sync.statsDirty", "sync.lastSync", "sync.peerStats"] { d.removeObject(forKey: k) }
+        }
+        for i in peers.indices { peers[i].haveFrom = History.shared.peerCount(peers[i].id) }
     }
 
     func start() {
         History.shared.onLog = { [weak self] in self?.historyChanged() }
-        if peerId != nil { listen() }
-        // The phone pings every minute. Silence for 2.5 minutes: it left the network.
+        if !peers.isEmpty { listen() }
+        // Devices ping every minute. Silence for 2.5 minutes: it left the network.
         watchdog = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            guard let self, let s = self.session, Date().timeIntervalSince(self.lastHeard) > 150 else { return }
-            s.close()
+            guard let self else { return }
+            for (id, s) in self.sessions where Date().timeIntervalSince(self.lastHeard[id] ?? .distantPast) > 150 { s.close() }
         }
     }
 
-    // MARK: what is waiting
+    // MARK: peers
 
-    var historyWaiting: Int { max(0, History.shared.ownCount - peerHas) }
+    private func savePeers() {
+        if let data = try? JSONEncoder().encode(peers) { d.set(data, forKey: "sync.peers") }
+    }
 
-    var everythingSynced: Bool { historyWaiting == 0 && dirtySettings.isEmpty && !statsDirty }
+    private func update(_ id: String, _ f: (inout PeerInfo) -> Void) {
+        guard let i = peers.firstIndex(where: { $0.id == id }) else { return }
+        f(&peers[i])
+        savePeers()
+    }
 
-    /// "34 history events, 2 settings and stats waiting to sync", or nil when nothing is waiting.
-    var waitingText: String? {
-        var parts: [String] = []
-        let h = historyWaiting
-        if h > 0 { parts.append("\(h) history event\(h == 1 ? "" : "s")") }
-        if !dirtySettings.isEmpty { parts.append("\(dirtySettings.count) setting\(dirtySettings.count == 1 ? "" : "s")") }
-        if statsDirty { parts.append("stats") }
-        guard !parts.isEmpty else { return nil }
-        let list = parts.count == 1 ? parts[0] : parts.dropLast().joined(separator: ", ") + " and " + parts.last!
-        return "\(list) waiting to sync"
+    func peer(_ id: String) -> PeerInfo? { peers.first { $0.id == id } }
+
+    /// Everything from this Mac reached every paired device.
+    var everythingSynced: Bool { peers.allSatisfy { $0.everythingSynced } }
+
+    /// Every device's counters added up, leaving out [except]. Nil when there are none.
+    func othersStats(except: String? = nil) -> UsageStats? {
+        let list = peers.filter { $0.id != except }.compactMap { $0.stats }
+        guard var s = list.first else { return nil }
+        for p in list.dropFirst() {
+            s.talkCount += p.talkCount; s.talkSeconds += p.talkSeconds
+            s.idleOffCount += p.idleOffCount; s.idleOffSeconds += p.idleOffSeconds
+            s.restoreCount += p.restoreCount
+            s.since = min(s.since, p.since)
+        }
+        return s
+    }
+
+    /// Every device's hearing dose this week, leaving out [except].
+    func othersDose(except: String? = nil) -> Double {
+        peers.filter { $0.id != except }.reduce(0) { $0 + $1.dose }
     }
 
     // MARK: settings and stats changes from this Mac
@@ -125,45 +177,54 @@ final class Sync: ObservableObject {
         var ts = settingTs
         ts[key] = Date().timeIntervalSince1970 * 1000
         settingTs = ts
-        dirtySettings.insert(key)
-        saveDirty()
-        if connected { sendSettings() }
+        markSettings([key], except: nil)
     }
 
-    /// A remembered EQ pick changed on this Mac.
-    func learnedChanged() {
-        dirtySettings.insert("eq.learned")
-        saveDirty()
-        if connected {
-            session?.send(["t": "learned", "learned": Learned.shared.all()])
-            dirtySettings.removeAll(); saveDirty()
+    /// Settings to send to every device but [except]; sent now to the ones that are connected.
+    private func markSettings(_ keys: Set<String>, except: String?) {
+        for p in peers where p.id != except {
+            update(p.id) { $0.dirty.formUnion(keys) }
+            if live.contains(p.id) { sendSettings(p.id) }
         }
     }
 
-    /// This Mac's counters changed.
-    func statsChanged() {
-        statsDirty = true
-        d.set(true, forKey: "sync.statsDirty")
-        if connected { schedule { self.sendStats() } }
+    /// A remembered EQ pick changed on this Mac.
+    func learnedChanged() { markLearned(except: nil) }
+
+    private func markLearned(except: String?) {
+        for p in peers where p.id != except {
+            update(p.id) { $0.dirty.insert("eq.learned") }
+            if let s = sessions[p.id] {
+                s.send(["t": "learned", "learned": Learned.shared.all()])
+                update(p.id) { $0.dirty.remove("eq.learned") }
+            }
+        }
     }
 
-    /// Reset pressed on this Mac: resets the phone's counters too.
+    /// This Mac's counters changed: every device's total changed.
+    func statsChanged() { markStats(except: nil) }
+
+    private func markStats(except: String?) {
+        for p in peers where p.id != except {
+            update(p.id) { $0.statsDirty = true }
+            if live.contains(p.id) { let id = p.id; schedule { self.sendStats(id) } }
+        }
+    }
+
+    /// Reset pressed on this Mac: resets every device's counters too.
     func statsReset() {
         d.set(Date().timeIntervalSince1970 * 1000, forKey: "sync.statsReset")
-        peerStats = nil
-        d.removeObject(forKey: "sync.peerStats")
+        for p in peers { update(p.id) { $0.stats = nil; $0.dose = 0 } }
         statsChanged()
     }
 
     private func historyChanged() {
-        if connected { schedule { self.sendEvents() } }
+        for id in sessions.keys { schedule { self.sendEvents(id) } }
     }
 
     private func schedule(_ f: @escaping () -> Void) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: f)
     }
-
-    private func saveDirty() { d.set(Array(dirtySettings), forKey: "sync.dirty") }
 
     // MARK: pairing
 
@@ -182,17 +243,18 @@ final class Sync: ObservableObject {
         pairCode = nil
         pairTimer?.invalidate()
         pendingPeer = nil
-        if peerId == nil { listener?.cancel(); listener = nil }
+        if peers.isEmpty { listener?.cancel(); listener = nil }
     }
 
-    func unpair() {
-        session?.close(); session = nil
-        connected = false
-        peerId = nil; peerName = nil; secret = nil; peerStats = nil
-        for k in ["sync.peerId", "sync.peerName", "sync.secret", "sync.peerHas", "sync.peerStats", "sync.lastSync"] { d.removeObject(forKey: k) }
-        peerHas = 0; haveFromPeer = 0; lastSync = nil
-        listener?.cancel(); listener = nil
-        note = "Unpaired. History already synced from the phone stays on this Mac."
+    func unpair(_ id: String) {
+        let name = peer(id)?.name ?? "the device"
+        sessions[id]?.close()
+        sessions[id] = nil
+        live.remove(id)
+        peers.removeAll { $0.id == id }
+        savePeers()
+        if peers.isEmpty && pairCode == nil { listener?.cancel(); listener = nil }
+        note = "Unpaired \(name). History already synced from it stays on this Mac."
     }
 
     // MARK: network
@@ -226,7 +288,7 @@ final class Sync: ObservableObject {
         s.onClose = { [weak self, weak s] in
             guard let self, let s else { return }
             self.open[ObjectIdentifier(s)] = nil
-            if self.session === s { self.session = nil; self.connected = false }
+            if let id = s.peerId, self.sessions[id] === s { self.sessions[id] = nil; self.live.remove(id) }
             if self.pending === s { self.pending = nil }
         }
         s.start()
@@ -241,47 +303,47 @@ final class Sync: ObservableObject {
             case "pair": pair(m, s)
             case "pairCheck": pairCheck(m, s)
             case "hi":
-                guard let id = m["id"] as? String, id == peerId, let secret else {
-                    s.send(["t": "err", "msg": "This Mac isn't paired with this phone. Pair again."]); s.close(); return
+                guard let id = m["id"] as? String, let p = peer(id) else {
+                    s.send(["t": "err", "msg": "This Mac isn't paired with this device. Pair again."]); s.close(); return
                 }
-                session?.close()
-                s.key = Self.sessionKey(secret)
-                session = s
-                lastHeard = Date()
-                connected = true
-                sentUpTo = peerHas
+                sessions[id]?.close()
+                s.key = Self.sessionKey(SymmetricKey(data: p.secret))
+                s.peerId = id
+                sessions[id] = s
+                live.insert(id)
+                lastHeard[id] = Date()
+                sentUpTo[id] = p.has
                 note = nil
-                sendState()
+                sendState(id)
             default: s.close()
             }
             return
         }
-        guard s === session else { return }
-        lastHeard = Date()
-        lastSync = Date()
-        d.set(Date().timeIntervalSince1970 * 1000, forKey: "sync.lastSync")
+        guard let id = s.peerId, sessions[id] === s else { return }
+        lastHeard[id] = Date()
+        update(id) { $0.lastSync = Date() }
         if t == "ping" { s.send(["t": "pong"]); return }
         switch t {
         case "state":
-            if let n = m["name"] as? String, n != peerName { peerName = n; d.set(n, forKey: "sync.peerName") }
-            if let set = m["settings"] as? [String: Any] { applySettings(set) }
-            if let l = m["learned"] as? [String: Any] { applyLearned(l) }
-            applyStats(m)
-            if let have = m["have"] as? Int { gotAck(have) }
+            if let n = m["name"] as? String, n != peer(id)?.name { update(id) { $0.name = n } }
+            if let set = m["settings"] as? [String: Any] { applySettings(set, from: id) }
+            if let l = m["learned"] as? [String: Any] { applyLearned(l, from: id) }
+            applyStats(m, from: id)
+            if let have = m["have"] as? Int { gotAck(id, have) }
         case "events":
-            guard let from = m["from"] as? Int, let lines = m["lines"] as? [String], let p = peerId else { return }
-            let have = History.shared.peerCount(p)
-            if from == have { History.shared.appendPeer(p, lines) }
-            haveFromPeer = History.shared.peerCount(p)
-            s.send(["t": "ack", "have": haveFromPeer])
+            guard let from = m["from"] as? Int, let lines = m["lines"] as? [String] else { return }
+            if from == History.shared.peerCount(id) { History.shared.appendPeer(id, lines) }
+            let have = History.shared.peerCount(id)
+            update(id) { $0.haveFrom = have }
+            s.send(["t": "ack", "have": have])
         case "ack":
-            if let have = m["have"] as? Int { gotAck(have) }
+            if let have = m["have"] as? Int { gotAck(id, have) }
         case "settings":
-            if let set = m["settings"] as? [String: Any] { applySettings(set) }
+            if let set = m["settings"] as? [String: Any] { applySettings(set, from: id) }
         case "stats":
-            applyStats(m)
+            applyStats(m, from: id)
         case "learned":
-            if let l = m["learned"] as? [String: Any] { applyLearned(l) }
+            if let l = m["learned"] as? [String: Any] { applyLearned(l, from: id) }
         default:
             break
         }
@@ -289,7 +351,7 @@ final class Sync: ObservableObject {
 
     private func pair(_ m: [String: Any], _ s: Session) {
         guard let code = pairCode else {
-            s.send(["t": "err", "msg": "Pairing isn't open. On the Mac, click Pair a phone first."]); s.close(); return
+            s.send(["t": "err", "msg": "Pairing isn't open. On the Mac, click Pair a device first."]); s.close(); return
         }
         guard let id = m["id"] as? String, let name = m["name"] as? String,
               let pubB64 = m["pub"] as? String, let pubData = Data(base64Encoded: pubB64),
@@ -308,21 +370,23 @@ final class Sync: ObservableObject {
         guard HMAC<SHA256>.isValidAuthenticationCode(mac, authenticating: Data("phone".utf8), using: p.secret) else {
             failures += 1
             s.send(["t": "err", "msg": "Wrong code. Check the code on the Mac and try again."]); s.close()
-            note = "Wrong code entered on the phone."
-            if failures >= 3 { stopPairing(); note = "Too many wrong codes. Click Pair a phone to get a new code." }
+            note = "Wrong code entered on the device."
+            if failures >= 3 { stopPairing(); note = "Too many wrong codes. Click Pair a device to get a new code." }
             return
         }
         let reply = Data(HMAC<SHA256>.authenticationCode(for: Data("mac".utf8), using: p.secret))
         s.send(["t": "pairDone", "mac": reply.base64EncodedString()])
-        // New phone: start its history copy from zero.
-        if peerId != p.id {
-            peerHas = 0; d.set(0, forKey: "sync.peerHas")
-            peerStats = nil; d.removeObject(forKey: "sync.peerStats")
+        let secret = p.secret.withUnsafeBytes { Data($0) }
+        if peer(p.id) != nil {
+            // Paired again: new key, same history copy.
+            update(p.id) { $0.name = p.name; $0.secret = secret }
+        } else {
+            // New device: its copy of this Mac's history starts from zero, and it gets every setting.
+            var info = PeerInfo(id: p.id, name: p.name, secret: secret)
+            info.haveFrom = History.shared.peerCount(p.id)
+            peers.append(info)
+            savePeers()
         }
-        peerId = p.id; peerName = p.name; secret = p.secret
-        d.set(p.id, forKey: "sync.peerId"); d.set(p.name, forKey: "sync.peerName")
-        d.set(p.secret.withUnsafeBytes { Data($0) }, forKey: "sync.secret")
-        haveFromPeer = History.shared.peerCount(p.id)
         note = "Paired with \(p.name)."
         pairCode = nil; pairTimer?.invalidate(); pendingPeer = nil
     }
@@ -343,79 +407,96 @@ final class Sync: ObservableObject {
         return out
     }
 
-    private func statsMap() -> [String: Any] {
-        let s = ownStats()
+    /// This Mac's counters plus every other device's, for device [id].
+    private func statsMap(for id: String) -> [String: Any] {
+        var s = ownStats()
+        if let o = othersStats(except: id) {
+            s.talkCount += o.talkCount; s.talkSeconds += o.talkSeconds
+            s.idleOffCount += o.idleOffCount; s.idleOffSeconds += o.idleOffSeconds
+            s.restoreCount += o.restoreCount
+            s.since = min(s.since, o.since)
+        }
         return ["talkCount": s.talkCount, "talkMs": Int64(s.talkSeconds * 1000), "idleOffCount": s.idleOffCount,
                 "idleOffMs": Int64(s.idleOffSeconds * 1000), "restoreCount": s.restoreCount,
-                "since": Int64(s.since.timeIntervalSince1970 * 1000), "dose7": Hearing.shared.week()]
+                "since": Int64(s.since.timeIntervalSince1970 * 1000),
+                "dose7": Hearing.shared.week() + othersDose(except: id)]
     }
 
     private var resetAt: Double { d.double(forKey: "sync.statsReset") }
 
-    private func sendState() {
-        session?.send(["t": "state", "id": deviceId, "name": deviceName, "have": haveFromPeer,
-                       "settings": settingsMap(), "stats": statsMap(), "reset": resetAt,
-                       "learned": Learned.shared.all()])
-        dirtySettings.removeAll(); saveDirty()
-        statsDirty = false; d.set(false, forKey: "sync.statsDirty")
+    private func sendState(_ id: String) {
+        guard let s = sessions[id], let p = peer(id) else { return }
+        s.send(["t": "state", "id": deviceId, "name": deviceName, "have": p.haveFrom,
+                "settings": settingsMap(), "stats": statsMap(for: id), "reset": resetAt,
+                "learned": Learned.shared.all()])
+        update(id) { $0.dirty.removeAll(); $0.statsDirty = false }
     }
 
-    private func sendSettings() {
-        session?.send(["t": "settings", "settings": settingsMap()])
-        dirtySettings.removeAll(); saveDirty()
+    private func sendSettings(_ id: String) {
+        guard let s = sessions[id] else { return }
+        s.send(["t": "settings", "settings": settingsMap()])
+        update(id) { $0.dirty = $0.dirty.intersection(["eq.learned"]) }
     }
 
-    private func sendStats() {
-        guard let s = session else { return }
-        s.send(["t": "stats", "stats": statsMap(), "reset": resetAt])
-        statsDirty = false; d.set(false, forKey: "sync.statsDirty")
+    private func sendStats(_ id: String) {
+        guard let s = sessions[id] else { return }
+        s.send(["t": "stats", "stats": statsMap(for: id), "reset": resetAt])
+        update(id) { $0.statsDirty = false }
     }
 
-    private func sendEvents() {
-        guard let s = session else { return }
-        let start = max(peerHas, sentUpTo)
+    private func sendEvents(_ id: String) {
+        guard let s = sessions[id], let p = peer(id) else { return }
+        let start = max(p.has, sentUpTo[id] ?? 0)
         guard start < History.shared.ownCount else { return }
         let lines = History.shared.ownLines(from: start)
         guard !lines.isEmpty else { return }
         s.send(["t": "events", "from": start, "lines": lines])
-        sentUpTo = start + lines.count
+        sentUpTo[id] = start + lines.count
     }
 
-    private func gotAck(_ have: Int) {
-        peerHas = have
-        d.set(have, forKey: "sync.peerHas")
-        if have < sentUpTo { sentUpTo = have }
-        sendEvents()
+    private func gotAck(_ id: String, _ have: Int) {
+        update(id) { $0.has = have }
+        if have < (sentUpTo[id] ?? 0) { sentUpTo[id] = have }
+        sendEvents(id)
     }
 
     // MARK: receiving
 
-    private func applySettings(_ set: [String: Any]) {
+    private func applySettings(_ set: [String: Any], from id: String) {
         var ts = settingTs
+        var changed = Set<String>()
         for (k, raw) in set {
             guard Self.keys.contains(k), let e = raw as? [String: Any], let v = e["v"], let t = (e["ts"] as? NSNumber)?.doubleValue else { continue }
             if t > (ts[k] ?? 0) {
                 ts[k] = t
                 applySetting(k, v)
-                dirtySettings.remove(k)
+                changed.insert(k)
             }
         }
         settingTs = ts
-        saveDirty()
+        guard !changed.isEmpty else { return }
+        update(id) { $0.dirty.subtract(changed) }
+        markSettings(changed, except: id) // pass it on to the other devices
     }
 
-    /// Remembered picks from the phone; the Auto EQ is re-checked through the settings hook.
+    /// Remembered picks from a device; the Auto EQ is re-checked through the settings hook.
     var learnedApplied: () -> Void = {}
 
-    private func applyLearned(_ l: [String: Any]) {
-        if Learned.shared.merge(l) { learnedApplied() }
+    private func applyLearned(_ l: [String: Any], from id: String) {
+        if Learned.shared.merge(l) {
+            learnedApplied()
+            markLearned(except: id)
+        }
     }
 
-    private func applyStats(_ m: [String: Any]) {
+    private func applyStats(_ m: [String: Any], from id: String) {
         if let r = (m["reset"] as? NSNumber)?.doubleValue, r > resetAt {
+            // Reset on that device: reset here, and the others through the reset time sent with their stats.
             d.set(r, forKey: "sync.statsReset")
+            for p in peers where p.id != id { update(p.id) { $0.stats = nil; $0.dose = 0 } }
             resetOwnStats(Date(timeIntervalSince1970: r / 1000))
-            schedule { self.sendStats() }
+            let me = id
+            schedule { self.sendStats(me) }
         }
         guard let st = m["stats"] as? [String: Any] else { return }
         func n(_ k: String) -> Double { (st[k] as? NSNumber)?.doubleValue ?? 0 }
@@ -424,17 +505,16 @@ final class Sync: ObservableObject {
         u.idleOffCount = Int(n("idleOffCount")); u.idleOffSeconds = n("idleOffMs") / 1000
         u.restoreCount = Int(n("restoreCount"))
         u.since = Date(timeIntervalSince1970: n("since") / 1000)
-        peerStats = u
-        peerDose = n("dose7")
-        d.set(peerDose, forKey: "sync.peerDose")
-        if let data = try? JSONEncoder().encode(u) { d.set(data, forKey: "sync.peerStats") }
+        update(id) { $0.stats = u; $0.dose = n("dose7") }
+        markStats(except: id) // the other devices' totals changed
     }
 }
 
-/// One TCP connection with length-prefixed frames, encrypted once `key` is set.
 final class Session {
     let conn: NWConnection
     var key: SymmetricKey?
+    /// The device on the other end, once it said "hi".
+    var peerId: String?
     var onMessage: (([String: Any]) -> Void)?
     var onClose: (() -> Void)?
     private var closed = false

@@ -207,7 +207,7 @@ class TalkService : Service() {
     // ---- notification ----
 
     private fun buildNotification(): Notification {
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
+        val open = PendingIntent.getActivity(this, 0, Intent(this, Flavor.home),
             PendingIntent.FLAG_IMMUTABLE)
         val toggle = PendingIntent.getService(this, 1,
             Intent(this, TalkService::class.java).setAction(ACTION_TOGGLE), PendingIntent.FLAG_IMMUTABLE)
@@ -490,10 +490,12 @@ class TalkService : Service() {
 
     /** "Auto (Movie)" in Auto mode, else the preset name. */
     private fun eqTitle(): String =
-        if (prefs.eqMode == EqMode.AUTO) "Auto (${EqMode.label(st.eqNow ?: prefs.musicEq)})" else EqMode.label(prefs.eqMode)
+        if (Flavor.TV) EqMode.label(Eq.MOVIE.id)
+        else if (prefs.eqMode == EqMode.AUTO) "Auto (${EqMode.label(st.eqNow ?: prefs.musicEq)})" else EqMode.label(prefs.eqMode)
 
     private fun wantedEq(): String =
-        if (prefs.eqMode == EqMode.AUTO) autoPick ?: prefs.musicEq else prefs.eqMode
+        if (Flavor.TV) Eq.MOVIE.id // the TV app always uses Movie
+        else if (prefs.eqMode == EqMode.AUTO) autoPick ?: prefs.musicEq else prefs.eqMode
 
     /** Auto: Movie while a video app plays, the music preset while music plays. Nothing playing: no change. */
     /**
@@ -507,7 +509,7 @@ class TalkService : Service() {
         val (video, app) = playingKind(ctrl) ?: return
         st.eqApp = app
         nowPlaying(ctrl, video)
-        if (prefs.eqMode != EqMode.AUTO) return
+        if (Flavor.TV || prefs.eqMode != EqMode.AUTO) return
         val learned = Learned.lookup(st.songTitle, st.songArtist)
         st.learnedFor = learned?.second
         autoPick = learned?.first ?: if (video) Eq.MOVIE.id else prefs.musicEq
@@ -611,7 +613,7 @@ class TalkService : Service() {
     private fun alert(id: Int, title: String, text: String) {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("alerts", "Reminders", NotificationManager.IMPORTANCE_DEFAULT))
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val open = PendingIntent.getActivity(this, 0, Intent(this, Flavor.home), PendingIntent.FLAG_IMMUTABLE)
         nm.notify(id, Notification.Builder(this, "alerts").setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title).setContentText(text).setStyle(Notification.BigTextStyle().bigText(text))
             .setContentIntent(open).setAutoCancel(true).build())

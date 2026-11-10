@@ -2,6 +2,13 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.13.0
+
+- **TV app for Android TV and Fire TV.** A small app made for the remote, for TVs on Android 11 or newer (like the Fire TV Stick 4K Max). It has talk mode (the headphone button works the same), noise control, the battery saver, stats and sync with the Mac. The EQ is always Movie, so there is no Auto EQ. Download `CMF-Talk-Mode-TV-x.y.z.apk`. It installs next to the phone app and updates itself from its own file.
+- **The Mac syncs with several devices.** Pair your phone and your TV at the same time. The Mac passes settings, remembered EQ picks and stats between them, so every screen shows the total of all devices. History from each device is kept on the Mac. A phone that was already paired stays paired.
+- Pairing on the Mac is now **Pair a device**. The Mac shows each paired device with its own sync state and Unpair button.
+- Android shows its own device name on the Mac, like "Living room Fire TV".
+
 ## 2.12.0
 
 - **Talk mode has a time limit.** If you stay in talk mode longer than the battery saver time, you most likely took the headphones off to talk. Talk mode ends, the music is paused (in "lower" mode it's paused first, then your volume is put back, so nothing keeps playing) and noise control turns Off. Your old noise mode comes back when you play something again.

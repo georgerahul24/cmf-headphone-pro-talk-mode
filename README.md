@@ -34,6 +34,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 
 **Apps**
 - **Phone and Mac sync.** History, stats and every setting sync over your Wi-Fi, encrypted, with no cloud. Pair once with a 6-digit code. Settings shows what is synced and what is still waiting. [More below](#sync).
+- **Android TV and Fire TV:** a small app made for the remote. Talk mode, noise control, battery saver, stats and sync. The EQ is always Movie. [More below](#tv).
 - **Android:** a clean dark app with Home, Sound, Stats and Settings tabs. Runs in the background, starts after a reboot and reconnects on its own. Made to hold up on custom ROMs like Evolution X.
 - **Mac:** quick controls in the menu bar (talk, noise control, Spatial Audio, battery saver), plus a full window with Home, Sound, Activity and Settings. Opens at login and restarts if it crashes.
 - **Updates itself.** Both apps check GitHub Releases and install new versions. On Android, the first update asks you to tap Install.
@@ -60,15 +61,28 @@ Both apps draw each preset's curve and list all 8 bands with their values.
 
 The presets play at the same level as the factory sound.
 
+## TV
+
+The TV app is for Android TV and Fire TV (Android 11 or newer). It is a smaller app made for the remote, on one screen:
+
+- **Talk mode.** The headphone button works the same as on the phone, or press Talk with the remote.
+- **Noise control:** Off, Transparency, Noise cancelling or Adaptive.
+- **Battery saver** with the same time limit for talk mode.
+- **Stats** for all your devices together, and the weekly hearing dose.
+- **Sync with the Mac**, with an on-screen number pad for the code.
+- **EQ is always Movie.** There is no Auto EQ on the TV.
+
+It has its own package, so it never replaces the phone app, and it updates from its own release file.
+
 ## Sync
 
-The phone and the Mac keep each other up to date over your home Wi-Fi. No account, no cloud.
+The phone, the TV and the Mac keep each other up to date over your home Wi-Fi. No account, no cloud. The Mac is the hub: a phone and a TV can be paired with it at the same time.
 
 - **What syncs:** headphone history, usage stats, your remembered EQ picks, and settings: talk mode on or off, talk volume, lower or pause, battery saver and its wait time, reminders and auto-update. The live EQ choice, noise control and Spatial Audio don't sync, so each device can have its own. ("Open at login" is Mac only.)
-- **Pairing:** on the Mac, open the app, go to Settings, and click **Pair a phone**. On the phone, go to Settings, then Sync with your Mac, and type the code. Do it once.
+- **Pairing:** on the Mac, open the app, go to Settings, and click **Pair a device** (or **Pair another device**). On the phone, go to Settings, then Sync with your Mac, and type the code. On the TV, enter it with the number pad. Do it once per device.
 - **When:** while both are on the same Wi-Fi, the phone keeps a link open and changes go across within seconds. If you were apart, everything that piled up goes across as soon as they meet again.
 - **What's left:** each side tracks exactly how much of the other's history it has. Settings shows "Everything is synced" or what is waiting, like "34 history events and 2 settings waiting to sync".
-- **Merging:** charts and stats show both devices together. Time when the headphones were connected to both counts once. For a setting changed on both, the newest change wins. Resetting stats resets both.
+- **Merging:** stats show all devices together on every screen. The Mac's charts show the history of every device. The phone and TV show their own plus the Mac's. Time when the headphones were connected to more than one device counts once. For a setting changed on two devices, the newest change wins. Resetting stats resets all of them.
 - **Security:** pairing uses an X25519 key exchange checked with the code, and every message after that is encrypted with AES-GCM.
 - **Mac permission:** macOS asks to allow CMF Talk Mode to find devices on your local network. Allow it, or sync can't work.
 
@@ -87,6 +101,7 @@ The app talks to the headphones over the same Bluetooth control channel Nothing 
 Get the latest build from the [Releases page](../../releases):
 
 - **Android:** `CMF-Talk-Mode-x.y.z.apk` (Android 12 or newer)
+- **Android TV and Fire TV:** `CMF-Talk-Mode-TV-x.y.z.apk` (Android 11 or newer)
 - **macOS:** `CMF-Talk-Mode.dmg` (macOS 14 Sonoma or newer, Apple Silicon and Intel)
 
 ## Setup
@@ -108,7 +123,14 @@ Get the latest build from the [Releases page](../../releases):
 7. Optional, to sync with the Mac app: Settings, **Sync with your Mac**, then type the code the Mac shows.
 8. For updates and sync: allow the app to use the network. Some ROMs (like Evolution X) block this per app under App info, **Mobile data & Wi-Fi** or **Network access**.
 
-### 3. macOS
+### 3. Android TV and Fire TV
+
+1. Pair the headphones with the TV in its Bluetooth settings.
+2. Install the TV APK. On a Fire TV, turn on Developer options, then **Apps from Unknown Sources** (or ADB debugging), and install it with an app like Downloader or with `adb install CMF-Talk-Mode-TV-x.y.z.apk`.
+3. Open **CMF Talk Mode** from your apps. It connects on its own and starts after the TV restarts.
+4. Optional: in Sync with your Mac, enter the code from **Pair a device** on the Mac.
+
+### 4. macOS
 
 1. Open the `.dmg` and drag **CMF Talk Mode** to Applications.
 2. The app is not signed with a paid Apple account. The first time, right-click the app and pick **Open**. Or run:
@@ -154,7 +176,7 @@ It is built and tested for the CMF Headphone Pro (model B175). Other Nothing and
 ## Build it yourself
 
 - **macOS:** `./mac/build.sh --dmg` (only needs the Xcode command line tools)
-- **Android:** `cd android && gradle :app:assembleRelease` (JDK 17 and the Android SDK)
+- **Android:** `cd android && gradle :app:assembleRelease` (JDK 17 and the Android SDK). This builds the phone app (`apk/phone`) and the TV app (`apk/tv`).
 
 GitHub Actions builds both on every push, and attaches them to a release for tags like `v1.0.0`.
 

@@ -12,8 +12,21 @@ android {
         applicationId = "dev.georgerahul.cmftalk"
         minSdk = 31
         targetSdk = 36
-        versionCode = 23
-        versionName = "2.12.0"
+        versionCode = 24
+        versionName = "2.13.0"
+    }
+
+    // phone: the full app (Android 12 and newer).
+    // tv: a small app for Android TV and Fire TV (Android 11 and newer): talk mode, noise control,
+    // stats and sync, with the EQ fixed to Movie. Its own package, so it never replaces the phone app.
+    flavorDimensions += "device"
+    productFlavors {
+        create("phone") { dimension = "device" }
+        create("tv") {
+            dimension = "device"
+            applicationIdSuffix = ".tv"
+            minSdk = 30
+        }
     }
 
     // CI passes a fixed keystore (secret ANDROID_KEYSTORE_B64) so new builds

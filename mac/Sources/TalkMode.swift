@@ -185,9 +185,9 @@ final class TalkMode: ObservableObject {
         if !applyingRemote { Sync.shared.settingChanged(key) }
     }
 
-    /// This Mac's and the phone's counters added up.
+    /// This Mac's and every paired device's counters added up.
     var allStats: UsageStats {
-        guard let p = Sync.shared.peerStats else { return stats }
+        guard let p = Sync.shared.othersStats() else { return stats }
         var s = stats
         s.talkCount += p.talkCount; s.talkSeconds += p.talkSeconds
         s.idleOffCount += p.idleOffCount; s.idleOffSeconds += p.idleOffSeconds
@@ -413,8 +413,8 @@ final class TalkMode: ObservableObject {
         }
     }
 
-    /// This week's hearing dose from both devices (1.0 = the whole safe amount).
-    var allDose: Double { Hearing.shared.week() + Sync.shared.peerDose }
+    /// This week's hearing dose from every device (1.0 = the whole safe amount).
+    var allDose: Double { Hearing.shared.week() + Sync.shared.othersDose() }
 
     /// The battery forecast, re-worked out every 10 minutes or when the level or mode changes.
     func batteryForecast(now: Date) -> BatteryPredict.Forecast? {

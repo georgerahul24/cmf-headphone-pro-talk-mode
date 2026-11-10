@@ -132,8 +132,6 @@ private class UiPrefs(val p: Prefs) {
 
 class MainActivity : ComponentActivity() {
     companion object {
-        /** The screen is open: the update installer can show its Install screen directly. */
-        var visible = false
         /** Bumped on every return to the app, to re-check things like Notification access. */
         var resumes by mutableIntStateOf(0)
     }
@@ -165,12 +163,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
-        visible = false
+        Screen.visible = false
     }
 
     override fun onResume() {
         super.onResume()
-        visible = true
+        Screen.visible = true
         resumes++
         if (hasBt()) TalkService.start(this)
     }
@@ -1133,7 +1131,7 @@ private fun SyncPanel() {
         if (Sync.peerId == null) {
             Text("Syncs history, stats and every setting with the Mac app over your Wi-Fi. Nothing goes to the internet, and everything is encrypted.",
                 color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
-            Text("On the Mac: open the app, Settings, Pair a phone. Then type the code here.",
+            Text("On the Mac: open the app, Settings, Pair a device. Then type the code here.",
                 color = C.Sub, fontSize = 13.sp, lineHeight = 18.sp)
             var code by remember { mutableStateOf("") }
             androidx.compose.material3.OutlinedTextField(

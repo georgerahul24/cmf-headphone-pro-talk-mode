@@ -78,7 +78,12 @@ object Sync {
     var onSettingsApplied: (() -> Unit)? = null
 
     var deviceId = ""; private set
-    private val deviceName = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
+    /** The name the Mac shows: the device's own name (like "Living room Fire TV"), else maker and model. */
+    private val deviceName by lazy {
+        runCatching { android.provider.Settings.Global.getString(app!!.contentResolver, android.provider.Settings.Global.DEVICE_NAME) }
+            .getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+            ?: "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
+    }
 
     @Volatile private var secret: ByteArray? = null
     @Volatile private var running = false
@@ -203,7 +208,7 @@ object Sync {
         peerId = null; peerName = null; peerHas = 0; peerHasV = 0; haveFromPeer = 0; lastSync = 0
         Stats.updatePeer(null)
         runCatching { socket?.close() }
-        note = "Unpaired. History already synced from the Mac stays on this phone."
+        note = "Unpaired. History already synced from the Mac stays here."
     }
 
     // ---- pairing ----
@@ -224,7 +229,7 @@ object Sync {
     private fun doPair(code: String): String {
         if (!code.matches(Regex("\\d{6}"))) return "Enter the 6-digit code shown on the Mac."
         val addr = discover(15_000)
-            ?: return "Couldn't find the Mac. Keep both on the same Wi-Fi, and click Pair a phone on the Mac first."
+            ?: return "Couldn't find the Mac. Keep both on the same Wi-Fi, and click Pair a device on the Mac first."
         Socket().use { s ->
             s.connect(addr, 5_000)
             s.soTimeout = 15_000

@@ -870,40 +870,43 @@ struct Cards {
 
     var syncCard: some View {
         let s = Sync.shared
-        let name = s.peerName ?? "your phone"
-        return Card(title: "Sync with your phone") {
-            if s.peerId == nil {
-                if let code = s.pairCode {
-                    Text("On your phone, open Settings, then Sync, tap Pair with Mac and enter:")
-                        .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
-                    Text(code.prefix(3) + " " + code.suffix(3))
-                        .font(.system(size: 30, weight: .semibold, design: .rounded)).monospacedDigit().tracking(3)
-                    HStack {
-                        Text("Works for 5 minutes. Keep both on the same Wi-Fi.").font(.system(size: 10)).foregroundStyle(Pal.faint)
-                        Spacer()
-                        Button("Cancel") { s.stopPairing() }
-                    }
-                } else {
-                    Text("Syncs history, stats and every setting with the Android app over your Wi-Fi. Nothing goes to the internet, and everything is encrypted.")
-                        .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
-                    Button("Pair a phone") { s.startPairing() }
-                }
-            } else {
-                HStack(spacing: 7) {
-                    Circle().fill(s.connected ? Pal.teal : Pal.faint).frame(width: 7, height: 7)
-                    Text(s.connected ? "Connected to \(name)" : "\(name) is not on this network").font(.system(size: 13, weight: .medium))
-                }
-                if let t = s.lastSync {
-                    (Text("Last synced ") + Text(t, style: .relative) + Text(" ago")).font(.system(size: 11)).foregroundStyle(Pal.sub)
-                }
-                HStack(spacing: 6) {
-                    Image(systemName: s.everythingSynced ? "checkmark.circle.fill" : "clock")
-                        .foregroundStyle(s.everythingSynced ? Pal.teal : Pal.sub)
-                    Text(s.waitingText ?? "Everything from this Mac is synced").font(.system(size: 12))
-                }
-                Text("History: \(History.shared.ownCount) events from this Mac, \(s.haveFromPeer) from \(name). Settings and stats sync too.")
+        return Card(title: "Sync with your phone and TV") {
+            if let code = s.pairCode {
+                Text("On your phone or TV, open Settings, then Sync, tap Pair with Mac and enter:")
                     .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
-                Button("Unpair") { s.unpair() }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Pal.faint)
+                Text(code.prefix(3) + " " + code.suffix(3))
+                    .font(.system(size: 30, weight: .semibold, design: .rounded)).monospacedDigit().tracking(3)
+                HStack {
+                    Text("Works for 5 minutes. Keep both on the same Wi-Fi.").font(.system(size: 10)).foregroundStyle(Pal.faint)
+                    Spacer()
+                    Button("Cancel") { s.stopPairing() }
+                }
+            } else if s.peers.isEmpty {
+                Text("Syncs history, stats and every setting with the Android phone and TV apps over your Wi-Fi. Nothing goes to the internet, and everything is encrypted.")
+                    .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
+                Button("Pair a device") { s.startPairing() }
+            }
+            ForEach(s.peers) { p in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 7) {
+                        Circle().fill(s.live.contains(p.id) ? Pal.teal : Pal.faint).frame(width: 7, height: 7)
+                        Text(s.live.contains(p.id) ? "Connected to \(p.name)" : "\(p.name) is not on this network").font(.system(size: 13, weight: .medium))
+                    }
+                    if let t = p.lastSync {
+                        (Text("Last synced ") + Text(t, style: .relative) + Text(" ago")).font(.system(size: 11)).foregroundStyle(Pal.sub)
+                    }
+                    HStack(spacing: 6) {
+                        Image(systemName: p.everythingSynced ? "checkmark.circle.fill" : "clock")
+                            .foregroundStyle(p.everythingSynced ? Pal.teal : Pal.sub)
+                        Text(p.waitingText ?? "Everything from this Mac is synced").font(.system(size: 12))
+                    }
+                    Text("History: \(History.shared.ownCount) events from this Mac, \(p.haveFrom) from \(p.name). Settings and stats sync too.")
+                        .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
+                    Button("Unpair \(p.name)") { s.unpair(p.id) }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Pal.faint)
+                }
+            }
+            if !s.peers.isEmpty && s.pairCode == nil {
+                Button("Pair another device") { s.startPairing() }
             }
             if let n = s.note {
                 Text(n).font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
