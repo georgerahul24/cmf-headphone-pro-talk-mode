@@ -6,6 +6,7 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 ## 2.13.1
 
 - **Talk mode resumes your music reliably** (phone and TV). Newer Android mutes apps that start playing from the background, so after talking, YouTube Music could show "playing" with no sound until you opened it. Talk mode now briefly takes over the audio, like a phone call or a navigation voice: the music app pauses itself and resumes itself when talk mode ends. If talk mode hits its time limit, the music is paused for good.
+- **Music no longer stays in "call quality" after a call** (phone). Sometimes the headphones don't close their call audio after you hang up, so music kept playing in mono, phone-call quality until they reconnected. The app now notices this a few seconds after a call and releases the call audio, so music goes back to full quality.
 - **Less bass, more detail.** Strong deep bass for long sessions can feel tiring or even make you a bit queasy, especially with ANC on and the Energy Slider at full.
   - Movie: rumble 30 Hz +2.5 (was +5), boom 70 Hz +1 (was +3), mud cut 220 Hz -3, voices 1 kHz +1.5, dialogue 2.5 kHz +3.5, 8 kHz -2, air 10.5 kHz +3.
   - Pop: bass shelf +3 (was +5.5), deep bass 50 Hz +0.5 (was +1).

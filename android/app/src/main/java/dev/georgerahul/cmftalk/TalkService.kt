@@ -21,6 +21,7 @@ import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -143,6 +144,8 @@ class TalkService : Service() {
         Sync.start()
         alarms = getSystemService(AlarmManager::class.java)
         audio.registerAudioPlaybackCallback(playbackCb, main)
+        if (Build.VERSION.SDK_INT >= 31) audio.addOnModeChangedListener(mainExecutor, modeListener)
+        main.postDelayed(callAudioCheck, 5_000) // also fixes one that was already stuck
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "Status", NotificationManager.IMPORTANCE_LOW).apply {
                 setShowBadge(false)
@@ -173,6 +176,8 @@ class TalkService : Service() {
         unregisterReceiver(btReceiver)
         main.removeCallbacks(recheck)
         main.removeCallbacks(updateTick)
+        main.removeCallbacks(callAudioCheck)
+        if (Build.VERSION.SDK_INT >= 31) audio.removeOnModeChangedListener(modeListener)
         releaseFocus()
         Hearing.flush()
         Sync.stop()
@@ -483,6 +488,43 @@ class TalkService : Service() {
         st.talkSince?.let { Stats.talkEnded(System.currentTimeMillis() - it) }
         st.talkSince = null
         refreshNotification()
+    }
+
+    // ---- call audio stuck after a call (main thread) ----
+
+    /**
+     * After a call, the headphones sometimes don't close their call audio channel (the phone asks,
+     * they never confirm, and then they reopen it themselves). Music then keeps playing in mono,
+     * low "call" quality until they reconnect. Android won't close a channel the headphones opened,
+     * so the app takes it over for a moment and lets it go, which closes it properly.
+     */
+    private val modeListener = AudioManager.OnModeChangedListener { mode ->
+        if (mode == AudioManager.MODE_NORMAL) { main.removeCallbacks(callAudioCheck); main.postDelayed(callAudioCheck, 6_000) }
+    }
+    private val callAudioCheck = Runnable { fixStuckCallAudio(0) }
+
+    private fun callAudioStuck(): android.media.AudioDeviceInfo? {
+        if (Build.VERSION.SDK_INT < 31) return null
+        if (audio.mode != AudioManager.MODE_NORMAL) return null          // a call is going on
+        if (audio.activeRecordingConfigurations.isNotEmpty()) return null // something is using the mic
+        return audio.communicationDevice?.takeIf { it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+    }
+
+    private fun fixStuckCallAudio(attempt: Int) {
+        if (Build.VERSION.SDK_INT < 31) return
+        val dev = callAudioStuck() ?: return
+        Log.i(TAG, "call audio stuck open on the headphones after a call: releasing it (try ${attempt + 1})")
+        runCatching { audio.setCommunicationDevice(dev) }
+        main.postDelayed({
+            runCatching { audio.clearCommunicationDevice() }
+            main.postDelayed({
+                when {
+                    callAudioStuck() == null -> Log.i(TAG, "call audio released, music is back to full quality")
+                    attempt < 2 -> fixStuckCallAudio(attempt + 1)
+                    else -> Log.w(TAG, "call audio still stuck; reconnecting the headphones clears it")
+                }
+            }, 4_000)
+        }, 500)
     }
 
     /** Takes audio focus for talking, which pauses the music app. False if Android refuses. */
