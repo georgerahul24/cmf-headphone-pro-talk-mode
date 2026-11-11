@@ -520,11 +520,38 @@ class TalkService : Service() {
             main.postDelayed({
                 when {
                     callAudioStuck() == null -> Log.i(TAG, "call audio released, music is back to full quality")
-                    attempt < 2 -> fixStuckCallAudio(attempt + 1)
-                    else -> Log.w(TAG, "call audio still stuck; reconnecting the headphones clears it")
+                    attempt < 1 -> fixStuckCallAudio(attempt + 1)
+                    else -> releaseByHeadset()
                 }
             }, 4_000)
         }, 500)
+    }
+
+    /**
+     * Android won't let apps close a call channel the headphones opened themselves. Its Bluetooth
+     * service will, when voice-assistant mode on the headset ends, so start and stop that mode.
+     */
+    @SuppressLint("MissingPermission")
+    private fun releaseByHeadset() {
+        val adapter = getSystemService(BluetoothManager::class.java)?.adapter ?: return
+        adapter.getProfileProxy(this, object : android.bluetooth.BluetoothProfile.ServiceListener {
+            override fun onServiceConnected(profile: Int, proxy: android.bluetooth.BluetoothProfile) {
+                val hs = proxy as android.bluetooth.BluetoothHeadset
+                val dev = hs.connectedDevices.firstOrNull { (it.name ?: "").contains(HEADPHONE_NAME) }
+                if (dev == null) { adapter.closeProfileProxy(profile, proxy); return }
+                val started = runCatching { hs.startVoiceRecognition(dev) }.getOrDefault(false)
+                Log.i(TAG, "call audio: releasing through the headset service (voice mode started: $started)")
+                main.postDelayed({
+                    val stopped = runCatching { hs.stopVoiceRecognition(dev) }.getOrDefault(false)
+                    main.postDelayed({
+                        Log.i(TAG, if (callAudioStuck() == null) "call audio released, music is back to full quality"
+                            else "call audio still stuck (voice mode stopped: $stopped); reconnecting the headphones clears it")
+                        adapter.closeProfileProxy(profile, proxy)
+                    }, 3_000)
+                }, 1_000)
+            }
+            override fun onServiceDisconnected(profile: Int) {}
+        }, android.bluetooth.BluetoothProfile.HEADSET)
     }
 
     /** Takes audio focus for talking, which pauses the music app. False if Android refuses. */
