@@ -6,10 +6,11 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 
 ## 2.13.2
 
-- **Bass back up a little**, between the earlier and the 2.13.1 settings, keeping the extra clarity:
-  - Movie: rumble 30 Hz +3.5, boom 70 Hz +2.
-  - Pop: bass shelf +4, deep bass 50 Hz +1.
-  - Rock: bass shelf +3, kick 60 Hz +2.
+- **Bass detail is back, with a little less bass than 2.13.0.** Bass "detail" comes from a clean 200-300 Hz and the harmonics above the bass, so Movie's mud cut at 220 Hz is back to -3.5 dB, and the bass sits a bit under 2.13.0:
+  - Movie: rumble 30 Hz +4 (2.13.0: +5), boom 70 Hz +2.5 (was +3), mud cut 220 Hz -3.5.
+  - Pop: bass shelf +4.5 (was +5.5), deep bass 50 Hz +1.
+  - Rock: bass shelf +3 (was +3.5), kick 60 Hz +2.
+
 ## 2.13.1
 
 - **Talk mode resumes your music reliably** (phone and TV). Newer Android mutes apps that start playing from the background, so after talking, YouTube Music could show "playing" with no sound until you opened it. Talk mode now briefly takes over the audio, like a phone call or a navigation voice: the music app pauses itself and resumes itself when talk mode ends. If talk mode hits its time limit, the music is paused for good.
