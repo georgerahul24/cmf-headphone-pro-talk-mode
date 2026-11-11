@@ -20,7 +20,7 @@ enum Eq: String, CaseIterable {
     var about: String {
         switch self {
         case .movie: return "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear."
-        case .pop: return "Big, full bass with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs."
+        case .pop: return "Warm, full bass with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs."
         case .classical: return "Natural and open: clean low strings, clear soloists, soft violins and the air of the hall."
         case .flat: return "No EQ: bass, mid and treble all at 0. Every preset is measured from here."
         case .rock: return "Punchy kick and bass guitar, crunchy guitars, vocals that cut through, and bright cymbals."
@@ -40,9 +40,9 @@ enum Eq: String, CaseIterable {
         // cut so bass doesn't smear over voices, speech bands lifted, only the narrow 8 kHz peak cut,
         // and a gentle treble lift for environmental detail (glass, rattles, room sound).
         case .movie: return [
-            Band(type: 1, gain: 4.5, freq: 30, q: 0.9),  // huge rumble you feel, where movie bass effects live
-            Band(type: 1, gain: 2.5, freq: 70, q: 1),  // boom and punch for fights and explosions
-            Band(type: 1, gain: -3.5, freq: 220, q: 1),  // keeps the bass from smearing over voices and detail
+            Band(type: 1, gain: 2.5, freq: 30, q: 0.9),  // huge rumble you feel, where movie bass effects live
+            Band(type: 1, gain: 1, freq: 70, q: 1),  // boom and punch for fights and explosions
+            Band(type: 1, gain: -3, freq: 220, q: 1),  // keeps the bass from smearing over voices and detail
             Band(type: 1, gain: 1.5, freq: 1000, q: 1),  // body of voices
             Band(type: 1, gain: 3.5, freq: 2500, q: 1.3),  // dialogue clarity
             Band(type: 1, gain: 3.5, freq: 3800, q: 1.6),  // consonants and faint sounds; fills the 4 kHz dip
@@ -51,8 +51,8 @@ enum Eq: String, CaseIterable {
         ]
         // Slider at zero. English, Hindi and Malayalam pop: singer up front over a strong bass line.
         case .pop: return [
-            Band(type: 0, gain: 5.5, freq: 105, q: 0.7),  // big warm bass shelf
-            Band(type: 1, gain: 1, freq: 50, q: 1),  // deep bass for dance drops
+            Band(type: 0, gain: 3, freq: 105, q: 0.7),  // big warm bass shelf
+            Band(type: 1, gain: 0.5, freq: 50, q: 1),  // deep bass for dance drops
             Band(type: 1, gain: -2.5, freq: 250, q: 1),  // less low-mid mud under the vocals
             Band(type: 1, gain: 2.5, freq: 2300, q: 1.4),  // vocal body and clarity
             Band(type: 1, gain: 4, freq: 3800, q: 1.6),  // vocals forward; fills the 4 kHz dip
@@ -61,8 +61,8 @@ enum Eq: String, CaseIterable {
             Band(type: 2, gain: 2, freq: 12000, q: 0.7),  // shimmer and air
         ]
         case .rock: return [
-            Band(type: 0, gain: 3.5, freq: 90, q: 0.7),  // weight for kick and bass guitar
-            Band(type: 1, gain: 2, freq: 60, q: 1.2),  // kick drum punch
+            Band(type: 0, gain: 2.5, freq: 90, q: 0.7),  // weight for kick and bass guitar
+            Band(type: 1, gain: 1.5, freq: 60, q: 1.2),  // kick drum punch
             Band(type: 1, gain: -3, freq: 300, q: 1),  // less guitar and bass mud
             Band(type: 1, gain: 2.5, freq: 1500, q: 1.2),  // guitar crunch
             Band(type: 1, gain: 2, freq: 3000, q: 1.4),  // bite and vocals

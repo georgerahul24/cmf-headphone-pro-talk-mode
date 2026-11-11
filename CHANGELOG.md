@@ -6,7 +6,11 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 ## 2.13.1
 
 - **Talk mode resumes your music reliably** (phone and TV). Newer Android mutes apps that start playing from the background, so after talking, YouTube Music could show "playing" with no sound until you opened it. Talk mode now briefly takes over the audio, like a phone call or a navigation voice: the music app pauses itself and resumes itself when talk mode ends. If talk mode hits its time limit, the music is paused for good.
-- **Movie: a touch less bass, a bit more detail.** Rumble 30 Hz +4.5 (was +5), boom 70 Hz +2.5 (was +3), voices 1 kHz +1.5 (was +1), dialogue 2.5 kHz +3.5 (was +3), 8 kHz -2 (was -2.5), air 10.5 kHz +3 (was +2.5).
+- **Less bass, more detail.** Strong deep bass for long sessions can feel tiring or even make you a bit queasy, especially with ANC on and the Energy Slider at full.
+  - Movie: rumble 30 Hz +2.5 (was +5), boom 70 Hz +1 (was +3), mud cut 220 Hz -3, voices 1 kHz +1.5, dialogue 2.5 kHz +3.5, 8 kHz -2, air 10.5 kHz +3.
+  - Pop: bass shelf +3 (was +5.5), deep bass 50 Hz +0.5 (was +1).
+  - Rock: bass shelf +2.5 (was +3.5), kick 60 Hz +1.5 (was +2).
+
 ## 2.13.0
 
 - **TV app for Android TV and Fire TV.** A small app made for the remote, for TVs on Android 11 or newer (like the Fire TV Stick 4K Max). It has talk mode (the headphone button works the same), noise control, the battery saver, stats and sync with the Mac. The EQ is always Movie, so there is no Auto EQ. Download `CMF-Talk-Mode-TV-x.y.z.apk`. It installs next to the phone app and updates itself from its own file.
