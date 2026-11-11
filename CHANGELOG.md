@@ -3,6 +3,13 @@
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
 
+
+## 2.13.2
+
+- **Bass back up a little**, between the earlier and the 2.13.1 settings, keeping the extra clarity:
+  - Movie: rumble 30 Hz +3.5, boom 70 Hz +2.
+  - Pop: bass shelf +4, deep bass 50 Hz +1.
+  - Rock: bass shelf +3, kick 60 Hz +2.
 ## 2.13.1
 
 - **Talk mode resumes your music reliably** (phone and TV). Newer Android mutes apps that start playing from the background, so after talking, YouTube Music could show "playing" with no sound until you opened it. Talk mode now briefly takes over the audio, like a phone call or a navigation voice: the music app pauses itself and resumes itself when talk mode ends. If talk mode hits its time limit, the music is paused for good.
