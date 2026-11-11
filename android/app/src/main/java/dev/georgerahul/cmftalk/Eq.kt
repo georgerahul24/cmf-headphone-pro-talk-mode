@@ -19,14 +19,14 @@ enum class Eq(val id: String, val label: String, val about: String, val preamp: 
     MOVIE("movie", "Movie",
         "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear.",
         0f, listOf(
-            Band(1, 5f, 30f, 0.9f), // huge rumble you feel, where movie bass effects live
-            Band(1, 3f, 70f, 1f), // boom and punch for fights and explosions
+            Band(1, 4.5f, 30f, 0.9f), // huge rumble you feel, where movie bass effects live
+            Band(1, 2.5f, 70f, 1f), // boom and punch for fights and explosions
             Band(1, -3.5f, 220f, 1f), // keeps the bass from smearing over voices and detail
-            Band(1, 1f, 1000f, 1f), // body of voices
-            Band(1, 3f, 2500f, 1.3f), // dialogue clarity
+            Band(1, 1.5f, 1000f, 1f), // body of voices
+            Band(1, 3.5f, 2500f, 1.3f), // dialogue clarity
             Band(1, 3.5f, 3800f, 1.6f), // consonants and faint sounds; fills the 4 kHz dip
-            Band(1, -2.5f, 8000f, 3.5f), // only the narrow harsh peak, so detail stays
-            Band(2, 2.5f, 10500f, 0.7f), // sparkle and space: glass, rattles, room sound
+            Band(1, -2f, 8000f, 3.5f), // only the narrow harsh peak, so detail stays
+            Band(2, 3f, 10500f, 0.7f), // sparkle and space: glass, rattles, room sound
         )),
     POP("pop", "Pop",
         "Big, full bass with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs.",

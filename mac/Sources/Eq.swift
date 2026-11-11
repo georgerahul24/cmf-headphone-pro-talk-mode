@@ -40,14 +40,14 @@ enum Eq: String, CaseIterable {
         // cut so bass doesn't smear over voices, speech bands lifted, only the narrow 8 kHz peak cut,
         // and a gentle treble lift for environmental detail (glass, rattles, room sound).
         case .movie: return [
-            Band(type: 1, gain: 5, freq: 30, q: 0.9),  // huge rumble you feel, where movie bass effects live
-            Band(type: 1, gain: 3, freq: 70, q: 1),  // boom and punch for fights and explosions
+            Band(type: 1, gain: 4.5, freq: 30, q: 0.9),  // huge rumble you feel, where movie bass effects live
+            Band(type: 1, gain: 2.5, freq: 70, q: 1),  // boom and punch for fights and explosions
             Band(type: 1, gain: -3.5, freq: 220, q: 1),  // keeps the bass from smearing over voices and detail
-            Band(type: 1, gain: 1, freq: 1000, q: 1),  // body of voices
-            Band(type: 1, gain: 3, freq: 2500, q: 1.3),  // dialogue clarity
+            Band(type: 1, gain: 1.5, freq: 1000, q: 1),  // body of voices
+            Band(type: 1, gain: 3.5, freq: 2500, q: 1.3),  // dialogue clarity
             Band(type: 1, gain: 3.5, freq: 3800, q: 1.6),  // consonants and faint sounds; fills the 4 kHz dip
-            Band(type: 1, gain: -2.5, freq: 8000, q: 3.5),  // only the narrow harsh peak, so detail stays
-            Band(type: 2, gain: 2.5, freq: 10500, q: 0.7),  // sparkle and space: glass, rattles, room sound
+            Band(type: 1, gain: -2, freq: 8000, q: 3.5),  // only the narrow harsh peak, so detail stays
+            Band(type: 2, gain: 3, freq: 10500, q: 0.7),  // sparkle and space: glass, rattles, room sound
         ]
         // Slider at zero. English, Hindi and Malayalam pop: singer up front over a strong bass line.
         case .pop: return [

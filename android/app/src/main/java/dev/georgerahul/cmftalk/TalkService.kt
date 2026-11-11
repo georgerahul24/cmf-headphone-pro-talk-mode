@@ -82,6 +82,12 @@ class TalkService : Service() {
     private var savedVolume: Int? = null
     /** True if talk mode paused the music, so ending it should play again. */
     private var pausedMusic = false
+    /**
+     * Audio focus held while talking. Taking focus makes the music app pause itself, and giving it
+     * back makes it resume itself. Android 16+ mutes apps that start playing from the background,
+     * so pressing "play" for them (the old way) could leave the music "playing" but silent.
+     */
+    private var talkFocus: android.media.AudioFocusRequest? = null
     private var lastPress = 0L
 
     /** EQ preset sent to the headphones since they connected, and what Auto picked last. */
@@ -167,6 +173,7 @@ class TalkService : Service() {
         unregisterReceiver(btReceiver)
         main.removeCallbacks(recheck)
         main.removeCallbacks(updateTick)
+        releaseFocus()
         Hearing.flush()
         Sync.stop()
         audio.unregisterAudioPlaybackCallback(playbackCb)
@@ -415,8 +422,8 @@ class TalkService : Service() {
         if (prefs.talkPause) {
             savedVolume = null
             pausedMusic = audio.isMusicActive
-            if (pausedMusic) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
-            Log.i(TAG, "talk ON (saved ${Proto.ancName(savedAnc)}, paused music: $pausedMusic)")
+            if (pausedMusic && !takeFocus()) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE) // focus refused: press pause
+            Log.i(TAG, "talk ON (saved ${Proto.ancName(savedAnc)}, paused music: $pausedMusic, by focus: ${talkFocus != null})")
         } else {
             pausedMusic = false
             savedVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
@@ -443,7 +450,10 @@ class TalkService : Service() {
     private fun talkTimedOut() {
         if (!st.talkActive || !st.connected) return
         Log.i(TAG, "talk mode timed out: music paused, noise control off")
-        if (!pausedMusic && audio.isMusicActive) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+        // Pause for good: while the music app is paused for us, a pause makes it a real pause, so it
+        // doesn't start again when we give the audio back.
+        if (talkFocus != null || (!pausedMusic && audio.isMusicActive)) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+        main.postDelayed({ releaseFocus() }, 500)
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
         savedVolume = null
         pausedMusic = false // stays paused
@@ -464,12 +474,32 @@ class TalkService : Service() {
         Log.i(TAG, "talk OFF (restore ${Proto.ancName(savedAnc)}, vol $savedVolume)")
         savedAnc?.let { send(Proto.ANC_SET, 0x01, it, 0x00) }
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
-        if (pausedMusic) mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+        if (pausedMusic) {
+            // Giving the audio back resumes the music app by itself; press play only if we had to pause by key.
+            if (talkFocus != null) releaseFocus() else mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+        }
         pausedMusic = false
         st.talkActive = false
         st.talkSince?.let { Stats.talkEnded(System.currentTimeMillis() - it) }
         st.talkSince = null
         refreshNotification()
+    }
+
+    /** Takes audio focus for talking, which pauses the music app. False if Android refuses. */
+    private fun takeFocus(): Boolean {
+        val req = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+            .setOnAudioFocusChangeListener { }
+            .build()
+        val ok = audio.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        talkFocus = if (ok) req else null
+        return ok
+    }
+
+    private fun releaseFocus() {
+        talkFocus?.let { audio.abandonAudioFocusRequest(it) }
+        talkFocus = null
     }
 
     /** Sends a play or pause key to whatever app is playing media. */
