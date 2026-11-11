@@ -493,65 +493,28 @@ class TalkService : Service() {
     // ---- call audio stuck after a call (main thread) ----
 
     /**
-     * After a call, the headphones sometimes don't close their call audio channel (the phone asks,
-     * they never confirm, and then they reopen it themselves). Music then keeps playing in mono,
-     * low "call" quality until they reconnect. Android won't close a channel the headphones opened,
-     * so the app takes it over for a moment and lets it go, which closes it properly.
+     * After a call, the headphones sometimes don't close their call audio channel: the phone asks,
+     * they never confirm, and they reopen it themselves. Music then keeps playing in mono, low "call"
+     * quality. Android doesn't let apps close a channel the headphones opened (and the headphones
+     * ignore even the system's own retries), so the app tells you, and reconnecting them clears it.
      */
     private val modeListener = AudioManager.OnModeChangedListener { mode ->
-        if (mode == AudioManager.MODE_NORMAL) { main.removeCallbacks(callAudioCheck); main.postDelayed(callAudioCheck, 6_000) }
+        if (mode == AudioManager.MODE_NORMAL) { main.removeCallbacks(callAudioCheck); main.postDelayed(callAudioCheck, 8_000) }
     }
-    private val callAudioCheck = Runnable { fixStuckCallAudio(0) }
-
-    private fun callAudioStuck(): android.media.AudioDeviceInfo? {
-        if (Build.VERSION.SDK_INT < 31) return null
-        if (audio.mode != AudioManager.MODE_NORMAL) return null          // a call is going on
-        if (audio.activeRecordingConfigurations.isNotEmpty()) return null // something is using the mic
-        return audio.communicationDevice?.takeIf { it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
-    }
-
-    private fun fixStuckCallAudio(attempt: Int) {
-        if (Build.VERSION.SDK_INT < 31) return
-        val dev = callAudioStuck() ?: return
-        Log.i(TAG, "call audio stuck open on the headphones after a call: releasing it (try ${attempt + 1})")
-        runCatching { audio.setCommunicationDevice(dev) }
-        main.postDelayed({
-            runCatching { audio.clearCommunicationDevice() }
-            main.postDelayed({
-                when {
-                    callAudioStuck() == null -> Log.i(TAG, "call audio released, music is back to full quality")
-                    attempt < 1 -> fixStuckCallAudio(attempt + 1)
-                    else -> releaseByHeadset()
-                }
-            }, 4_000)
-        }, 500)
+    private val callAudioCheck = Runnable {
+        if (!callAudioStuck()) return@Runnable
+        Log.w(TAG, "call audio stuck open on the headphones after a call")
+        val open = PendingIntent.getActivity(this, 4, Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
+        alert(6, "Music is stuck in call quality",
+            "The headphones didn't close the call audio after the call. Tap to reconnect them in Bluetooth settings.", open)
     }
 
-    /**
-     * Android won't let apps close a call channel the headphones opened themselves. Its Bluetooth
-     * service will, when voice-assistant mode on the headset ends, so start and stop that mode.
-     */
-    @SuppressLint("MissingPermission")
-    private fun releaseByHeadset() {
-        val adapter = getSystemService(BluetoothManager::class.java)?.adapter ?: return
-        adapter.getProfileProxy(this, object : android.bluetooth.BluetoothProfile.ServiceListener {
-            override fun onServiceConnected(profile: Int, proxy: android.bluetooth.BluetoothProfile) {
-                val hs = proxy as android.bluetooth.BluetoothHeadset
-                val dev = hs.connectedDevices.firstOrNull { (it.name ?: "").contains(HEADPHONE_NAME) }
-                if (dev == null) { adapter.closeProfileProxy(profile, proxy); return }
-                val started = runCatching { hs.startVoiceRecognition(dev) }.getOrDefault(false)
-                Log.i(TAG, "call audio: releasing through the headset service (voice mode started: $started)")
-                main.postDelayed({
-                    val stopped = runCatching { hs.stopVoiceRecognition(dev) }.getOrDefault(false)
-                    main.postDelayed({
-                        Log.i(TAG, if (callAudioStuck() == null) "call audio released, music is back to full quality"
-                            else "call audio still stuck (voice mode stopped: $stopped); reconnecting the headphones clears it")
-                        adapter.closeProfileProxy(profile, proxy)
-                    }, 3_000)
-                }, 1_000)
-            }
-            override fun onServiceDisconnected(profile: Int) {}
-        }, android.bluetooth.BluetoothProfile.HEADSET)
+    private fun callAudioStuck(): Boolean {
+        if (Build.VERSION.SDK_INT < 31) return false
+        if (audio.mode != AudioManager.MODE_NORMAL) return false          // a call is going on
+        if (audio.activeRecordingConfigurations.isNotEmpty()) return false // something is using the mic
+        return audio.communicationDevice?.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
     }
 
     /** Takes audio focus for talking, which pauses the music app. False if Android refuses. */
@@ -709,10 +672,10 @@ class TalkService : Service() {
         if (msg != null && prefs.alertHearing) alert(5, "Hearing safety", msg)
     }
 
-    private fun alert(id: Int, title: String, text: String) {
+    private fun alert(id: Int, title: String, text: String, tap: PendingIntent? = null) {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("alerts", "Reminders", NotificationManager.IMPORTANCE_DEFAULT))
-        val open = PendingIntent.getActivity(this, 0, Intent(this, Flavor.home), PendingIntent.FLAG_IMMUTABLE)
+        val open = tap ?: PendingIntent.getActivity(this, 0, Intent(this, Flavor.home), PendingIntent.FLAG_IMMUTABLE)
         nm.notify(id, Notification.Builder(this, "alerts").setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title).setContentText(text).setStyle(Notification.BigTextStyle().bigText(text))
             .setContentIntent(open).setAutoCancel(true).build())
