@@ -19,50 +19,50 @@ enum class Eq(val id: String, val label: String, val about: String, val preamp: 
     MOVIE("movie", "Movie",
         "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear.",
         0f, listOf(
-            Band(1, 4f, 30f, 0.9f), // rumble you feel, where movie bass effects live
-            Band(1, 2.5f, 70f, 1f), // boom and punch for fights and explosions
-            Band(1, -3.5f, 220f, 1f), // keeps the bass from smearing over voices and detail
+            Band(1, 4.5f, 30f, 0.9f), // rumble you feel, where movie bass effects live
+            Band(1, 3f, 70f, 1f), // boom and punch for fights and explosions
+            Band(1, -4f, 220f, 1f), // keeps the bass from smearing over voices and detail
             Band(1, 1.5f, 1000f, 1f), // body of voices
             Band(1, 3.5f, 2500f, 1.3f), // dialogue clarity
             Band(1, 3.5f, 3800f, 1.6f), // consonants and faint sounds; fills the 4 kHz dip
             Band(1, -2f, 8000f, 3.5f), // only the narrow harsh peak, so detail stays
-            Band(2, 3f, 10500f, 0.7f), // sparkle and space: glass, rattles, room sound
+            Band(2, 3.5f, 10500f, 0.7f), // sparkle and space: glass, rattles, room sound
         )),
     POP("pop", "Pop",
         "Warm, full bass with vocals clearly in front and smooth, never harsh. Tuned for English, Hindi and Malayalam songs.",
         0f, listOf(
-            Band(0, 4.5f, 105f, 0.7f), // warm bass shelf
+            Band(0, 5f, 105f, 0.7f), // warm bass shelf
             Band(1, 1f, 50f, 1f), // a little deep bass for dance drops
-            Band(1, -2.5f, 250f, 1f), // less low-mid mud under the vocals
+            Band(1, -3f, 250f, 1f), // less low-mid mud under the vocals
             Band(1, 2.5f, 2300f, 1.4f), // vocal body and clarity
             Band(1, 4f, 3800f, 1.6f), // vocals forward; fills the 4 kHz dip
             Band(1, -1.5f, 6300f, 2f), // softer "s" on bright female vocals
             Band(1, -3f, 8000f, 3f), // tames the headphones' 8 kHz peak
-            Band(2, 2f, 12000f, 0.7f), // shimmer and air
+            Band(2, 2.5f, 12000f, 0.7f), // shimmer and air
         )),
     ROCK("rock", "Rock",
         "Punchy kick and bass guitar, crunchy guitars, vocals that cut through, and bright cymbals.",
         0f, listOf(
-            Band(0, 3f, 90f, 0.7f), // weight for kick and bass guitar
+            Band(0, 3.5f, 90f, 0.7f), // weight for kick and bass guitar
             Band(1, 2f, 60f, 1.2f), // kick drum punch
-            Band(1, -3f, 300f, 1f), // less guitar and bass mud
+            Band(1, -3.5f, 300f, 1f), // less guitar and bass mud
             Band(1, 2.5f, 1500f, 1.2f), // guitar crunch
-            Band(1, 2f, 3000f, 1.4f), // bite and vocals
+            Band(1, 2.5f, 3000f, 1.4f), // bite and vocals
             Band(1, 3f, 4200f, 2f), // fills the 4 kHz dip
             Band(1, -3f, 8000f, 3f), // cymbal harshness
-            Band(2, 3f, 10000f, 0.7f), // cymbal sparkle and air
+            Band(2, 3.5f, 10000f, 0.7f), // cymbal sparkle and air
         )),
     CLASSICAL("classical", "Classical",
         "Natural and open: clean low strings, clear soloists, soft violins and the air of the hall.",
         0f, listOf(
-            Band(0, -1f, 105f, 0.7f),    // a touch less bass, so cellos and basses sound true
-            Band(1, 1f, 40f, 1f),        // keeps the depth of organs and timpani
-            Band(1, -2f, 250f, 1f),      // clears the muddy low-mid boom of large halls
+            Band(0, -0.5f, 105f, 0.7f),    // a touch less bass, so cellos and basses sound true
+            Band(1, 1.5f, 40f, 1f),        // keeps the depth of organs and timpani
+            Band(1, -2.5f, 250f, 1f),      // clears the muddy low-mid boom of large halls
             Band(1, 1f, 700f, 1f),       // body and wood of the instruments
-            Band(1, 1.5f, 2500f, 1.2f),  // presence of soloists and voices
+            Band(1, 2f, 2500f, 1.2f),  // presence of soloists and voices
             Band(1, 3f, 4000f, 2f),      // detail; fills the 4 kHz dip
             Band(1, -3.5f, 8000f, 3f),   // softens harsh violins and sopranos
-            Band(2, 2f, 12000f, 0.7f),   // the air and space of the hall
+            Band(2, 2.5f, 12000f, 0.7f),   // the air and space of the hall
         )),
     FLAT("flat", "Flat",
         "No EQ: bass, mid and treble all at 0. Every preset is measured from here.",

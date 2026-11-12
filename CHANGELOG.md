@@ -4,6 +4,14 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 
 
 
+
+## 2.13.3
+
+- **A bit more bass and a bit more clarity in every preset** (+0.5 dB steps). To keep the extra bass clean, the low-mid mud cut is 0.5 dB deeper, and the top end has a little more air:
+  - Movie: rumble 30 Hz +4.5, boom 70 Hz +3, mud cut 220 Hz -4, air 10.5 kHz +3.5.
+  - Pop: bass shelf +5, mud cut 250 Hz -3, air 12 kHz +2.5.
+  - Rock: bass shelf +3.5, mud cut 300 Hz -3.5, bite 3 kHz +2.5, sparkle 10 kHz +3.5.
+  - Classical: bass -0.5, depth 40 Hz +1.5, mud cut 250 Hz -2.5, presence 2.5 kHz +2, air 12 kHz +2.5.
 ## 2.13.2
 
 - Removed the "stuck in call quality" notification from 2.13.1. If music sounds like a phone call after a call, reconnect the headphones.

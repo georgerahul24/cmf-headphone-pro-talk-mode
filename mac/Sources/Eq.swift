@@ -40,45 +40,45 @@ enum Eq: String, CaseIterable {
         // cut so bass doesn't smear over voices, speech bands lifted, only the narrow 8 kHz peak cut,
         // and a gentle treble lift for environmental detail (glass, rattles, room sound).
         case .movie: return [
-            Band(type: 1, gain: 4, freq: 30, q: 0.9),  // huge rumble you feel, where movie bass effects live
-            Band(type: 1, gain: 2.5, freq: 70, q: 1),  // boom and punch for fights and explosions
-            Band(type: 1, gain: -3.5, freq: 220, q: 1),  // keeps the bass from smearing over voices and detail
+            Band(type: 1, gain: 4.5, freq: 30, q: 0.9),  // huge rumble you feel, where movie bass effects live
+            Band(type: 1, gain: 3, freq: 70, q: 1),  // boom and punch for fights and explosions
+            Band(type: 1, gain: -4, freq: 220, q: 1),  // keeps the bass from smearing over voices and detail
             Band(type: 1, gain: 1.5, freq: 1000, q: 1),  // body of voices
             Band(type: 1, gain: 3.5, freq: 2500, q: 1.3),  // dialogue clarity
             Band(type: 1, gain: 3.5, freq: 3800, q: 1.6),  // consonants and faint sounds; fills the 4 kHz dip
             Band(type: 1, gain: -2, freq: 8000, q: 3.5),  // only the narrow harsh peak, so detail stays
-            Band(type: 2, gain: 3, freq: 10500, q: 0.7),  // sparkle and space: glass, rattles, room sound
+            Band(type: 2, gain: 3.5, freq: 10500, q: 0.7),  // sparkle and space: glass, rattles, room sound
         ]
         // Slider at zero. English, Hindi and Malayalam pop: singer up front over a strong bass line.
         case .pop: return [
-            Band(type: 0, gain: 4.5, freq: 105, q: 0.7),  // big warm bass shelf
+            Band(type: 0, gain: 5, freq: 105, q: 0.7),  // big warm bass shelf
             Band(type: 1, gain: 1, freq: 50, q: 1),  // deep bass for dance drops
-            Band(type: 1, gain: -2.5, freq: 250, q: 1),  // less low-mid mud under the vocals
+            Band(type: 1, gain: -3, freq: 250, q: 1),  // less low-mid mud under the vocals
             Band(type: 1, gain: 2.5, freq: 2300, q: 1.4),  // vocal body and clarity
             Band(type: 1, gain: 4, freq: 3800, q: 1.6),  // vocals forward; fills the 4 kHz dip
             Band(type: 1, gain: -1.5, freq: 6300, q: 2),  // softer "s" on bright female vocals
             Band(type: 1, gain: -3, freq: 8000, q: 3),  // tames the headphones' 8 kHz peak
-            Band(type: 2, gain: 2, freq: 12000, q: 0.7),  // shimmer and air
+            Band(type: 2, gain: 2.5, freq: 12000, q: 0.7),  // shimmer and air
         ]
         case .rock: return [
-            Band(type: 0, gain: 3, freq: 90, q: 0.7),  // weight for kick and bass guitar
+            Band(type: 0, gain: 3.5, freq: 90, q: 0.7),  // weight for kick and bass guitar
             Band(type: 1, gain: 2, freq: 60, q: 1.2),  // kick drum punch
-            Band(type: 1, gain: -3, freq: 300, q: 1),  // less guitar and bass mud
+            Band(type: 1, gain: -3.5, freq: 300, q: 1),  // less guitar and bass mud
             Band(type: 1, gain: 2.5, freq: 1500, q: 1.2),  // guitar crunch
-            Band(type: 1, gain: 2, freq: 3000, q: 1.4),  // bite and vocals
+            Band(type: 1, gain: 2.5, freq: 3000, q: 1.4),  // bite and vocals
             Band(type: 1, gain: 3, freq: 4200, q: 2),  // fills the 4 kHz dip
             Band(type: 1, gain: -3, freq: 8000, q: 3),  // cymbal harshness
-            Band(type: 2, gain: 3, freq: 10000, q: 0.7),  // cymbal sparkle and air
+            Band(type: 2, gain: 3.5, freq: 10000, q: 0.7),  // cymbal sparkle and air
         ]
         case .classical: return [
-            Band(type: 0, gain: -1, freq: 105, q: 0.7),     // a touch less bass, so cellos and basses sound true
-            Band(type: 1, gain: 1, freq: 40, q: 1),         // keeps the depth of organs and timpani
-            Band(type: 1, gain: -2, freq: 250, q: 1),       // clears the muddy low-mid boom of large halls
+            Band(type: 0, gain: -0.5, freq: 105, q: 0.7),     // a touch less bass, so cellos and basses sound true
+            Band(type: 1, gain: 1.5, freq: 40, q: 1),         // keeps the depth of organs and timpani
+            Band(type: 1, gain: -2.5, freq: 250, q: 1),       // clears the muddy low-mid boom of large halls
             Band(type: 1, gain: 1, freq: 700, q: 1),        // body and wood of the instruments
-            Band(type: 1, gain: 1.5, freq: 2500, q: 1.2),   // presence of soloists and voices
+            Band(type: 1, gain: 2, freq: 2500, q: 1.2),   // presence of soloists and voices
             Band(type: 1, gain: 3, freq: 4000, q: 2),       // detail; fills the 4 kHz dip
             Band(type: 1, gain: -3.5, freq: 8000, q: 3),    // softens harsh violins and sopranos
-            Band(type: 2, gain: 2, freq: 12000, q: 0.7),    // the air and space of the hall
+            Band(type: 2, gain: 2.5, freq: 12000, q: 0.7),    // the air and space of the hall
         ]
         // No EQ: Nothing's 3 bands (mid 980 Hz, treble 3.5 kHz, bass 140 Hz) all at 0.
         case .flat: return [
