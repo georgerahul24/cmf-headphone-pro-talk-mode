@@ -13,3 +13,10 @@ For EQ-only tuning changes, edit [`eq.json`](eq.json) rather than rebuilding the
 - The apps display the active tuning revision and timestamp in their EQ screens.
 
 For source-code, UI, or protocol changes, update the platform implementations and use the tagged GitHub Actions release workflow. Keep Android [`Eq.kt`](android/app/src/main/java/dev/georgerahul/cmftalk/Eq.kt) and macOS [`Eq.swift`](mac/Sources/Eq.swift) synchronized with the fallback values in `eq.json`.
+
+## Platform build and release shortcut
+
+- **Android phone and Fire TV:** build in GitHub Actions, not with an arbitrary locally installed Gradle version. The workflow pins Gradle 8.14.3 and Java 17, and produces both APKs.
+- **macOS:** build natively with [`mac/build.sh`](mac/build.sh), which creates the universal app, DMG, and ZIP.
+- **Release:** bump Android `versionName`/`versionCode` and macOS `Info.plist` versions, update [`CHANGELOG.md`](CHANGELOG.md), commit, create a matching `vX.Y.Z` tag, and push the branch and tag. The tag workflow publishes the phone APK, Fire TV APK, macOS DMG, and macOS ZIP.
+- After tagging, verify the GitHub Actions run and the published release assets before reporting completion.
