@@ -2,7 +2,7 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
-## Unreleased
+## 2.13.6 - 2026-11-15
 
 - Show the active EQ tuning revision and UTC update timestamp in the Android phone, Fire TV, and macOS EQ screens.
 - Added live EQ configuration updates from the repository with cached, validated bundled fallbacks.
