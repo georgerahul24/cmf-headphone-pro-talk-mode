@@ -695,6 +695,7 @@ struct Cards {
     var eqSummary: some View {
         Card(title: "EQ") {
             Text(talk.eqTitle).font(.system(size: 20, weight: .semibold)).contentTransition(.opacity)
+            Text("Tuning \(EqRemote.version)").font(.system(size: 11)).foregroundStyle(Pal.sub)
             Text(talk.eqMode == EqMode.auto
                  ? (talk.eqApp.map { "Picked for \($0)." } ?? "Changes by itself with what you play.")
                  : "Change it on the Sound page.")

@@ -193,7 +193,7 @@ private fun Controls(hasBt: Boolean, askBt: () -> Unit, now: Long) {
     if (st.idleOff) Text("Turned off to save battery. It comes back when something plays.", color = T.Sub, fontSize = 13.sp)
     if (st.talkActive) Text("Talk mode is on: Transparency, with the music lowered or paused.", color = T.Pink, fontSize = 13.sp)
 
-    Text("EQ: Movie (always on the TV)", color = T.Sub, fontSize = 14.sp)
+    Text("EQ: Movie (always on the TV) · ${EqRemote.version}", color = T.Sub, fontSize = 14.sp)
 }
 
 @Composable

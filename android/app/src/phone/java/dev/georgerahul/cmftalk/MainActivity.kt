@@ -828,6 +828,7 @@ private fun EqCard(ui: UiPrefs) {
             Spacer(Modifier.weight(1f))
             if (shown == Eq.MOVIE) Text("plus the Energy Slider at full", color = C.Faint, fontSize = 11.sp)
         }
+        Text("Tuning ${EqRemote.version}", color = C.Faint, fontSize = 11.sp)
         Crossfade(shown, animationSpec = tween(300), label = "eqCurve") { EqCurve(it, 130.dp, true) }
         AnimatedVisibility(shown != null) { shown?.let { EqBandList(it) } }
         Text("All presets", color = C.Sub, fontSize = 13.sp)

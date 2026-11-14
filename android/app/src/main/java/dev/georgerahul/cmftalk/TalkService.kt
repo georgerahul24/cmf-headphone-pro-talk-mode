@@ -134,6 +134,10 @@ class TalkService : Service() {
         History.init(this)
         Hearing.init(this)
         Learned.init(this)
+        EqRemote.init(this) {
+            eqApplied = null
+            applyEq()
+        }
         Sync.init(this)
         Sync.onSettingsApplied = {
             idleSettingChanged()

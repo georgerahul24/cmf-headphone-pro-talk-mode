@@ -115,6 +115,7 @@ final class TalkMode: ObservableObject {
 
     init() {
         let d = UserDefaults.standard
+        EqRemote.loadCached()
         enabled = d.object(forKey: "enabled") as? Bool ?? true
         talkVolumePercent = d.object(forKey: "talkVolume") as? Int ?? 10
         talkPause = d.object(forKey: "talkPause") as? Bool ?? false
@@ -146,6 +147,10 @@ final class TalkMode: ObservableObject {
 
     private func updateCheck() {
         if autoUpdate && !active { Updater.shared.check(install: true) }
+        EqRemote.check { [weak self] in
+            self?.eqApplied = nil
+            self?.applyEq()
+        }
     }
 
     // MARK: commands from the menu
