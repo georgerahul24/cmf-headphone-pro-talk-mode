@@ -20,7 +20,8 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Your normal buttons still work.** Talk mode uses its own button. No voice assistant pop-up.
 
 **Sound**
-- **EQ tuned for these headphones.** Movie, Pop and Rock presets using all 8 EQ bands the headphones support, not copied from the factory presets. Flat turns the EQ off (every band at 0), and every preset is measured from it. [More below](#eq).
+- **EQ tuned for these headphones.** Movie, Pop, Rock and Classical presets using all 8 EQ bands the headphones support, not copied from the factory presets. Flat turns the EQ off (every band at 0), and every preset is measured from it. [More below](#eq).
+- **Live EQ tuning.** The active tuning revision and UTC timestamp are shown in the app. Valid updates from [`eq.json`](eq.json) can be downloaded without rebuilding the app; bundled values remain the fallback if the file is unavailable or invalid.
 - **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows what it picked, like "Auto (Movie)", in the app and in the Android notification. Remembers your pick per show, film, song or artist.
 - **Noise control and Spatial Audio.** Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive. Spatial Audio Off, Concert or Cinema. For everyday controls you don't need Nothing X.
 
@@ -54,6 +55,18 @@ The Nothing X app only shows bass, mid and treble, but the CMF Headphone Pro app
 | **Flat** (all 0) | Anything | No EQ. The neutral starting point every preset is measured from. |
 
 Both apps draw each preset's curve and list all 8 bands with their values.
+
+### Live tuning file
+
+The shared tuning source is [`eq.json`](eq.json). It is served from the repository's `main` branch and contains a schema version, tuning revision, UTC `updatedAt` timestamp, preamp, and eight validated bands for each preset. Android checks it when its service starts; macOS checks it periodically. A valid update is applied to the active preset automatically, and the app shows the revision and timestamp so you can confirm which tuning is in use. If the network or validation fails, the last cached or bundled tuning stays active.
+
+To publish a tuning-only update:
+
+1. Edit [`eq.json`](eq.json), keeping all four preset IDs and exactly eight bands per preset.
+2. Update `version` and `updatedAt` (UTC).
+3. Push the file to `main`. No app rebuild or release is needed for the EQ-only change.
+
+For code or UI changes, use the normal tagged release workflow described in [Build it yourself](#build-it-yourself).
 
 **Remember for this:** the Now playing card has Movie, Pop, Rock and Classical buttons. Tap one and Auto remembers it for that show, film or song and its artist or channel. Episode numbers are ignored, so one pick covers a whole series. Picks sync between your devices, and nothing is looked up online.
 
@@ -98,7 +111,7 @@ The app talks to the headphones over the same Bluetooth control channel Nothing 
 
 ## Download
 
-Get the latest build from the [Releases page](../../releases):
+Get the latest build from the [v2.13.6 release](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases/tag/v2.13.6) or the [Releases page](../../releases):
 
 - **Android:** `CMF-Talk-Mode-x.y.z.apk` (Android 12 or newer)
 - **Android TV and Fire TV:** `CMF-Talk-Mode-TV-x.y.z.apk` (Android 11 or newer)
@@ -162,7 +175,7 @@ On Android, it starts after a reboot and after updates, and Android restarts the
 No. It only uses your local Wi-Fi, directly between the phone and the Mac. Guest networks that keep devices apart block it.
 
 **How do updates work?**
-Both apps check GitHub Releases (Android twice a day, Mac every 6 hours) and install new versions. You can also check by hand in Settings. See the [changelog](CHANGELOG.md) for what changed.
+App binaries check GitHub Releases (Android twice a day, Mac every 6 hours) and install new versions. EQ tuning is separate: it uses [`eq.json`](eq.json), displays its revision and UTC timestamp, and does not require an APK or DMG rebuild. You can also check binary updates by hand in Settings. See the [changelog](CHANGELOG.md) for what changed.
 
 **Can I still use Spatial Audio?**
 Yes. Turn off the "Talk mode button" switch in the app, and the button works as normal Spatial Audio again.
