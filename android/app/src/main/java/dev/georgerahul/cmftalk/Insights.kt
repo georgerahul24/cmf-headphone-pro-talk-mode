@@ -117,7 +117,7 @@ object BatteryPredict {
  * Hearing safety, following the WHO guideline: 80 dB for 40 hours a week is safe, and every 3 dB
  * louder halves the safe time. The headphones can't measure loudness, so it's estimated from the
  * volume: about 100 dB at full volume, 50 dB less at the bottom of the scale. A guide, not a
- * measurement. Kept per day for the last 7 days.
+ * measurement. Kept per day for the last 30 days.
  */
 object Hearing {
     private const val MAX_DB = 100.0

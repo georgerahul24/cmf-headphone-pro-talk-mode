@@ -3,7 +3,15 @@
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
 
+## 2.13.4
 
+- **More present vocals and cleaner instrument separation** across the presets, with a little more sub-bass rumble that stays distinct from the low mids:
+  - Movie: more rumble and dialogue presence, with a deeper 220 Hz separation cut.
+  - Pop: more deep bass, vocal body and vocal presence, with a deeper 250 Hz separation cut.
+  - Rock and Classical: more instrument and vocal presence while retaining their existing bass character.
+- Android phone, Android TV/Fire TV and macOS now use the same latest EQ values.
+- Usage history now keeps and shows 30 calendar days, plus a rolling 24-hour total; older events remain available in the history export.
+- The Fire TV screen groups the main headphone controls into a clearer primary panel.
 
 ## 2.13.3
 

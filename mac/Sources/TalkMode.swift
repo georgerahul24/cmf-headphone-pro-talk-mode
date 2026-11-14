@@ -512,8 +512,8 @@ final class TalkMode: ObservableObject {
 
     // MARK: history
 
-    /// Day picked in the history charts (6 = today).
-    @Published var historyDay = 6
+    /// Day picked in the history charts (29 = today).
+    @Published var historyDay = 29
     /// Battery point under the mouse in the battery chart.
     @Published var batteryHover: Date?
     private var historyCache: (version: Int, minute: Int, view: HistoryView)?

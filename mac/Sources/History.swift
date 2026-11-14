@@ -126,12 +126,13 @@ enum ModeGroup: String, CaseIterable, Identifiable {
     }
 }
 
-/// Everything the charts need for the last 7 days.
+/// Everything the charts need for the last 30 days.
 struct HistoryView {
     struct Span: Identifiable { let id = UUID(); let start: Date; let end: Date; let mode: ModeGroup }
 
-    let days: [Date]        // midnight of each of the last 7 days, oldest first
+    let days: [Date]        // midnight of each of the last 30 days, oldest first
     let usage: [TimeInterval]
+    let rollingUsage: TimeInterval
     let spans: [Span]
     let battery: [(Date, Int)]
 
@@ -140,7 +141,7 @@ struct HistoryView {
     init(_ sources: [[History.Event]], now: Date = Date()) {
         let cal = Calendar.current
         let today = cal.startOfDay(for: now)
-        days = (0..<7).reversed().map { cal.date(byAdding: .day, value: -$0, to: today)! }
+        days = (0..<30).reversed().map { cal.date(byAdding: .day, value: -$0, to: today)! }
 
         var spans: [Span] = [], conn: [(Date, Date)] = [], bat: [(Date, Int)] = []
         for (i, events) in sources.enumerated() {
@@ -159,6 +160,8 @@ struct HistoryView {
             let a = d[i], b = cal.date(byAdding: .day, value: 1, to: a)!
             return conn.reduce(0) { $0 + max(0, min($1.1, b).timeIntervalSince(max($1.0, a))) }
         }
+        let rollingStart = now.addingTimeInterval(-24 * 3600)
+        rollingUsage = conn.reduce(0) { $0 + max(0, min($1.1, now).timeIntervalSince(max($1.0, rollingStart))) }
     }
 
     private static func parse(_ events: [History.Event], end: Date) -> ([Span], [(Date, Date)], [(Date, Int)]) {

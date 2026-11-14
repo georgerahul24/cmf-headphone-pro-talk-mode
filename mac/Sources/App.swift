@@ -506,13 +506,15 @@ struct Cards {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 0) {
+                    Text(dur(hv.rollingUsage)).font(.system(size: 12, weight: .medium)).monospacedDigit()
+                    Text("last 24 hours").font(.system(size: 10)).foregroundStyle(Pal.sub)
                     Text(dur(hv.usage.reduce(0, +))).font(.system(size: 12, weight: .medium)).monospacedDigit()
-                    Text("last 7 days").font(.system(size: 10)).foregroundStyle(Pal.sub)
+                    Text("last 30 days").font(.system(size: 10)).foregroundStyle(Pal.sub)
                 }
             }
-            // Seven bars; click one to pick the day.
+            // Thirty bars; click one to pick the day.
             HStack(alignment: .bottom, spacing: 6) {
-                ForEach(0..<7, id: \.self) { i in
+                ForEach(hv.days.indices, id: \.self) { i in
                     VStack(spacing: 4) {
                         Spacer(minLength: 0)
                         UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4)

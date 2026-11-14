@@ -139,17 +139,19 @@ fun modeGroup(m: Int): ModeGroup = when (m) {
 }
 
 /**
- * Everything the charts need for the last 7 days. [sources]: this phone's events first, then the
+ * Everything the charts need for the last 30 days. [sources]: this phone's events first, then the
  * Mac's. When both were connected at the same time, that time counts once, and this phone's noise
  * mode record wins.
  */
 class HistoryView(sources: List<List<History.Event>>, now: Long) {
     class Span(val start: Long, val end: Long, val mode: ModeGroup)
 
-    /** Midnight of each of the last 7 days, oldest first. */
+    /** Midnight of each of the last 30 days, oldest first. */
     val days: List<Long>
     /** Connected time per day, same order as [days]. */
     val usage: LongArray
+    /** Connected time in the rolling 24 hours ending at [now]. */
+    val rollingUsage: Long
     val spans = ArrayList<Span>()
     val connected = ArrayList<LongRange>()
     val battery = ArrayList<Pair<Long, Int>>()
@@ -160,7 +162,7 @@ class HistoryView(sources: List<List<History.Event>>, now: Long) {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }
         val list = ArrayList<Long>()
-        for (i in 0 until 7) {
+        for (i in 0 until 30) {
             list.add(0, cal.timeInMillis)
             cal.add(Calendar.DAY_OF_YEAR, -1)
         }
@@ -178,11 +180,13 @@ class HistoryView(sources: List<List<History.Event>>, now: Long) {
         battery.sortBy { it.first }
         connected += union(conn)
 
-        usage = LongArray(7) { i ->
+        usage = LongArray(days.size) { i ->
             val a = days[i]
-            val b = if (i < 6) days[i + 1] else a + 24 * 3600_000L
+            val b = if (i < days.lastIndex) days[i + 1] else a + 24 * 3600_000L
             connected.sumOf { r -> (minOf(r.last, b) - maxOf(r.first, a)).coerceAtLeast(0) }
         }
+        val rollingStart = now - 24 * 3600_000L
+        rollingUsage = connected.sumOf { r -> (minOf(r.last, now) - maxOf(r.first, rollingStart)).coerceAtLeast(0) }
     }
 
     private fun parse(events: List<History.Event>, end: Long, spans: MutableList<Span>,

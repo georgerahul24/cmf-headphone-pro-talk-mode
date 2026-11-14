@@ -113,7 +113,10 @@ private fun TvApp(prefs: Prefs, hasBt: Boolean, askBt: () -> Unit) {
         Modifier.fillMaxSize().background(T.Bg).padding(horizontal = 48.dp, vertical = 28.dp),
         horizontalArrangement = Arrangement.spacedBy(32.dp),
     ) {
-        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(
+            Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp)).background(T.Card).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
             Controls(hasBt, askBt, now)
         }
         Column(

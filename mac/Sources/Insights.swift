@@ -87,7 +87,7 @@ enum BatteryPredict {
 /// Hearing safety, following the WHO guideline: 80 dB for 40 hours a week is safe, and every 3 dB
 /// louder halves the safe time. The headphones can't measure loudness, so it's estimated from the
 /// volume: about 100 dB at full volume, 50 dB less at the bottom. A guide, not a measurement.
-/// Kept per day for the last 7 days. Same as Android.
+/// Kept per day for the last 30 days. Same as Android.
 final class Hearing {
     static let shared = Hearing()
     private let d = UserDefaults.standard

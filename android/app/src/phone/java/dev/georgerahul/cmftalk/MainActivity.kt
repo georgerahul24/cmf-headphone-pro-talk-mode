@@ -901,7 +901,7 @@ private fun StatsTab() {
     Reveal(0) { Title("Statistics", "Since $since") }
     // Re-read the log when something new is recorded, and once a minute.
     val hv = remember(History.version, now / 60_000) { HistoryView(History.loadAll(), System.currentTimeMillis()) }
-    var day by rememberSaveable { mutableIntStateOf(6) }
+    var day by rememberSaveable { mutableIntStateOf(29) }
     Reveal(1) { UsageCard(hv, day) { day = it } }
     Reveal(2) { ModesCard(hv, day) }
     Reveal(3) { BatteryCard(hv, day) }
@@ -1428,7 +1428,7 @@ private fun dayName(hv: HistoryView, i: Int): String = when (i) {
     else -> SimpleDateFormat("EEE d MMM").format(Date(hv.days[i]))
 }
 
-/** Seven bars of time with the headphones connected. Tap a bar to pick the day. */
+/** Thirty daily bars of time with the headphones connected. Tap a bar to pick the day. */
 @Composable
 private fun UsageCard(hv: HistoryView, day: Int, onDay: (Int) -> Unit) {
     val top = maxOf(hv.usage.maxOrNull() ?: 0L, 60_000L).toFloat()
@@ -1444,18 +1444,23 @@ private fun UsageCard(hv: HistoryView, day: Int, onDay: (Int) -> Unit) {
                 Text(dayName(hv, day), color = C.Sub, fontSize = 13.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
+                Text(dur(hv.rollingUsage), fontSize = 15.sp, fontWeight = FontWeight.Medium, style = tnum())
+                Text("last 24 hours", color = C.Sub, fontSize = 12.sp)
                 Text(dur(week), fontSize = 15.sp, fontWeight = FontWeight.Medium, style = tnum())
-                Text("last 7 days", color = C.Sub, fontSize = 12.sp)
+                Text("last 30 days", color = C.Sub, fontSize = 12.sp)
             }
         }
-        Row(Modifier.fillMaxWidth().height(130.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(130.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             hv.usage.forEachIndexed { i, ms ->
                 val h = remember { Animatable(0f) }
                 LaunchedEffect(ms) { h.animateTo(ms / top, tween(700, delayMillis = i * 40, easing = EaseOutCubic)) }
                 val sel = i == day
                 val color by animateColorAsState(if (sel) C.ModeAnc else C.ModeAnc.copy(alpha = 0.35f), tween(250), label = "bar")
                 Column(
-                    Modifier.weight(1f).fillMaxHeight()
+                    Modifier.width(28.dp).fillMaxHeight()
                         .clickable(interactionSource = null, indication = null) {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onDay(i)
                         },
