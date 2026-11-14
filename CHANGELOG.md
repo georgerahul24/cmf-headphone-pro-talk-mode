@@ -3,6 +3,10 @@
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
 
+## 2.13.5
+
+- Corrected the Android phone build import for the expanded 30-day usage chart.
+
 ## 2.13.4
 
 - **More present vocals and cleaner instrument separation** across the presets, with a little more sub-bass rumble that stays distinct from the low mids:

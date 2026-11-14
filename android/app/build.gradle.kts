@@ -12,8 +12,8 @@ android {
         applicationId = "dev.georgerahul.cmftalk"
         minSdk = 31
         targetSdk = 36
-        versionCode = 28
-        versionName = "2.13.4"
+        versionCode = 29
+        versionName = "2.13.5"
     }
 
     // phone: the full app (Android 12 and newer).
