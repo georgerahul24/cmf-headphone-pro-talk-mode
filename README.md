@@ -48,17 +48,17 @@ The Nothing X app only shows bass, mid and treble, but the CMF Headphone Pro app
 
 | Preset | Made for | What you hear |
 |---|---|---|
-| **Movie** | Energy Slider at full bass | Big rumble and boom for fights and explosions. Dialogue, faint sounds and details like clinking glass stay clear. |
-| **Pop** | Energy Slider at zero | Big bass like the factory Pop, vocals clearly in front and smooth. Tuned for English, Hindi and Malayalam songs. |
-| **Classical** | Energy Slider at zero | Natural and open: clean low strings, clear soloists, soft violins, the air of the hall. |
-| **Rock** | Energy Slider at zero | Weighty kick and bass guitar, less mud, vocals that cut through, smoother cymbals. |
+| **Movie** | Energy Slider at full bass | Deep, tight rumble for fights and explosions. Natural dialogue and clear details like clinking glass. Never harsh. |
+| **Pop** | Energy Slider at zero | Tight, clean bass and natural, full vocals that are clear but never shouty, with a soft, airy top. Tuned for English, Hindi and Malayalam songs. |
+| **Classical** | Energy Slider at zero | Natural and open: clean low strings, warm instrument body, clear soloists, soft violins, a gentle sense of the hall. |
+| **Rock** | Energy Slider at zero | Tight kick and bass guitar, natural guitar crunch, clear vocals, smooth cymbals. |
 | **Flat** (all 0) | Anything | No EQ. The neutral starting point every preset is measured from. |
 
 Both apps draw each preset's curve and list all 8 bands with their values.
 
 ### Live tuning file
 
-The shared tuning source is [`eq.json`](eq.json). It is served from the repository's `main` branch and contains a schema version, tuning revision, UTC `updatedAt` timestamp, preamp, and eight validated bands for each preset. Android checks it when its service starts; macOS checks it periodically. A valid update is applied to the active preset automatically, and the app shows the revision and timestamp so you can confirm which tuning is in use. If the network or validation fails, the last cached or bundled tuning stays active.
+The shared tuning source is [`eq.json`](eq.json). It is served from the repository's `main` branch and contains a schema version, tuning revision, UTC `updatedAt` timestamp, preamp, and eight validated bands for each preset. Android checks it when its service starts and every 12 hours. macOS checks it a minute after launch and every 6 hours. Both also check it every time you press Check for updates (or Check now), even with auto-update off. A valid update is applied to the active preset automatically, and the app shows the revision and timestamp so you can confirm which tuning is in use. If the network or validation fails, the last cached or bundled tuning stays active.
 
 To publish a tuning-only update:
 
@@ -175,7 +175,7 @@ On Android, it starts after a reboot and after updates, and Android restarts the
 No. It only uses your local Wi-Fi, directly between the phone and the Mac. Guest networks that keep devices apart block it.
 
 **How do updates work?**
-App binaries check GitHub Releases (Android twice a day, Mac every 6 hours) and install new versions. EQ tuning is separate: it uses [`eq.json`](eq.json), displays its revision and UTC timestamp, and does not require an APK or DMG rebuild. You can also check binary updates by hand in Settings. See the [changelog](CHANGELOG.md) for what changed.
+App binaries check GitHub Releases (Android twice a day, Mac every 6 hours) and install new versions. EQ tuning is separate: it uses [`eq.json`](eq.json), displays its revision and UTC timestamp, and does not require an APK or DMG rebuild. You can also check by hand in Settings, which checks for a new app version and new EQ tuning together. See the [changelog](CHANGELOG.md) for what changed.
 
 **Can I still use Spatial Audio?**
 Yes. Turn off the "Talk mode button" switch in the app, and the button works as normal Spatial Audio again.

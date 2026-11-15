@@ -121,6 +121,7 @@ object BatteryPredict {
  */
 object Hearing {
     private const val MAX_DB = 100.0
+    private const val KEEP_DAYS = 30
     private const val SAFE_WEEK_S = 40 * 3600.0
     private var p: SharedPreferences? = null
     private val day = SimpleDateFormat("yyyyMMdd", Locale.US)
@@ -188,10 +189,11 @@ object Hearing {
         pendDose = 0.0; pendSecs = 0.0; pendDbs = 0.0
     }
 
-    private fun lastDays(now: Long) = (0 until 7).map { day.format(Date(now - it * 24 * 3600_000L)) }
+    /** The last [n] days, today first. The weekly dose uses 7; each day is kept for 30. */
+    private fun lastDays(now: Long, n: Int = 7) = (0 until n).map { day.format(Date(now - it * 24 * 3600_000L)) }
 
     private fun prune(prefs: SharedPreferences, now: Long) {
-        val keep = lastDays(now).toSet()
+        val keep = lastDays(now, KEEP_DAYS).toSet()
         val old = prefs.all.keys.filter { k -> k.contains('.') && k.substringAfter('.') !in keep && k != "weekAlertDay" }
         if (old.isNotEmpty()) prefs.edit().apply { old.forEach { remove(it) } }.apply()
     }

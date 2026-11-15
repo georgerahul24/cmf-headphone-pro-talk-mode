@@ -88,6 +88,18 @@ class TalkService : Service() {
      * so pressing "play" for them (the old way) could leave the music "playing" but silent.
      */
     private var talkFocus: android.media.AudioFocusRequest? = null
+    /** The music had to be paused with the pause key (focus refused or ignored), so ending talk presses play. */
+    private var pausedByKey = false
+    /**
+     * Keeps the music paused while talking. A call, a notification or an alarm can upset audio focus,
+     * and some apps then start playing again by themselves. 0 = nothing pending, 1 = paused by focus
+     * and checking it held, 2 = pressed pause and checking it held. If music still plays after
+     * that, you started it yourself, so it is left alone until talk mode ends.
+     */
+    private var guardStage = 0
+    private var guardUntil = 0L
+    private var guardGaveUp = false
+    private val guardCheck = Runnable { guardTalkPause() }
     private var lastPress = 0L
 
     /** EQ preset sent to the headphones since they connected, and what Auto picked last. */
@@ -95,7 +107,9 @@ class TalkService : Service() {
     private var autoPick: String? = null
     private val updateTick = object : Runnable {
         override fun run() {
+            // A new app version only installs with auto-update on; new EQ tuning always comes in.
             if (prefs.autoUpdate && !st.talkActive) Updater.check(this@TalkService, install = true)
+            else EqRemote.check(this@TalkService)
             main.postDelayed(this, 12 * 3600_000L)
         }
     }
@@ -134,10 +148,12 @@ class TalkService : Service() {
         History.init(this)
         Hearing.init(this)
         Learned.init(this)
-        EqRemote.init(this) {
-            eqApplied = null
+        EqRemote.load(this)
+        EqRemote.onApplied = {
+            eqApplied = null // send the new values to the headphones
             applyEq()
         }
+        EqRemote.check(this)
         Sync.init(this)
         Sync.onSettingsApplied = {
             idleSettingChanged()
@@ -173,10 +189,12 @@ class TalkService : Service() {
 
     override fun onDestroy() {
         instance = null
+        EqRemote.onApplied = null
         running = false
         unregisterReceiver(btReceiver)
         main.removeCallbacks(recheck)
         main.removeCallbacks(updateTick)
+        main.removeCallbacks(guardCheck)
         releaseFocus()
         Hearing.flush()
         Sync.stop()
@@ -426,7 +444,9 @@ class TalkService : Service() {
         if (prefs.talkPause) {
             savedVolume = null
             pausedMusic = audio.isMusicActive
-            if (pausedMusic && !takeFocus()) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE) // focus refused: press pause
+            pausedByKey = false
+            guardStage = 0; guardGaveUp = false
+            if (pausedMusic) pauseForTalk()
             Log.i(TAG, "talk ON (saved ${Proto.ancName(savedAnc)}, paused music: $pausedMusic, by focus: ${talkFocus != null})")
         } else {
             pausedMusic = false
@@ -458,6 +478,7 @@ class TalkService : Service() {
         // doesn't start again when we give the audio back.
         if (talkFocus != null || (!pausedMusic && audio.isMusicActive)) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
         main.postDelayed({ releaseFocus() }, 500)
+        stopGuard()
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
         savedVolume = null
         pausedMusic = false // stays paused
@@ -478,15 +499,73 @@ class TalkService : Service() {
         Log.i(TAG, "talk OFF (restore ${Proto.ancName(savedAnc)}, vol $savedVolume)")
         savedAnc?.let { send(Proto.ANC_SET, 0x01, it, 0x00) }
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+        stopGuard()
         if (pausedMusic) {
             // Giving the audio back resumes the music app by itself; press play only if we had to pause by key.
-            if (talkFocus != null) releaseFocus() else mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
-        }
+            val byFocus = talkFocus != null && !pausedByKey
+            releaseFocus()
+            if (!byFocus) mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+        } else releaseFocus()
         pausedMusic = false
+        pausedByKey = false
         st.talkActive = false
         st.talkSince?.let { Stats.talkEnded(System.currentTimeMillis() - it) }
         st.talkSince = null
         refreshNotification()
+    }
+
+    /** Pauses the music for talking: by audio focus, or the pause key if Android refuses focus. Then checks it held. */
+    private fun pauseForTalk() {
+        // Asking again (without letting go first) puts talk mode back on top of whatever took the audio.
+        val again = talkFocus?.let { audio.requestAudioFocus(it) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED }
+        if (again == true || (again == null && takeFocus())) {
+            guardStage = 1
+        } else {
+            mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+            pausedByKey = true
+            guardStage = 2
+        }
+        // Android says music is playing for a few seconds after a pause, so check after that.
+        guardUntil = SystemClock.elapsedRealtime() + 6_000
+        main.removeCallbacks(guardCheck)
+        main.postDelayed(guardCheck, 6_500)
+    }
+
+    /** Talk mode paused the music: if it plays again (after a call, a notification...), pause it again. */
+    private fun guardTalkPause() {
+        if (!st.talkActive || !pausedMusic || guardGaveUp) return
+        val now = SystemClock.elapsedRealtime()
+        if (audio.mode != AudioManager.MODE_NORMAL || now < guardUntil) {
+            // In a call, or still settling after the last pause: look again a bit later.
+            main.removeCallbacks(guardCheck)
+            main.postDelayed(guardCheck, maxOf(guardUntil - now + 500, 5_000L).coerceAtMost(15_000L))
+            return
+        }
+        if (!audio.isMusicActive) { guardStage = 0; return } // it held
+        when (guardStage) {
+            0, 1 -> {
+                Log.i(TAG, "music playing during talk mode: pausing it again (stage $guardStage)")
+                if (guardStage == 0) pauseForTalk()
+                else { // the app ignored losing the audio: press pause
+                    mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+                    pausedByKey = true
+                    guardStage = 2
+                    guardUntil = now + 6_000
+                    main.removeCallbacks(guardCheck)
+                    main.postDelayed(guardCheck, 6_500)
+                }
+            }
+            else -> {
+                Log.i(TAG, "music started again right after pausing: leaving it on")
+                guardGaveUp = true
+            }
+        }
+    }
+
+    private fun stopGuard() {
+        main.removeCallbacks(guardCheck)
+        guardStage = 0
+        guardGaveUp = false
     }
 
     /** Takes audio focus for talking, which pauses the music app. False if Android refuses. */
@@ -494,7 +573,10 @@ class TalkService : Service() {
         val req = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-            .setOnAudioFocusChangeListener { }
+            // Focus came back after a call or notification: make sure the music didn't start again.
+            .setOnAudioFocusChangeListener({ change ->
+                if (change == AudioManager.AUDIOFOCUS_GAIN) { main.removeCallbacks(guardCheck); main.postDelayed(guardCheck, 1_500) }
+            }, main)
             .build()
         val ok = audio.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
         talkFocus = if (ok) req else null
@@ -611,6 +693,7 @@ class TalkService : Service() {
 
     private fun playbackChanged() {
         activityChanged()
+        if (st.talkActive && pausedMusic) { main.removeCallbacks(guardCheck); main.postDelayed(guardCheck, 1_000) }
         main.removeCallbacks(recheck)
         main.postDelayed(recheck, 5_000)
     }

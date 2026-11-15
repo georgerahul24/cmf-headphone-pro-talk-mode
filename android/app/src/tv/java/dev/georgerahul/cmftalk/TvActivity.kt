@@ -12,10 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -29,6 +27,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -38,8 +39,8 @@ import java.text.DateFormat
 import java.util.Date
 
 /**
- * The TV screen: one page made for a remote. Talk mode, noise control, stats (phone, Mac and TV
- * together), a few settings and sync with the Mac. The EQ is always Movie.
+ * The TV screen: one page made for a remote, with no scrolling. Talk mode, noise control, stats
+ * (phone, Mac and TV together), a few settings and sync with the Mac. The EQ is always Movie.
  */
 class TvActivity : ComponentActivity() {
     private var tick by mutableIntStateOf(0)
@@ -50,6 +51,7 @@ class TvActivity : ComponentActivity() {
         History.init(this)
         Hearing.init(this)
         Sync.init(this)
+        EqRemote.load(this)
         val prefs = Prefs(this)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = T.Purple, background = T.Bg, surface = T.Card)) {
@@ -98,8 +100,24 @@ private object T {
 
 private val Accent = Brush.linearGradient(listOf(T.Purple, T.Violet))
 
+/** The screen is drawn for 960 x 540 dp (a 1080p TV) and shrinks or grows to fit, so nothing is ever cut off. */
+private const val DESIGN_W = 960f
+private const val DESIGN_H = 540f
+
 @Composable
 private fun TvApp(prefs: Prefs, hasBt: Boolean, askBt: () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(T.Bg), contentAlignment = Alignment.Center) {
+        val fit = minOf(maxWidth.value / DESIGN_W, maxHeight.value / DESIGN_H)
+        val d = LocalDensity.current
+        // Font size from the TV's settings is left out: a bigger font would no longer fit on one screen.
+        CompositionLocalProvider(LocalDensity provides Density(d.density * fit, fontScale = 1f)) {
+            Box(Modifier.requiredSize(DESIGN_W.dp, DESIGN_H.dp)) { Page(prefs, hasBt, askBt) }
+        }
+    }
+}
+
+@Composable
+private fun Page(prefs: Prefs, hasBt: Boolean, askBt: () -> Unit) {
     val now = rememberNow()
     // Settings shown here, reloaded when they arrive from the Mac.
     var talkEnabled by remember { mutableStateOf(prefs.enabled) }
@@ -109,66 +127,60 @@ private fun TvApp(prefs: Prefs, hasBt: Boolean, askBt: () -> Unit) {
         talkEnabled = prefs.enabled; talkPause = prefs.talkPause; idleOff = prefs.idleOff
     }
 
+    // TVs can hide the screen's edges, so keep clear of them.
     Row(
-        Modifier.fillMaxSize().background(T.Bg).padding(horizontal = 48.dp, vertical = 28.dp),
-        horizontalArrangement = Arrangement.spacedBy(32.dp),
+        Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column(
-            Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp)).background(T.Card).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Controls(hasBt, askBt, now)
-        }
-        Column(
-            Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            StatsPanel(now)
-            Panel("Settings") {
-                Text("These sync with your phone and Mac.", color = T.Sub, fontSize = 13.sp)
-                TvButton("Talk mode button: ${if (talkEnabled) "On" else "Off"}", Modifier.fillMaxWidth()) {
+        Panel(null, Modifier.weight(1f).fillMaxHeight()) { Controls(hasBt, askBt, now) }
+        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            StatsPanel(now, Modifier.weight(1f))
+            Panel("Settings (synced)") {
+                TvButton("Talk button: ${if (talkEnabled) "On" else "Off"}", Modifier.fillMaxWidth()) {
                     talkEnabled = !talkEnabled; prefs.enabled = talkEnabled
                 }
-                TvButton("While talking: ${if (talkPause) "pause the music" else "lower the volume to ${prefs.talkVolume}%"}",
+                TvButton(if (talkPause) "While talking: pause music" else "While talking: lower to ${prefs.talkVolume}%",
                     Modifier.fillMaxWidth()) {
                     talkPause = !talkPause; prefs.talkPause = talkPause
                 }
-                TvButton("Battery saver: ${if (idleOff) "On, after ${prefs.idleMinutes} min with nothing playing" else "Off"}",
+                TvButton(if (idleOff) "Battery saver: after ${prefs.idleMinutes} min" else "Battery saver: Off",
                     Modifier.fillMaxWidth()) {
                     idleOff = !idleOff; prefs.idleOff = idleOff
                     TalkService.instance?.idleSettingChanged()
                 }
             }
-            SyncPanel(now)
+        }
+        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            SyncPanel(now, Modifier.weight(1f))
             UpdatesPanel()
         }
     }
 }
 
 @Composable
-private fun Controls(hasBt: Boolean, askBt: () -> Unit, now: Long) {
+private fun ColumnScope.Controls(hasBt: Boolean, askBt: () -> Unit, now: Long) {
     val st = HeadphoneState
     val svc = TalkService.instance
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
 
-    Text("CMF Talk Mode", fontSize = 30.sp, fontWeight = FontWeight.SemiBold, color = T.Text)
+    Text("CMF Talk Mode", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = T.Text)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(10.dp).clip(CircleShape).background(if (st.connected) T.Teal else T.Faint))
-        Spacer(Modifier.width(10.dp))
-        Text(
+        Box(Modifier.size(8.dp).clip(CircleShape).background(if (st.connected) T.Teal else T.Faint))
+        Spacer(Modifier.width(8.dp))
+        Line(
             if (st.connected) buildString {
                 append("CMF Headphone Pro")
                 st.battery?.let { append(" · $it%"); if (st.charging) append(" charging") }
             } else st.status,
-            color = T.Sub, fontSize = 16.sp,
+            T.Sub, 13,
         )
     }
 
     val ready = st.connected && svc != null
     when {
         !hasBt -> TvButton("Allow Bluetooth", Modifier.fillMaxWidth().focusRequester(first), big = true, onClick = askBt)
-        !st.connected -> TvButton("Connect to the headphones", Modifier.fillMaxWidth().focusRequester(first), big = true) {
+        !st.connected -> TvButton("Connect", Modifier.fillMaxWidth().focusRequester(first), big = true) {
             svc?.connectNow()
         }
         else -> {
@@ -177,69 +189,70 @@ private fun Controls(hasBt: Boolean, askBt: () -> Unit, now: Long) {
                 selected = st.talkActive, big = true, enabled = ready) { svc?.toggleTalk() }
         }
     }
-    Text("Or press and hold the button on the headphones (set to Spatial Audio in Nothing X).",
-        color = T.Sub, fontSize = 13.sp, lineHeight = 18.sp)
+    Line("Or hold the headphones' button (Spatial Audio in Nothing X).", T.Sub, 11, lines = 2)
 
-    Text("Noise control", color = T.Text, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+    Line("Noise control", T.Text, 14, FontWeight.Medium)
     val modes = listOf(Proto.ANC_OFF to "Off", Proto.ANC_TRANSPARENCY to "Transparency",
-        Proto.ANC_HIGH to "Noise cancelling", Proto.ANC_ADAPTIVE to "Adaptive")
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        for ((mode, name) in modes) {
-            val on = st.anc == mode || (mode == Proto.ANC_HIGH && st.anc in setOf(Proto.ANC_MID, Proto.ANC_LOW))
-            TvButton(name, Modifier.weight(1f), selected = on, enabled = ready) { svc?.setAnc(mode) }
+        Proto.ANC_HIGH to "Noise cancel", Proto.ANC_ADAPTIVE to "Adaptive")
+    for (row in modes.chunked(2)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((mode, name) in row) {
+                val on = st.anc == mode || (mode == Proto.ANC_HIGH && st.anc in setOf(Proto.ANC_MID, Proto.ANC_LOW))
+                TvButton(name, Modifier.weight(1f), selected = on, enabled = ready) { svc?.setAnc(mode) }
+            }
         }
     }
-    if (st.connected) Text("Now: ${Proto.ancName(st.anc)}", color = T.Sub, fontSize = 13.sp)
-    if (st.idleOff) Text("Turned off to save battery. It comes back when something plays.", color = T.Sub, fontSize = 13.sp)
-    if (st.talkActive) Text("Talk mode is on: Transparency, with the music lowered or paused.", color = T.Pink, fontSize = 13.sp)
-
-    Text("EQ: Movie (always on the TV) · ${EqRemote.version}", color = T.Sub, fontSize = 14.sp)
+    when {
+        st.talkActive -> Line("Talk mode on: Transparency, music ${if (Prefs(LocalContext.current).talkPause) "paused" else "lowered"}.", T.Pink, 12, lines = 2)
+        st.idleOff -> Line("Off to save battery. Comes back when something plays.", T.Sub, 12, lines = 2)
+        st.connected -> Line("Now: ${Proto.ancName(st.anc)}", T.Sub, 12)
+    }
+    Spacer(Modifier.weight(1f))
+    Line("EQ: Movie (always on the TV)", T.Sub, 12)
+    Line("Tuning ${EqRemote.version}", T.Faint, 10)
 }
 
 @Composable
-private fun StatsPanel(now: Long) {
+private fun StatsPanel(now: Long, modifier: Modifier) {
     val st = HeadphoneState
     val liveTalk = st.talkSince?.let { now - it } ?: 0L
     val liveIdle = st.idleOffSince?.let { now - it } ?: 0L
     val since = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(Stats.allSince))
-    Panel("Statistics") {
-        Text(if (Sync.peerId != null) "Phone, Mac and TV together, since $since" else "Since $since",
-            color = T.Sub, fontSize = 13.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(Modifier.weight(1f), "Times talked", Stats.allTalkCount.toString())
-            Tile(Modifier.weight(1f), "Time talking", dur(Stats.allTalkMs + liveTalk))
-            Tile(Modifier.weight(1f), "Average talk",
-                if (Stats.allTalkCount == 0) "-" else dur((Stats.allTalkMs + liveTalk) / Stats.allTalkCount))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(Modifier.weight(1f), "Saver turned ANC off", Stats.allIdleOffCount.toString())
-            Tile(Modifier.weight(1f), "ANC rested for", dur(Stats.allIdleOffMs + liveIdle))
-            Tile(Modifier.weight(1f), "Hearing this week", "${(Stats.allDose * 100).toInt()}%")
+    Panel("Statistics", modifier) {
+        Line(if (Sync.peerId != null) "All devices, since $since" else "Since $since", T.Sub, 11)
+        val tiles = listOf(
+            "Times talked" to Stats.allTalkCount.toString(),
+            "Time talking" to dur(Stats.allTalkMs + liveTalk),
+            "Average talk" to if (Stats.allTalkCount == 0) "-" else dur((Stats.allTalkMs + liveTalk) / Stats.allTalkCount),
+            "Hearing this week" to "${(Stats.allDose * 100).toInt()}%",
+            "Saver turned ANC off" to Stats.allIdleOffCount.toString(),
+            "ANC rested for" to dur(Stats.allIdleOffMs + liveIdle),
+        )
+        for (row in tiles.chunked(2)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((label, value) in row) Tile(Modifier.weight(1f), label, value)
+            }
         }
     }
 }
 
 @Composable
-private fun SyncPanel(now: Long) {
-    Panel("Sync with your Mac") {
+private fun SyncPanel(now: Long, modifier: Modifier) {
+    Panel("Sync with your Mac", modifier) {
         val name = Sync.peerName ?: "your Mac"
         if (Sync.peerId == null) {
-            Text("Syncs stats, history and settings with the Mac app over your Wi-Fi. Encrypted, no internet.",
-                color = T.Sub, fontSize = 13.sp, lineHeight = 18.sp)
-            Text("On the Mac: open the app, Settings, Pair a device. Then enter the code here.",
-                color = T.Sub, fontSize = 13.sp, lineHeight = 18.sp)
+            Line("On the Mac: Settings, Pair a device. Enter its code:", T.Sub, 11, lines = 2)
             var code by remember { mutableStateOf("") }
-            Text(code.padEnd(6, '·').chunked(3).joinToString("  "), fontSize = 30.sp, letterSpacing = 6.sp,
-                color = T.Text, fontWeight = FontWeight.SemiBold)
+            Line(code.padEnd(6, '·').chunked(3).joinToString("  "), T.Text, 22, FontWeight.SemiBold)
             // No number keys on most TV remotes: an on-screen pad.
             for (row in listOf("12345", "67890")) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (c in row) TvButton(c.toString(), Modifier.weight(1f)) { if (code.length < 6) code += c }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (c in row) TvButton(c.toString(), Modifier.weight(1f), small = true) { if (code.length < 6) code += c }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TvButton("Delete", Modifier.weight(1f)) { code = code.dropLast(1) }
-                TvButton(if (Sync.pairing) "Pairing..." else "Pair with Mac", Modifier.weight(2f),
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                TvButton("Delete", Modifier.weight(1f), small = true) { code = code.dropLast(1) }
+                TvButton(if (Sync.pairing) "Pairing..." else "Pair", Modifier.weight(1f), small = true,
                     selected = code.length == 6) {
                     if (!Sync.pairing && code.length == 6) Sync.pair(code)
                 }
@@ -248,23 +261,20 @@ private fun SyncPanel(now: Long) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(if (Sync.connected) T.Teal else T.Faint))
                 Spacer(Modifier.width(8.dp))
-                Text(if (Sync.connected) "Connected to $name" else "$name is not on this network",
-                    fontSize = 15.sp, fontWeight = FontWeight.Medium, color = T.Text)
+                Line(if (Sync.connected) "Connected to $name" else "$name is not on this network", T.Text, 13, FontWeight.Medium, lines = 2)
             }
-            if (Sync.lastSync > 0) Text("Last synced ${ago(Sync.lastSync, now)}", color = T.Sub, fontSize = 13.sp)
+            if (Sync.lastSync > 0) Line("Last synced ${ago(Sync.lastSync, now)}", T.Sub, 12)
             History.version
             val waiting = Sync.waitingText
-            Text(waiting ?: "Everything from this TV is synced", color = if (waiting == null) T.Teal else T.Text, fontSize = 13.sp)
+            Line(waiting ?: "Everything from this TV is synced", if (waiting == null) T.Teal else T.Text, 12, lines = 2)
             var armed by remember { mutableStateOf(false) }
             LaunchedEffect(armed) { if (armed) { delay(4000); armed = false } }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TvButton("Sync now", Modifier.weight(1f)) { Sync.syncNow() }
-                TvButton(if (armed) "Press again to unpair" else "Unpair", Modifier.weight(1f)) {
-                    if (armed) { Sync.unpair(); armed = false } else armed = true
-                }
+            TvButton("Sync now", Modifier.fillMaxWidth()) { Sync.syncNow() }
+            TvButton(if (armed) "Press again to unpair" else "Unpair", Modifier.fillMaxWidth()) {
+                if (armed) { Sync.unpair(); armed = false } else armed = true
             }
         }
-        Sync.note?.let { Text(it, color = T.Sub, fontSize = 13.sp, lineHeight = 18.sp) }
+        Sync.note?.let { Line(it, T.Sub, 11, lines = 2) }
     }
 }
 
@@ -272,31 +282,40 @@ private fun SyncPanel(now: Long) {
 private fun UpdatesPanel() {
     val ctx = LocalContext.current
     Panel("Updates") {
-        Text(Updater.status ?: "Version ${Updater.current(ctx)}", color = T.Sub, fontSize = 13.sp)
+        Line(Updater.status ?: "Version ${Updater.current(ctx)}", T.Sub, 11, lines = 2)
+        Line(EqRemote.status ?: "EQ tuning ${EqRemote.version}", T.Sub, 11, lines = 2)
         TvButton(if (Updater.busy) "Checking..." else "Check for updates", Modifier.fillMaxWidth()) {
-            Updater.check(ctx, install = true)
+            Updater.check(ctx, install = true) // checks the EQ tuning too
         }
     }
 }
 
 // ---------- parts ----------
 
+/** A card. With a [modifier] holding a weight, it fills its share of the column. */
 @Composable
-private fun Panel(title: String, content: @Composable ColumnScope.() -> Unit) {
+private fun Panel(title: String?, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(T.Card).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(T.Card).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(title, color = T.Text, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+        if (title != null) Line(title, T.Text, 15, FontWeight.Medium)
         content()
     }
 }
 
+/** Text that never grows past [lines] lines, so the layout can't be pushed off the screen. */
+@Composable
+private fun Line(text: String, color: Color, size: Int, weight: FontWeight = FontWeight.Normal, lines: Int = 1) {
+    Text(text, color = color, fontSize = size.sp, fontWeight = weight, lineHeight = (size + 4).sp,
+        maxLines = lines, overflow = TextOverflow.Ellipsis)
+}
+
 @Composable
 private fun Tile(modifier: Modifier, label: String, value: String) {
-    Column(modifier.clip(RoundedCornerShape(14.dp)).background(T.Card2).padding(12.dp)) {
-        Text(value, color = T.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-        Text(label, color = T.Sub, fontSize = 12.sp)
+    Column(modifier.clip(RoundedCornerShape(12.dp)).background(T.Card2).padding(horizontal = 10.dp, vertical = 7.dp)) {
+        Line(value, T.Text, 17, FontWeight.SemiBold)
+        Line(label, T.Sub, 10)
     }
 }
 
@@ -307,12 +326,13 @@ private fun TvButton(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     big: Boolean = false,
+    small: Boolean = false,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
-    val shape = RoundedCornerShape(if (big) 22.dp else 14.dp)
+    val shape = RoundedCornerShape(if (big) 18.dp else 12.dp)
     Box(
         modifier
             .scale(if (focused) 1.04f else 1f)
@@ -320,11 +340,12 @@ private fun TvButton(
             .then(if (selected) Modifier.background(Accent) else Modifier.background(T.Card2))
             .border(2.dp, if (focused) Color.White else Color.Transparent, shape)
             .clickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = if (big) 22.dp else 12.dp),
+            .padding(horizontal = 8.dp, vertical = if (big) 14.dp else if (small) 6.dp else 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = if (enabled) T.Text else T.Faint, fontSize = if (big) 24.sp else 15.sp,
-            fontWeight = if (big || selected) FontWeight.SemiBold else FontWeight.Normal, textAlign = TextAlign.Center)
+        Text(label, color = if (enabled) T.Text else T.Faint, fontSize = if (big) 22.sp else 13.sp,
+            fontWeight = if (big || selected) FontWeight.SemiBold else FontWeight.Normal, textAlign = TextAlign.Center,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

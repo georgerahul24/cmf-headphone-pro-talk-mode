@@ -57,6 +57,7 @@ object Updater {
 
     /** Checks GitHub; with [install], downloads and installs a newer version. Safe to call often. */
     fun check(ctx: Context, install: Boolean) {
+        EqRemote.check(ctx) // new EQ tuning comes with every update check
         if (busy) return
         busy = true
         failed = false

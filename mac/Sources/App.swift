@@ -483,7 +483,7 @@ struct Cards {
     }
 
     func dayName(_ hv: HistoryView, _ i: Int) -> String {
-        i == 6 ? "Today" : i == 5 ? "Yesterday" : hv.days[i].formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+        i == hv.days.count - 1 ? "Today" : i == hv.days.count - 2 ? "Yesterday" : hv.days[i].formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
     }
 
     func historyCard(_ now: Date) -> some View {
@@ -695,7 +695,7 @@ struct Cards {
     var eqSummary: some View {
         Card(title: "EQ") {
             Text(talk.eqTitle).font(.system(size: 20, weight: .semibold)).contentTransition(.opacity)
-            Text("Tuning \(EqRemote.version)").font(.system(size: 11)).foregroundStyle(Pal.sub)
+            Text("Tuning \(talk.eqTuning)").font(.system(size: 11)).foregroundStyle(Pal.sub)
             Text(talk.eqMode == EqMode.auto
                  ? (talk.eqApp.map { "Picked for \($0)." } ?? "Changes by itself with what you play.")
                  : "Change it on the Sound page.")
@@ -921,13 +921,14 @@ struct Cards {
         let u = Updater.shared
         return Card(title: "Updates") {
             Toggle("Update automatically", isOn: $talk.autoUpdate)
-            Text("Checks GitHub every 6 hours. When there is a new version, the app replaces itself and restarts.")
+            Text("Checks GitHub every 6 hours for a new version and new EQ tuning. A new version replaces the app and restarts it. New EQ tuning is used right away.")
                 .font(.system(size: 11)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Text(u.status ?? "Version \(Updater.current)").font(.system(size: 11)).foregroundStyle(Pal.sub)
                 Spacer()
-                Button(u.busy ? "Checking..." : "Check now") { u.check(install: true) }.disabled(u.busy)
+                Button(u.busy ? "Checking..." : "Check now") { talk.checkEq(); u.check(install: true) }.disabled(u.busy)
             }
+            Text(talk.eqStatus ?? "EQ tuning \(talk.eqTuning)").font(.system(size: 11)).foregroundStyle(Pal.sub)
         }
         .toggleStyle(.switch).tint(Pal.purple).controlSize(.small).font(.system(size: 12))
     }

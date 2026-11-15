@@ -1,7 +1,11 @@
 import Foundation
 
-/// Optional live EQ tuning from the repository. Invalid or unavailable data is ignored.
+/// Live EQ tuning: eq.json from the repository, checked a minute after launch, every 6 hours and
+/// with "Check now". A file that fails any check is ignored, and the last good one (or the values
+/// built into the app) stays in use.
 enum EqRemote {
+    enum Outcome { case applied, upToDate, failed }
+
     private static let endpoint = URL(string: "https://raw.githubusercontent.com/georgerahul24/cmf-headphone-pro-talk-mode/main/eq.json")!
     private static let dataKey = "eq.remote.data"
     private static var configs: [String: (Float, [Band])] = [:]
@@ -22,27 +26,32 @@ enum EqRemote {
         }
     }
 
-    static func check(onApplied: @escaping () -> Void) {
+    /// Downloads eq.json and applies it if it changed. `done` runs on the main thread.
+    static func check(done: @escaping (Outcome) -> Void) {
         guard !checking else { return }
         checking = true
-        var request = URLRequest(url: endpoint, timeoutInterval: 15)
+        // The query skips GitHub's few-minute cache, so a new tuning shows up right away.
+        var parts = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
+        parts.queryItems = [URLQueryItem(name: "t", value: String(Int(Date().timeIntervalSince1970 / 60)))]
+        var request = URLRequest(url: parts.url!, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
         request.setValue("cmf-talk-mode-eq", forHTTPHeaderField: "User-Agent")
         URLSession.shared.dataTask(with: request) { data, response, error in
-            defer { checking = false }
             do {
                 if let error { throw error }
                 guard let response = response as? HTTPURLResponse, response.statusCode == 200,
                       let data, data.count <= 64 * 1024 else { throw URLError(.badServerResponse) }
-                guard data != UserDefaults.standard.data(forKey: dataKey) else { return }
-                let parsed = try parse(data)
+                let parsed = try parse(data) // throws if anything is out of range
                 DispatchQueue.main.async {
+                    checking = false
+                    if data == UserDefaults.standard.data(forKey: dataKey) && !configs.isEmpty { done(.upToDate); return }
                     configs = parsed.configs
                     version = parsed.version
                     UserDefaults.standard.set(data, forKey: dataKey)
-                    onApplied()
+                    done(.applied)
                 }
             } catch {
-                log("live EQ unavailable; using bundled tuning: \(error)")
+                log("live EQ unavailable; keeping the current tuning: \(error)")
+                DispatchQueue.main.async { checking = false; done(.failed) }
             }
         }.resume()
     }

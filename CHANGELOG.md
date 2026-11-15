@@ -2,6 +2,18 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.13.7
+
+- **Lighter, cleaner EQ in every preset.** Tighter bass, natural vocal body, no shouty upper mids and a softer top:
+  - Pop: bass shelf 105 Hz +2, deep bass 50 Hz +1, 250 Hz -1, 2.3 kHz +1, 3.8 kHz +1, air 12 kHz +1.5.
+  - Movie: rumble 30 Hz +3, boom 70 Hz +2, 220 Hz -1.5, voice body 1 kHz +1.5, dialogue 2.5 kHz +2, 3.8 kHz +1.5, sparkle 10.5 kHz +2.
+  - Rock: bass shelf 90 Hz +2, kick 60 Hz +1.5, 300 Hz -1.5, crunch 1.5 kHz +2, bite 3 kHz +1.5, 4.2 kHz +1.5, sparkle 10 kHz +2.
+  - Classical: depth 40 Hz +1.5, 250 Hz -1, body 700 Hz +1.5, presence 2.5 kHz +1.5, detail 4 kHz +1.5, air 12 kHz +1.5.
+- **Check for updates also checks the EQ tuning,** on Android, Fire TV and Mac, and shows the result. Android also checks it every 12 hours (before, only when the app started), even with auto-update off. New tuning skips GitHub's few-minute cache.
+- **Pause mode keeps the music paused while you talk.** If a call, notification or alarm makes the music app start again, talk mode pauses it again. If an app ignores the pause, talk mode presses pause for it. If you start the music yourself after that, it is left alone.
+- **Fire TV fits on one screen.** Three columns, no scrolling and nothing cut off, on any TV size.
+- Fixes: the usage chart says Today and Yesterday on the right days again. The phone's usage chart opens on today. The hearing record is kept for 30 days like the comments say (the weekly dose still uses the last 7). A bad EQ file no longer changes the tuning name shown.
+
 ## 2.13.6 - 2026-11-15
 
 - Show the active EQ tuning revision and UTC update timestamp in the Android phone, Fire TV, and macOS EQ screens.

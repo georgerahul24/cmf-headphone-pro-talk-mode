@@ -106,7 +106,8 @@ final class Hearing {
 
     static func db(_ volume: Double) -> Double { volume <= 0 ? 0 : 100 - 50 * (1 - min(1, max(0, volume))) }
 
-    private func lastDays(_ now: Date) -> [String] { (0..<7).map { fmt.string(from: now.addingTimeInterval(Double(-$0) * 86400)) } }
+    /// The last `n` days, today first. The weekly dose uses 7; each day is kept for 30.
+    private func lastDays(_ now: Date, _ n: Int = 7) -> [String] { (0..<n).map { fmt.string(from: now.addingTimeInterval(Double(-$0) * 86400)) } }
 
     /// Some listening happened. Returns an alert to show, if any.
     func add(volume: Double, seconds: Double, now: Date = Date()) -> String? {
@@ -137,7 +138,7 @@ final class Hearing {
         var day = all[pendingDay] ?? [:]
         for (k, v) in pending { day[k, default: 0] += v }
         all[pendingDay] = day
-        let keep = Set(lastDays(Date()))
+        let keep = Set(lastDays(Date(), 30))
         days = all.filter { keep.contains($0.key) }
         pending = [:]
     }

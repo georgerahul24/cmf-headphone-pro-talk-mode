@@ -147,6 +147,7 @@ class MainActivity : ComponentActivity() {
         Stats.init(this)
         History.init(this)
         Sync.init(this)
+        EqRemote.load(this)
         val ui = UiPrefs(Prefs(this))
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = C.Purple, background = C.Bg, surface = C.Card)) {
@@ -1083,9 +1084,10 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
         Panel {
             Label("Updates")
             SwitchRow("Update automatically",
-                "Checks GitHub twice a day and installs new versions. The first time, Android asks you to tap Install.",
+                "Checks GitHub twice a day and installs new versions. The first time, Android asks you to tap Install. New EQ tuning is checked at the same time, even with this off, and used right away.",
                 ui.autoUpdate) { ui.autoUpdate = it; ui.p.autoUpdate = it }
             Updater.status?.let { Text(it, color = C.Sub, fontSize = 13.sp) }
+            Text(EqRemote.status ?: "EQ tuning ${EqRemote.version}", color = C.Sub, fontSize = 13.sp)
             GradientButton(if (Updater.busy) "Checking..." else "Check for updates") {
                 if (!Updater.busy) Updater.check(ctx, install = true)
             }
@@ -1425,8 +1427,8 @@ private fun modeLabel(m: ModeGroup) = when (m) {
 private val timeFmt: DateFormat get() = DateFormat.getTimeInstance(DateFormat.SHORT)
 
 private fun dayName(hv: HistoryView, i: Int): String = when (i) {
-    6 -> "Today"
-    5 -> "Yesterday"
+    hv.days.lastIndex -> "Today"
+    hv.days.lastIndex - 1 -> "Yesterday"
     else -> SimpleDateFormat("EEE d MMM").format(Date(hv.days[i]))
 }
 
@@ -1452,13 +1454,15 @@ private fun UsageCard(hv: HistoryView, day: Int, onDay: (Int) -> Unit) {
                 Text("last 30 days", color = C.Sub, fontSize = 12.sp)
             }
         }
+        // Opens scrolled to the end, so today's bar is in view; scroll left for older days.
+        val scroll = rememberScrollState(Int.MAX_VALUE)
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(130.dp),
+            Modifier.fillMaxWidth().horizontalScroll(scroll).height(130.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             hv.usage.forEachIndexed { i, ms ->
                 val h = remember { Animatable(0f) }
-                LaunchedEffect(ms) { h.animateTo(ms / top, tween(700, delayMillis = i * 40, easing = EaseOutCubic)) }
+                LaunchedEffect(ms) { h.animateTo(ms / top, tween(700, delayMillis = (hv.usage.size - 1 - i) * 25, easing = EaseOutCubic)) }
                 val sel = i == day
                 val color by animateColorAsState(if (sel) C.ModeAnc else C.ModeAnc.copy(alpha = 0.35f), tween(250), label = "bar")
                 Column(

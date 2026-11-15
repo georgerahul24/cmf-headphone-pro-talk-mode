@@ -238,7 +238,7 @@ class HistoryView(sources: List<List<History.Event>>, now: Long) {
         return out
     }
 
-    fun dayEnd(i: Int) = if (i < 6) days[i + 1] else days[i] + 24 * 3600_000L
+    fun dayEnd(i: Int) = if (i < days.lastIndex) days[i + 1] else days[i] + 24 * 3600_000L
 
     /** Mode spans clipped to one day. */
     fun spansOn(i: Int): List<Span> {

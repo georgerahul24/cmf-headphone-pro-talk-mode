@@ -132,6 +132,7 @@ final class TalkMode: ObservableObject {
         headset.start()
         MainWindowController.shared.talk = self
         hookSync()
+        eqTuning = EqRemote.version // the saved tuning, loaded above
         Notify.ask()
         DistributedNotificationCenter.default().addObserver(forName: Self.showWindow, object: nil, queue: .main) { _ in
             MainWindowController.shared.show()
@@ -145,12 +146,30 @@ final class TalkMode: ObservableObject {
         updateTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in self?.updateCheck() }
     }
 
+    /// The EQ tuning in use and the result of the last check, for the screen.
+    @Published private(set) var eqTuning = EqRemote.version
+    @Published private(set) var eqStatus: String?
+
+    /// Checks for new EQ tuning; also part of every update check, automatic or "Check now".
+    func checkEq() {
+        eqStatus = "Checking the EQ tuning..."
+        EqRemote.check { [weak self] outcome in
+            guard let self else { return }
+            switch outcome {
+            case .applied:
+                eqApplied = nil // send the new values to the headphones
+                applyEq()
+                eqStatus = "New EQ tuning: \(EqRemote.version)"
+            case .upToDate: eqStatus = "EQ tuning is up to date"
+            case .failed: eqStatus = "Couldn't check the EQ tuning"
+            }
+            eqTuning = EqRemote.version
+        }
+    }
+
     private func updateCheck() {
         if autoUpdate && !active { Updater.shared.check(install: true) }
-        EqRemote.check { [weak self] in
-            self?.eqApplied = nil
-            self?.applyEq()
-        }
+        checkEq()
     }
 
     // MARK: commands from the menu
