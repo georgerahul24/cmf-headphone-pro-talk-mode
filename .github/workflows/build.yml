@@ -37,6 +37,8 @@ jobs:
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
             echo "RELEASE_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
           fi
+      - name: Check eq.json
+        run: python3 .github/scripts/check_eq.py eq.json
       - name: Build APK
         working-directory: android
         run: gradle --no-daemon :app:testPhoneReleaseUnitTest :app:assembleRelease

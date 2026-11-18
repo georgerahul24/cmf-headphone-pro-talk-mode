@@ -4,10 +4,9 @@ import CoreAudio
 /// One EQ filter. Type: 0 low shelf, 1 peak, 2 high shelf. Gain in dB.
 struct Band { let type: UInt8; let gain: Float; let freq: Float; let q: Float }
 
-/// EQ presets for the CMF Headphone Pro. Pop, Rock and Classical use Nothing's own presets on the headphones
-/// (see `factory`); their bands are only a fallback for apps before 2.13.8. Movie is our own 8-band curve.
-///
-/// Same values as the Android app.
+/// EQ presets for the CMF Headphone Pro. Every value (bands, preamp, which presets use Nothing's own
+/// preset, the description) comes from eq.json at the repo root: the app ships a copy of it and
+/// downloads the latest (see `EqRemote`). Only Flat lives here, since it is "no EQ".
 enum Eq: String, CaseIterable {
     case movie, pop, rock, classical, flat
 
@@ -18,89 +17,19 @@ enum Eq: String, CaseIterable {
 
     var label: String { rawValue.capitalized }
 
-    var about: String {
-        switch self {
-        case .movie: return "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear."
-        case .pop: return "Nothing's own Pop preset, built into the headphones: the factory sound, with full bass and clear vocals. The same as Pop in Nothing X."
-        case .classical: return "Nothing's own Classical preset, built into the headphones. The same as Classical in Nothing X."
-        case .flat: return "No EQ: bass, mid and treble all at 0. Every preset is measured from here."
-        case .rock: return "Nothing's own Rock preset, built into the headphones. The same as Rock in Nothing X."
-        }
-    }
+    var about: String { self == .flat ? "No EQ: bass, mid and treble all at 0." : EqRemote.about(for: self) ?? "" }
 
-    /// A small negative preamp keeps the overall curve controlled while preserving the bass
-    /// and adding a little vocal presence.
-    /// Nothing's own preset on the headphones (1 Rock, 3 Pop, 5 Classical), or nil for our own
-    /// 8-band curve. Pop, Rock and Classical use Nothing's; Nothing has no Movie preset. eq.json can
-    /// change this with "factory".
-    var factory: UInt8? {
-        if EqRemote.has(self) { return EqRemote.factory(for: self) }
-        switch self {
-        case .pop: return 3
-        case .rock: return 1
-        case .classical: return 5
-        default: return nil
-        }
-    }
+    /// Nothing's own preset on the headphones (1 Rock, 2 Electronic, 3 Pop, 4 Enhance vocals, 5 Classical), or nil for the bands.
+    var factory: UInt8? { self == .flat ? nil : EqRemote.factory(for: self) }
 
-    var preamp: Float { EqRemote.preamp(for: self) ?? (self == .flat ? 0 : -1) }
+    var preamp: Float { self == .flat ? 0 : EqRemote.preamp(for: self) ?? 0 }
 
-    /// 8 bands, each at its own frequency and width. The headphones apply all 8: in a listening test,
-    /// changing only bands 4-8 (with Nothing's 3 bands at 0) was clearly audible. Every preset is
-    /// measured from Flat.
-    var bands: [Band] { EqRemote.bands(for: self) ?? fallbackBands }
-
-    private var fallbackBands: [Band] {
-        switch self {
-        // Slider at full bass, for a basshead who also wants every detail: tight rumble and boom, a 220 Hz
-        // cut so bass doesn't smear over voices, speech bands lifted, only the narrow 8 kHz peak cut,
-        // and a gentle treble lift for environmental detail (glass, rattles, room sound).
-        case .movie: return [
-            Band(type: 1, gain: 6, freq: 30, q: 0.9),  // rumble you feel, where movie bass effects live
-            Band(type: 1, gain: 4.5, freq: 70, q: 1),  // boom and punch for fights and explosions
-            Band(type: 1, gain: -4.5, freq: 220, q: 1),  // keeps the bass from smearing over voices and detail
-            Band(type: 1, gain: 3.5, freq: 1000, q: 1),  // body of voices
-            Band(type: 1, gain: 5.5, freq: 2500, q: 1.3),  // dialogue clarity
-            Band(type: 1, gain: 5.5, freq: 3800, q: 1.6),  // consonants and faint sounds; fills the 4 kHz dip
-            Band(type: 1, gain: -1, freq: 8000, q: 3.5),  // only the narrow harsh peak, so detail stays
-            Band(type: 2, gain: 4.5, freq: 10500, q: 0.7),  // sparkle and space: glass, rattles, room sound
-        ]
-        // Slider at zero. English, Hindi and Malayalam pop: singer up front over a strong bass line.
-        case .pop: return [
-            Band(type: 0, gain: 6.5, freq: 105, q: 0.7),  // gentle bass shelf for a tight, clean punch
-            Band(type: 1, gain: 2.5, freq: 50, q: 1),  // deep bass for dance drops
-            Band(type: 1, gain: -3.5, freq: 250, q: 1),  // clears space between bass and vocals
-            Band(type: 1, gain: 4.5, freq: 2300, q: 1.4),  // vocal body and clarity
-            Band(type: 1, gain: 6, freq: 3800, q: 1.6),  // vocals forward; fills the 4 kHz dip
-            Band(type: 1, gain: -0.5, freq: 6300, q: 2),  // softer "s" on bright female vocals
-            Band(type: 1, gain: -2, freq: 8000, q: 3),  // tames the headphones' 8 kHz peak
-            Band(type: 2, gain: 3.5, freq: 12000, q: 0.7),  // shimmer and air
-        ]
-        case .rock: return [
-            Band(type: 0, gain: 4.5, freq: 90, q: 0.7),  // weight for kick and bass guitar
-            Band(type: 1, gain: 3, freq: 60, q: 1.2),  // kick drum punch
-            Band(type: 1, gain: -3.5, freq: 300, q: 1),  // less guitar and bass mud
-            Band(type: 1, gain: 4.5, freq: 1500, q: 1.2),  // guitar crunch and vocal body
-            Band(type: 1, gain: 4.5, freq: 3000, q: 1.4),  // bite and vocals
-            Band(type: 1, gain: 5, freq: 4200, q: 2),  // fills the 4 kHz dip and brings vocals forward
-            Band(type: 1, gain: -2, freq: 8000, q: 3),  // cymbal harshness
-            Band(type: 2, gain: 4.5, freq: 10000, q: 0.7),  // cymbal sparkle and air
-        ]
-        case .classical: return [
-            Band(type: 0, gain: -0.5, freq: 105, q: 0.7),     // a touch less bass, so cellos and basses sound true
-            Band(type: 1, gain: 2.5, freq: 40, q: 1),         // keeps the depth of organs and timpani
-            Band(type: 1, gain: -2.5, freq: 250, q: 1),       // clears the muddy low-mid boom of large halls
-            Band(type: 1, gain: 2.5, freq: 700, q: 1),        // body and wood of the instruments
-            Band(type: 1, gain: 4, freq: 2500, q: 1.2),   // presence of soloists and voices
-            Band(type: 1, gain: 5, freq: 4000, q: 2),       // detail; fills the 4 kHz dip
-            Band(type: 1, gain: -2.5, freq: 8000, q: 3),    // softens harsh violins and sopranos
-            Band(type: 2, gain: 3.5, freq: 12000, q: 0.7),    // the air and space of the hall
-        ]
-        // No EQ: Nothing's 3 bands (mid 980 Hz, treble 3.5 kHz, bass 140 Hz) all at 0.
-        case .flat: return [
+    /// Flat: Nothing's 3 bands (mid 980 Hz, treble 3.5 kHz, bass 140 Hz) at 0. A preset missing from
+    /// eq.json (never, it ships with the app) also plays flat.
+    var bands: [Band] {
+        (self == .flat ? nil : EqRemote.bands(for: self)) ?? [
             Band(type: 1, gain: 0, freq: 980, q: 0.7), Band(type: 2, gain: 0, freq: 3500, q: 1), Band(type: 0, gain: 0, freq: 140, q: 0.8),
         ]
-        }
     }
 
     /// Payload for `Proto.eqCustomSet`: count, preamp, then type/gain/freq/Q per band (float32 LE), 3 zero bytes per band.

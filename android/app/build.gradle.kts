@@ -61,6 +61,27 @@ android {
 
 kotlin { jvmToolchain(17) }
 
+// EQ values live only in eq.json at the repo root. The app ships a copy of it (assets/eq.json) and
+// downloads the latest at runtime. See EqRemote.kt.
+abstract class CopyEqJson : DefaultTask() {
+    @get:InputFile abstract val source: RegularFileProperty
+    @get:OutputDirectory abstract val output: DirectoryProperty
+
+    @TaskAction fun copy() {
+        val dest = output.get().file("eq.json").asFile
+        dest.parentFile.mkdirs()
+        source.get().asFile.copyTo(dest, overwrite = true)
+    }
+}
+
+val copyEqJson = tasks.register<CopyEqJson>("copyEqJson") {
+    source.set(rootProject.layout.projectDirectory.file("../eq.json"))
+}
+
+androidComponents {
+    onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(copyEqJson, CopyEqJson::output) }
+}
+
 dependencies {
     testImplementation("junit:junit:4.13.2")
     val bom = platform("androidx.compose:compose-bom:2025.06.01")

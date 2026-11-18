@@ -115,7 +115,7 @@ final class TalkMode: ObservableObject {
 
     init() {
         let d = UserDefaults.standard
-        EqRemote.loadCached()
+        EqRemote.load() // the eq.json shipped with the app, or the newer download
         enabled = d.object(forKey: "enabled") as? Bool ?? true
         talkVolumePercent = d.object(forKey: "talkVolume") as? Int ?? 10
         talkPause = d.object(forKey: "talkPause") as? Bool ?? false

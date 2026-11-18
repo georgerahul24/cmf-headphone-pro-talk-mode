@@ -761,7 +761,6 @@ struct Cards {
             HStack {
                 Text(shownEq.map { $0.factory != nil ? "\($0.label) (Nothing preset)" : "\($0.label) curve" } ?? "Flat").font(.system(size: 12, weight: .medium))
                 Spacer()
-                if shownEq == .movie { Text("plus the Energy Slider at full").font(.system(size: 10)).foregroundStyle(Pal.faint) }
             }
             EqCurve(eq: shownEq, height: 130, labels: true)
             if let e = shownEq, e.factory == nil { EqBandList(eq: e) }

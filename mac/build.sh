@@ -14,6 +14,8 @@ rm build/CMFTalkMode-*
 cp Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# EQ values live only in eq.json at the repo root; the app ships a copy (see Sources/EqRemote.swift).
+cp ../eq.json "$APP/Contents/Resources/eq.json"
 # Now Playing reader (vendor/mediaremote-adapter): only the read-only "get" parts are built.
 MRA=vendor/mediaremote-adapter
 FW="$APP/Contents/Frameworks/MediaRemoteAdapter.framework"

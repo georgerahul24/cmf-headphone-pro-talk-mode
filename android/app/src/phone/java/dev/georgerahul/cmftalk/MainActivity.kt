@@ -836,7 +836,6 @@ private fun EqCard(ui: UiPrefs) {
         Row {
             Text(shown?.let { if (it.factory != null) "${it.label} (Nothing preset)" else "${it.label} curve" } ?: "Flat", fontSize = 13.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.weight(1f))
-            if (shown == Eq.MOVIE) Text("plus the Energy Slider at full", color = C.Faint, fontSize = 11.sp)
         }
         Text("Tuning ${EqRemote.version}", color = C.Faint, fontSize = 11.sp)
         Crossfade(shown, animationSpec = tween(300), label = "eqCurve") { EqCurve(it, 130.dp, true) }

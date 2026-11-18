@@ -6,6 +6,7 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 
 - **Pop, Rock and Classical are now Nothing's own presets.** The app switches on the factory presets built into the headphones, so they sound exactly like in Nothing X. Nothing doesn't publish their curves, so the app says "Nothing preset" instead of drawing one.
 - **Movie is back to its fuller 2.13.6 sound** (rumble 30 Hz +6, boom 70 Hz +4.5, dialogue 2.5 kHz +5.5, sparkle 10.5 kHz +4.5). Nothing has no Movie preset, so Movie stays the app's own curve.
+- **`eq.json` is the only source of EQ values.** The apps no longer have any EQ values of their own. Each build ships a copy of `eq.json`, and the newer of that copy and the latest download is used. Preset descriptions and a note for every band are in `eq.json` too. CI checks the file before every build.
 - `eq.json` can set `"factory"` on a preset to use Nothing's preset instead of the bands. The bands in it are back to 2.13.6 too, so apps on 2.13.7 also stop sounding tamed.
 
 ## 2.13.7

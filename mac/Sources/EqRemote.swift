@@ -1,8 +1,9 @@
 import Foundation
 
-/// Live EQ tuning: eq.json from the repository, checked a minute after launch, every 6 hours and
-/// with "Check now". A file that fails any check is ignored, and the last good one (or the values
-/// built into the app) stays in use.
+/// The EQ values, all from eq.json at the repo root; the app has none of its own. build.sh ships a
+/// copy of it in the app (Resources/eq.json), and the latest is downloaded a minute after launch,
+/// every 6 hours and with "Check now". Whichever copy is newest ("updatedAt") is used. A file that
+/// fails any check is ignored.
 enum EqRemote {
     enum Outcome { case applied, upToDate, failed }
 
@@ -10,25 +11,36 @@ enum EqRemote {
     private static let dataKey = "eq.remote.data"
     private static var configs: [String: Config] = [:]
     private static var checking = false
-    private(set) static var version = "Bundled"
+    private(set) static var version = "none"
+    /// "updatedAt" of the tuning in use, to tell which copy is newer. ISO dates sort as text.
+    private static var updatedAt = ""
 
     /// One preset from eq.json. `factory`: Nothing's own preset number on the headphones, if set.
-    struct Config { let factory: UInt8?; let preamp: Float; let bands: [Band] }
+    struct Config { let about: String?; let factory: UInt8?; let preamp: Float; let bands: [Band] }
+    struct Parsed { let version: String; let updatedAt: String; let configs: [String: Config] }
 
-    static func has(_ eq: Eq) -> Bool { configs[eq.rawValue] != nil }
+    static func about(for eq: Eq) -> String? { configs[eq.rawValue]?.about }
     static func factory(for eq: Eq) -> UInt8? { configs[eq.rawValue]?.factory }
     static func preamp(for eq: Eq) -> Float? { configs[eq.rawValue]?.preamp }
     static func bands(for eq: Eq) -> [Band]? { configs[eq.rawValue]?.bands }
 
-    static func loadCached() {
-        guard let data = UserDefaults.standard.data(forKey: dataKey) else { return }
-        do {
-            let parsed = try parse(data)
-            configs = parsed.configs
-            version = parsed.version
-        } catch {
-            log("cached EQ rejected: \(error)")
+    /// Loads the copy shipped in the app and the last download, and uses the newer one.
+    static func load() {
+        var bundled: Parsed?
+        if let url = Bundle.main.url(forResource: "eq", withExtension: "json"), let data = try? Data(contentsOf: url) {
+            do { bundled = try parse(data) } catch { log("the eq.json shipped with the app is broken: \(error)") }
         }
+        var saved: Parsed?
+        if let data = UserDefaults.standard.data(forKey: dataKey) {
+            do { saved = try parse(data) } catch { log("saved EQ rejected: \(error)") }
+        }
+        if let best = [bundled, saved].compactMap({ $0 }).max(by: { $0.updatedAt < $1.updatedAt }) { use(best) }
+    }
+
+    private static func use(_ t: Parsed) {
+        configs = t.configs
+        version = t.version
+        updatedAt = t.updatedAt
     }
 
     /// Downloads eq.json and applies it if it changed. `done` runs on the main thread.
@@ -49,9 +61,10 @@ enum EqRemote {
                 DispatchQueue.main.async {
                     checking = false
                     if data == UserDefaults.standard.data(forKey: dataKey) && !configs.isEmpty { done(.upToDate); return }
-                    configs = parsed.configs
-                    version = parsed.version
                     UserDefaults.standard.set(data, forKey: dataKey)
+                    // The copy in the app can be newer than GitHub's; keep it then.
+                    if parsed.updatedAt < updatedAt { done(.upToDate); return }
+                    use(parsed)
                     done(.applied)
                 }
             } catch {
@@ -61,7 +74,7 @@ enum EqRemote {
         }.resume()
     }
 
-    private static func parse(_ data: Data) throws -> (version: String, configs: [String: Config]) {
+    private static func parse(_ data: Data) throws -> Parsed {
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               (root["schema"] as? NSNumber)?.intValue == 1,
               let revision = root["version"] as? String, !revision.isEmpty,
@@ -91,9 +104,10 @@ enum EqRemote {
                 }
                 return Band(type: UInt8(type.intValue), gain: gain.floatValue, freq: freq.floatValue, q: q.floatValue)
             }
-            out[id] = Config(factory: factory, preamp: preamp.floatValue, bands: bands)
+            let about = (preset["about"] as? String).flatMap { $0.isEmpty ? nil : String($0.prefix(500)) }
+            out[id] = Config(about: about, factory: factory, preamp: preamp.floatValue, bands: bands)
         }
         let updatedAt = (root["updatedAt"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-        return ([revision, updatedAt].compactMap { $0 }.joined(separator: " · "), out)
+        return Parsed(version: [revision, updatedAt].compactMap { $0 }.joined(separator: " · "), updatedAt: updatedAt ?? "", configs: out)
     }
 }
