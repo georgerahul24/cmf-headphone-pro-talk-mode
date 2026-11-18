@@ -4,6 +4,22 @@
 
 For EQ-only tuning changes, edit [`eq.json`](eq.json) rather than rebuilding the apps.
 
+**Changing EQ sound = edit `eq.json` and push. Nothing else.** When the user asks to change how a preset sounds (more bass, less harsh, "too tamed", new values for a band, copying a preset), the whole job is:
+
+1. Edit the band numbers (and `"factory"`, if wanted) in `eq.json`.
+2. Bump `"version"` and `"updatedAt"`, then commit and push `eq.json` to `main`.
+3. Tell the user it is live: devices pick it up at their next EQ check, or right away with Check for updates.
+
+Do **not** do any of these for an EQ-only change:
+
+- Do not bump app versions, edit `CHANGELOG.md`, tag, or make a release.
+- Do not wait on the GitHub Actions run that the push starts. It isn't needed for `eq.json`.
+- Do not add new app behavior to deliver a sound change. If the new sound can be written as 8 bands, write it as 8 bands.
+
+Copy the new values into the fallbacks in `Eq.kt` and `Eq.swift` (see below) as part of the next real code release, not as a reason to make one.
+
+An app release is only needed when the apps must do something they can't do yet: a new field in `eq.json`, a new command to the headphones, or a UI change. If a request seems to need one, explain why and ask the user first. Example: Pop, Rock and Classical using Nothing's built-in presets (`"factory"`) needed app 2.13.8, because apps before it ignore `"factory"`.
+
 - Keep `"schema": 1`.
 - Keep the required preset IDs: `movie`, `pop`, `rock`, and `classical`.
 - Keep exactly 8 bands per preset.
