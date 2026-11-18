@@ -2,6 +2,12 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.13.8
+
+- **Pop, Rock and Classical are now Nothing's own presets.** The app switches on the factory presets built into the headphones, so they sound exactly like in Nothing X. Nothing doesn't publish their curves, so the app says "Nothing preset" instead of drawing one.
+- **Movie is back to its fuller 2.13.6 sound** (rumble 30 Hz +6, boom 70 Hz +4.5, dialogue 2.5 kHz +5.5, sparkle 10.5 kHz +4.5). Nothing has no Movie preset, so Movie stays the app's own curve.
+- `eq.json` can set `"factory"` on a preset to use Nothing's preset instead of the bands. The bands in it are back to 2.13.6 too, so apps on 2.13.7 also stop sounding tamed.
+
 ## 2.13.7
 
 - **Lighter, cleaner EQ in every preset.** Tighter bass, natural vocal body, no shouty upper mids and a softer top:

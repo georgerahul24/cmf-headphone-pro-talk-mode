@@ -9,8 +9,9 @@ import java.nio.ByteOrder
 class Band(val type: Int, val gain: Float, val freq: Float, val q: Float)
 
 /**
- * EQ presets for the CMF Headphone Pro, picked for what each one is for rather than copied from
- * the factory presets. Same values as the Mac app.
+ * EQ presets for the CMF Headphone Pro. Pop, Rock and Classical use Nothing's own presets on the
+ * headphones (see [factory]); their bands are only a fallback for apps before 2.13.8. Movie is our
+ * own 8-band curve. Same values as the Mac app.
  */
 enum class Eq(val id: String, val label: String, val about: String, private val fallbackPreamp: Float,
               private val fallbackBands: List<Band>) {
@@ -18,56 +19,65 @@ enum class Eq(val id: String, val label: String, val about: String, private val 
     // changing only bands 4-8 (with Nothing's 3 bands at 0) was clearly audible. Every preset is
     // measured from Flat. A small negative preamp keeps the overall curve controlled.
     MOVIE("movie", "Movie",
-        "Made for the Energy Slider at full bass. Deep, tight rumble in fights and explosions, with natural dialogue and clear small details like clinking glass. Never harsh.",
+        "Made for the Energy Slider at full bass. Big rumble and boom in fights and explosions, while dialogue, faint sounds and small details like clinking glass stay clear.",
         -1f, listOf(
-            Band(1, 3f, 30f, 0.9f), // rumble you feel, where movie bass effects live
-            Band(1, 2f, 70f, 1f), // boom and punch for fights and explosions
-            Band(1, -1.5f, 220f, 1f), // keeps the bass from smearing over voices and detail
-            Band(1, 1.5f, 1000f, 1f), // body of voices
-            Band(1, 2f, 2500f, 1.3f), // dialogue clarity
-            Band(1, 1.5f, 3800f, 1.6f), // consonants and faint sounds; fills the 4 kHz dip
+            Band(1, 6f, 30f, 0.9f), // rumble you feel, where movie bass effects live
+            Band(1, 4.5f, 70f, 1f), // boom and punch for fights and explosions
+            Band(1, -4.5f, 220f, 1f), // keeps the bass from smearing over voices and detail
+            Band(1, 3.5f, 1000f, 1f), // body of voices
+            Band(1, 5.5f, 2500f, 1.3f), // dialogue clarity
+            Band(1, 5.5f, 3800f, 1.6f), // consonants and faint sounds; fills the 4 kHz dip
             Band(1, -1f, 8000f, 3.5f), // only the narrow harsh peak, so detail stays
-            Band(2, 2f, 10500f, 0.7f), // sparkle and space: glass, rattles, room sound
+            Band(2, 4.5f, 10500f, 0.7f), // sparkle and space: glass, rattles, room sound
         )),
     POP("pop", "Pop",
-        "Tight, clean bass and natural, full vocals that are clear but never shouty, with a soft, airy top. Tuned for English, Hindi and Malayalam songs.",
+        "Nothing's own Pop preset, built into the headphones: the factory sound, with full bass and clear vocals. The same as Pop in Nothing X.",
         -1f, listOf(
-            Band(0, 2f, 105f, 0.7f), // gentle bass shelf for a tight, clean punch
-            Band(1, 1f, 50f, 1f), // a little deep bass for dance drops
-            Band(1, -1f, 250f, 1f), // clears space between bass and vocals
-            Band(1, 1f, 2300f, 1.4f), // vocal body and clarity
-            Band(1, 1f, 3800f, 1.6f), // vocals forward; fills the 4 kHz dip
+            Band(0, 6.5f, 105f, 0.7f), // gentle bass shelf for a tight, clean punch
+            Band(1, 2.5f, 50f, 1f), // a little deep bass for dance drops
+            Band(1, -3.5f, 250f, 1f), // clears space between bass and vocals
+            Band(1, 4.5f, 2300f, 1.4f), // vocal body and clarity
+            Band(1, 6f, 3800f, 1.6f), // vocals forward; fills the 4 kHz dip
             Band(1, -0.5f, 6300f, 2f), // softer "s" on bright female vocals
             Band(1, -2f, 8000f, 3f), // tames the headphones' 8 kHz peak
-            Band(2, 1.5f, 12000f, 0.7f), // shimmer and air
+            Band(2, 3.5f, 12000f, 0.7f), // shimmer and air
         )),
     ROCK("rock", "Rock",
-        "Tight kick and bass guitar, natural guitar crunch, clear vocals and smooth cymbals.",
+        "Nothing's own Rock preset, built into the headphones. The same as Rock in Nothing X.",
         -1f, listOf(
-            Band(0, 2f, 90f, 0.7f), // weight for kick and bass guitar
-            Band(1, 1.5f, 60f, 1.2f), // kick drum punch
-            Band(1, -1.5f, 300f, 1f), // less guitar and bass mud
-            Band(1, 2f, 1500f, 1.2f), // guitar crunch and vocal body
-            Band(1, 1.5f, 3000f, 1.4f), // bite and vocals
-            Band(1, 1.5f, 4200f, 2f), // fills the 4 kHz dip and brings vocals forward
+            Band(0, 4.5f, 90f, 0.7f), // weight for kick and bass guitar
+            Band(1, 3f, 60f, 1.2f), // kick drum punch
+            Band(1, -3.5f, 300f, 1f), // less guitar and bass mud
+            Band(1, 4.5f, 1500f, 1.2f), // guitar crunch and vocal body
+            Band(1, 4.5f, 3000f, 1.4f), // bite and vocals
+            Band(1, 5f, 4200f, 2f), // fills the 4 kHz dip and brings vocals forward
             Band(1, -2f, 8000f, 3f), // cymbal harshness
-            Band(2, 2f, 10000f, 0.7f), // cymbal sparkle and air
+            Band(2, 4.5f, 10000f, 0.7f), // cymbal sparkle and air
         )),
     CLASSICAL("classical", "Classical",
-        "Natural and open: clean low strings, warm instrument body, clear soloists, soft violins and a gentle sense of the hall.",
+        "Nothing's own Classical preset, built into the headphones. The same as Classical in Nothing X.",
         -1f, listOf(
             Band(0, -0.5f, 105f, 0.7f),    // a touch less bass, so cellos and basses sound true
-            Band(1, 1.5f, 40f, 1f),        // keeps the depth of organs and timpani
-            Band(1, -1f, 250f, 1f),      // clears the muddy low-mid boom of large halls
-            Band(1, 1.5f, 700f, 1f),       // body and wood of the instruments
-            Band(1, 1.5f, 2500f, 1.2f),  // presence of soloists and voices
-            Band(1, 1.5f, 4000f, 2f),      // detail; fills the 4 kHz dip
+            Band(1, 2.5f, 40f, 1f),        // keeps the depth of organs and timpani
+            Band(1, -2.5f, 250f, 1f),      // clears the muddy low-mid boom of large halls
+            Band(1, 2.5f, 700f, 1f),       // body and wood of the instruments
+            Band(1, 4f, 2500f, 1.2f),  // presence of soloists and voices
+            Band(1, 5f, 4000f, 2f),      // detail; fills the 4 kHz dip
             Band(1, -2.5f, 8000f, 3f),   // softens harsh violins and sopranos
-            Band(2, 1.5f, 12000f, 0.7f),   // the air and space of the hall
+            Band(2, 3.5f, 12000f, 0.7f),   // the air and space of the hall
         )),
     FLAT("flat", "Flat",
         "No EQ: bass, mid and treble all at 0. Every preset is measured from here.",
         0f, threeBand(bass = 0f, mid = 0f, treble = 0f));
+
+    /**
+     * Nothing's own preset on the headphones (1 Rock, 3 Pop, 5 Classical), or null for our own
+     * 8-band curve. Pop, Rock and Classical use Nothing's; Nothing has no Movie preset. eq.json can
+     * change this with "factory".
+     */
+    val factory: Int? get() = if (EqRemote.has(id)) EqRemote.factory(id) else when (this) {
+        POP -> 3; ROCK -> 1; CLASSICAL -> 5; else -> null
+    }
 
     val preamp: Float get() = EqRemote.preamp(id) ?: fallbackPreamp
     val bands: List<Band> get() = EqRemote.bands(id) ?: fallbackBands

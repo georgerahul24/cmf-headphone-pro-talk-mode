@@ -20,7 +20,7 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 - **Your normal buttons still work.** Talk mode uses its own button. No voice assistant pop-up.
 
 **Sound**
-- **EQ tuned for these headphones.** Movie, Pop, Rock and Classical presets using all 8 EQ bands the headphones support, not copied from the factory presets. Flat turns the EQ off (every band at 0), and every preset is measured from it. [More below](#eq).
+- **EQ.** Pop, Rock and Classical are Nothing's own factory presets, built into the headphones, so they sound the same as in Nothing X. Movie is the app's own 8-band curve, since Nothing has no Movie preset. Flat turns the EQ off (every band at 0). [More below](#eq).
 - **Live EQ tuning.** The active tuning revision and UTC timestamp are shown in the app. Valid updates from [`eq.json`](eq.json) can be downloaded without rebuilding the app; bundled values remain the fallback if the file is unavailable or invalid.
 - **Auto EQ.** Switches to Movie when you watch something and to your music preset (Pop or Rock) when you listen. Shows what it picked, like "Auto (Movie)", in the app and in the Android notification. Remembers your pick per show, film, song or artist.
 - **Noise control and Spatial Audio.** Off, Transparency, Noise Cancelling Low, Mid, High or Adaptive. Spatial Audio Off, Concert or Cinema. For everyday controls you don't need Nothing X.
@@ -44,21 +44,23 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 
 ## EQ
 
-The Nothing X app only shows bass, mid and treble, but the CMF Headphone Pro applies up to 8 EQ filters, each with its own frequency and width (checked by ear: changing only bands 4 to 8 is clearly audible). So each preset uses all 8, measured from Flat:
+The headphones have Nothing's factory presets built in: Pop, Rock, Electronic, Enhance vocals and Classical. Nothing doesn't publish their curves, but the app can switch them on directly, so Pop, Rock and Classical sound exactly like in Nothing X.
+
+Nothing has no Movie preset. So Movie is the app's own curve. The CMF Headphone Pro applies up to 8 EQ filters, each with its own frequency and width (checked by ear: changing only bands 4 to 8 is clearly audible), and Movie uses all 8, measured from Flat:
 
 | Preset | Made for | What you hear |
 |---|---|---|
-| **Movie** | Energy Slider at full bass | Deep, tight rumble for fights and explosions. Natural dialogue and clear details like clinking glass. Never harsh. |
-| **Pop** | Energy Slider at zero | Tight, clean bass and natural, full vocals that are clear but never shouty, with a soft, airy top. Tuned for English, Hindi and Malayalam songs. |
-| **Classical** | Energy Slider at zero | Natural and open: clean low strings, warm instrument body, clear soloists, soft violins, a gentle sense of the hall. |
-| **Rock** | Energy Slider at zero | Tight kick and bass guitar, natural guitar crunch, clear vocals, smooth cymbals. |
+| **Movie** (app's own) | Energy Slider at full bass | Big rumble and boom for fights and explosions. Dialogue, faint sounds and details like clinking glass stay clear. |
+| **Pop** (Nothing's) | Anything | Nothing's factory sound: full bass and clear vocals. |
+| **Classical** (Nothing's) | Anything | Nothing's own Classical preset. |
+| **Rock** (Nothing's) | Anything | Nothing's own Rock preset. |
 | **Flat** (all 0) | Anything | No EQ. The neutral starting point every preset is measured from. |
 
-Both apps draw each preset's curve and list all 8 bands with their values.
+Both apps draw Movie's curve and list its 8 bands. For Nothing's presets they say so instead, since the curves aren't published.
 
 ### Live tuning file
 
-The shared tuning source is [`eq.json`](eq.json). It is served from the repository's `main` branch and contains a schema version, tuning revision, UTC `updatedAt` timestamp, preamp, and eight validated bands for each preset. Android checks it when its service starts and every 12 hours. macOS checks it a minute after launch and every 6 hours. Both also check it every time you press Check for updates (or Check now), even with auto-update off. A valid update is applied to the active preset automatically, and the app shows the revision and timestamp so you can confirm which tuning is in use. If the network or validation fails, the last cached or bundled tuning stays active.
+The shared tuning source is [`eq.json`](eq.json). It is served from the repository's `main` branch and contains a schema version, tuning revision, UTC `updatedAt` timestamp, preamp, and eight validated bands for each preset. A preset can also have `"factory"` (1 Rock, 2 Electronic, 3 Pop, 4 Enhance vocals, 5 Classical) to use Nothing's own preset on the headphones instead of the bands. Apps before 2.13.8 ignore it and use the bands. Android checks it when its service starts and every 12 hours. macOS checks it a minute after launch and every 6 hours. Both also check it every time you press Check for updates (or Check now), even with auto-update off. A valid update is applied to the active preset automatically, and the app shows the revision and timestamp so you can confirm which tuning is in use. If the network or validation fails, the last cached or bundled tuning stays active.
 
 To publish a tuning-only update:
 
@@ -157,7 +159,7 @@ Get the latest build from the [v2.13.6 release](https://github.com/georgerahul24
 No. The app only uses normal settings commands (noise mode, Spatial Audio, EQ, battery). It never uses the firmware update channel.
 
 **The EQ changed my Nothing X EQ.**
-The app's presets are saved as the headphones' Custom EQ. Picking a preset in Nothing X brings back the factory sound.
+Movie and Flat are saved as the headphones' Custom EQ. Pop, Rock and Classical just switch on Nothing's own presets. Picking a preset in Nothing X works as normal.
 
 **Should I use the Energy Slider?**
 Movie is tuned for the slider at full bass. Pop and Rock are tuned for the slider at zero.

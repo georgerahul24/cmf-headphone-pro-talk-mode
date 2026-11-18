@@ -740,6 +740,15 @@ private fun livePhase(periodMs: Int): Float {
 /** The EQ curve with a soft shadow under it, a 0 dB line and a dot on each band. */
 @Composable
 private fun EqCurve(eq: Eq?, height: Dp, full: Boolean) {
+    if (eq?.factory != null) {
+        // Nothing doesn't publish its presets' curves, so there is nothing to draw.
+        Box(Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(10.dp)).background(C.Card2.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center) {
+            Text(if (full) "Nothing's own ${eq.label} preset,\nbuilt into the headphones" else "Nothing",
+                color = C.Sub, fontSize = if (full) 13.sp else 11.sp, textAlign = TextAlign.Center, lineHeight = 18.sp)
+        }
+        return
+    }
     val fs = Eq.PLOT_FREQS
     val g = remember(eq) { fs.map { eq?.gain(it) ?: 0.0 } }
     val range = 8.0
@@ -825,13 +834,13 @@ private fun EqCard(ui: UiPrefs) {
         // The preset in use (Auto shows what it picked).
         val shown = Eq.of(if (ui.eqMode == EqMode.AUTO) st.eqNow ?: ui.musicEq else ui.eqMode)
         Row {
-            Text(shown?.let { "${it.label} curve" } ?: "Flat", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text(shown?.let { if (it.factory != null) "${it.label} (Nothing preset)" else "${it.label} curve" } ?: "Flat", fontSize = 13.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.weight(1f))
             if (shown == Eq.MOVIE) Text("plus the Energy Slider at full", color = C.Faint, fontSize = 11.sp)
         }
         Text("Tuning ${EqRemote.version}", color = C.Faint, fontSize = 11.sp)
         Crossfade(shown, animationSpec = tween(300), label = "eqCurve") { EqCurve(it, 130.dp, true) }
-        AnimatedVisibility(shown != null) { shown?.let { EqBandList(it) } }
+        AnimatedVisibility(shown != null && shown.factory == null) { shown?.let { EqBandList(it) } }
         Text("All presets", color = C.Sub, fontSize = 13.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (e in Eq.entries.filter { it != Eq.FLAT }) {

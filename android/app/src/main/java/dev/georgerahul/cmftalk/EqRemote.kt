@@ -35,7 +35,7 @@ object EqRemote {
     /** Called on the main thread when new tuning arrived, so the headphones get it. Set by the service. */
     var onApplied: (() -> Unit)? = null
 
-    private class Config(val preamp: Float, val bands: List<Band>)
+    private class Config(val factory: Int?, val preamp: Float, val bands: List<Band>)
     private class Parsed(val version: String, val configs: Map<String, Config>)
 
     /** Loads the last good tuning saved on this device. Main thread; safe to call often. */
@@ -50,6 +50,8 @@ object EqRemote {
         }
     }
 
+    fun has(id: String) = configs.containsKey(id)
+    fun factory(id: String): Int? = configs[id]?.factory
     fun preamp(id: String): Float? = configs[id]?.preamp
     fun bands(id: String): List<Band>? = configs[id]?.bands
 
@@ -105,6 +107,8 @@ object EqRemote {
         val out = HashMap<String, Config>()
         for (id in listOf("movie", "pop", "rock", "classical")) {
             val p = presets.getJSONObject(id)
+            // Optional: use Nothing's own preset on the headphones (1 to 5) instead of the bands.
+            val factory = if (p.has("factory")) p.getInt("factory").also { require(it in 1..5) { "$id factory" } } else null
             val preamp = p.getDouble("preamp").toFloat().also { require(it in -6f..3f) { "$id preamp" } }
             val a = p.getJSONArray("bands")
             require(a.length() == 8) { "$id must have 8 bands" }
@@ -116,7 +120,7 @@ object EqRemote {
                 val q = b.getDouble("q").toFloat().also { n -> require(n in 0.1f..10f) }
                 Band(type, gain, freq, q)
             }
-            out[id] = Config(preamp, bands)
+            out[id] = Config(factory, preamp, bands)
         }
         return Parsed(listOfNotNull(revision, updatedAt).joinToString(" · "), out)
     }

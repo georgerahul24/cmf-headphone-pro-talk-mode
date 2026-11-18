@@ -403,10 +403,15 @@ final class TalkMode: ObservableObject {
         eqApplied = w
         eqNow = w
         log("EQ: \(w)")
-        // Every preset, Flat included, is a custom EQ, so they are all measured from flat.
         let eq = Eq(rawValue: w) ?? .flat
-        headset.send(Proto.eqCustomSet, eq.payload)
-        headset.send(Proto.eqPresetSet, [Proto.eqCustom, 0x00])
+        if let factory = eq.factory {
+            // Nothing's own preset, built into the headphones.
+            headset.send(Proto.eqPresetSet, [factory, 0x00])
+        } else {
+            // Our own curve (Movie and Flat), measured from flat.
+            headset.send(Proto.eqCustomSet, eq.payload)
+            headset.send(Proto.eqPresetSet, [Proto.eqCustom, 0x00])
+        }
     }
 
     /// "Auto (Movie)" in Auto mode, else the preset name.

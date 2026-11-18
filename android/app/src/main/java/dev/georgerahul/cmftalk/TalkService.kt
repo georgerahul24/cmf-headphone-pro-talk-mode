@@ -650,11 +650,17 @@ class TalkService : Service() {
         eqApplied = w
         st.eqNow = w
         refreshNotification()
-        // Every preset, Flat included, is a custom EQ, so they are all measured from flat.
         val eq = Eq.of(w) ?: Eq.FLAT
-        Log.i(TAG, "EQ: $w")
-        send(Proto.EQ_CUSTOM_SET, *eq.payload())
-        send(Proto.EQ_PRESET_SET, Proto.EQ_CUSTOM, 0x00)
+        val factory = eq.factory
+        Log.i(TAG, "EQ: $w${factory?.let { " (Nothing's preset $it)" } ?: ""}")
+        if (factory != null) {
+            // Nothing's own preset, built into the headphones.
+            send(Proto.EQ_PRESET_SET, factory, 0x00)
+        } else {
+            // Our own curve (Movie and Flat), measured from flat.
+            send(Proto.EQ_CUSTOM_SET, *eq.payload())
+            send(Proto.EQ_PRESET_SET, Proto.EQ_CUSTOM, 0x00)
+        }
     }
 
     /** true = video, false = music, with the app's name if known. Null = can't tell. */

@@ -726,7 +726,7 @@ struct Cards {
             HStack {
                 Text(talk.eqTitle).font(.system(size: 15, weight: .semibold)).contentTransition(.opacity)
                 Spacer()
-                if let e = shownEq, e != .flat { Text("\(e.bands.count) bands").font(.system(size: 10)).foregroundStyle(Pal.faint) }
+                if let e = shownEq, e != .flat { Text(e.factory != nil ? "Nothing preset" : "\(e.bands.count) bands").font(.system(size: 10)).foregroundStyle(Pal.faint) }
             }
             eqPicker
             EqCurve(eq: shownEq, height: 74, labels: true)
@@ -759,12 +759,12 @@ struct Cards {
             }
             Divider().overlay(Pal.card2)
             HStack {
-                Text(shownEq.map { "\($0.label) curve" } ?? "Flat").font(.system(size: 12, weight: .medium))
+                Text(shownEq.map { $0.factory != nil ? "\($0.label) (Nothing preset)" : "\($0.label) curve" } ?? "Flat").font(.system(size: 12, weight: .medium))
                 Spacer()
                 if shownEq == .movie { Text("plus the Energy Slider at full").font(.system(size: 10)).foregroundStyle(Pal.faint) }
             }
             EqCurve(eq: shownEq, height: 130, labels: true)
-            if let e = shownEq { EqBandList(eq: e) }
+            if let e = shownEq, e.factory == nil { EqBandList(eq: e) }
             Divider().overlay(Pal.card2)
             Text("All presets").font(.system(size: 12, weight: .medium)).foregroundStyle(Pal.sub)
             HStack(spacing: 8) {
@@ -1015,6 +1015,18 @@ struct EqCurve: View {
     private let range = 8.0
 
     var body: some View {
+        if let eq, eq.factory != nil {
+            // Nothing doesn't publish its presets' curves, so there is nothing to draw.
+            Text(labels ? "Nothing's own \(eq.label) preset, built into the headphones" : "Nothing")
+                .font(.system(size: labels ? 11 : 10)).foregroundStyle(Pal.sub).multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Pal.card2.opacity(0.5)))
+        } else {
+            curve
+        }
+    }
+
+    @ViewBuilder private var curve: some View {
         let fs = Eq.plotFreqs
         let g = fs.map { eq?.gain(at: $0) ?? 0 }
         VStack(spacing: 3) {

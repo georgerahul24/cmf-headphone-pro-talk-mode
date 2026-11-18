@@ -8,12 +8,17 @@ enum EqRemote {
 
     private static let endpoint = URL(string: "https://raw.githubusercontent.com/georgerahul24/cmf-headphone-pro-talk-mode/main/eq.json")!
     private static let dataKey = "eq.remote.data"
-    private static var configs: [String: (Float, [Band])] = [:]
+    private static var configs: [String: Config] = [:]
     private static var checking = false
     private(set) static var version = "Bundled"
 
-    static func preamp(for eq: Eq) -> Float? { configs[eq.rawValue]?.0 }
-    static func bands(for eq: Eq) -> [Band]? { configs[eq.rawValue]?.1 }
+    /// One preset from eq.json. `factory`: Nothing's own preset number on the headphones, if set.
+    struct Config { let factory: UInt8?; let preamp: Float; let bands: [Band] }
+
+    static func has(_ eq: Eq) -> Bool { configs[eq.rawValue] != nil }
+    static func factory(for eq: Eq) -> UInt8? { configs[eq.rawValue]?.factory }
+    static func preamp(for eq: Eq) -> Float? { configs[eq.rawValue]?.preamp }
+    static func bands(for eq: Eq) -> [Band]? { configs[eq.rawValue]?.bands }
 
     static func loadCached() {
         guard let data = UserDefaults.standard.data(forKey: dataKey) else { return }
@@ -56,20 +61,26 @@ enum EqRemote {
         }.resume()
     }
 
-    private static func parse(_ data: Data) throws -> (version: String, configs: [String: (Float, [Band])]) {
+    private static func parse(_ data: Data) throws -> (version: String, configs: [String: Config]) {
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               (root["schema"] as? NSNumber)?.intValue == 1,
               let revision = root["version"] as? String, !revision.isEmpty,
               let presets = root["presets"] as? [String: Any] else {
             throw URLError(.cannotParseResponse)
         }
-        var out: [String: (Float, [Band])] = [:]
+        var out: [String: Config] = [:]
         for id in ["movie", "pop", "rock", "classical"] {
             guard let preset = presets[id] as? [String: Any],
                   let preamp = preset["preamp"] as? NSNumber,
                   (-6.0...3.0).contains(preamp.doubleValue),
                   let rawBands = preset["bands"] as? [[String: Any]], rawBands.count == 8 else {
                 throw URLError(.cannotParseResponse)
+            }
+            // Optional: use Nothing's own preset on the headphones (1 to 5) instead of the bands.
+            var factory: UInt8?
+            if let f = preset["factory"] {
+                guard let n = f as? NSNumber, (1...5).contains(n.intValue) else { throw URLError(.cannotParseResponse) }
+                factory = UInt8(n.intValue)
             }
             let bands = try rawBands.map { b -> Band in
                 guard let type = b["type"] as? NSNumber, (0...2).contains(type.intValue),
@@ -80,7 +91,7 @@ enum EqRemote {
                 }
                 return Band(type: UInt8(type.intValue), gain: gain.floatValue, freq: freq.floatValue, q: q.floatValue)
             }
-            out[id] = (preamp.floatValue, bands)
+            out[id] = Config(factory: factory, preamp: preamp.floatValue, bands: bands)
         }
         let updatedAt = (root["updatedAt"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         return ([revision, updatedAt].compactMap { $0 }.joined(separator: " · "), out)
