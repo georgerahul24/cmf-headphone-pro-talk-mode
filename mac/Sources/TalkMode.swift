@@ -44,9 +44,7 @@ final class TalkMode: ObservableObject {
     /// Notify when the headphone battery drops below 10%.
     @Published var alertBattery: Bool { didSet { UserDefaults.standard.set(alertBattery, forKey: "alertBattery"); synced("alert.battery") } }
     /// Notify about loud listening and the weekly safe amount.
-    @Published var alertHearing: Bool { didSet { UserDefaults.standard.set(alertHearing, forKey: "alertHearing"); synced("alert.hearing") } }
     private var lowWarned = false
-    private var lastHearTick: Date?
     /// Check GitHub for new versions and install them.
     @Published var autoUpdate: Bool { didSet { UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate"); synced("update.auto") } }
     /// EQ preset on the headphones now (an `Eq` raw value), and the app Auto saw playing.
@@ -125,7 +123,8 @@ final class TalkMode: ObservableObject {
         musicEq = d.string(forKey: "musicEq") ?? Eq.pop.rawValue
         autoUpdate = d.object(forKey: "autoUpdate") as? Bool ?? true
         alertBattery = d.object(forKey: "alertBattery") as? Bool ?? true
-        alertHearing = d.object(forKey: "alertHearing") as? Bool ?? true
+        // Hearing safety was removed in 2.13.8: its loudness guess from the volume slider was wrong.
+        for k in ["hearing", "alertHearing"] { d.removeObject(forKey: k) }
         stats = (d.data(forKey: "stats")).flatMap { try? JSONDecoder().decode(UsageStats.self, from: $0) } ?? UsageStats()
         headset.onState = { [weak self] s in DispatchQueue.main.async { self?.stateChanged(s) } }
         headset.onFrame = { [weak self] f in DispatchQueue.main.async { self?.handle(f) } }
@@ -232,7 +231,6 @@ final class TalkMode: ObservableObject {
             case "eq.mode": return eqMode
             case "eq.music": return musicEq
             case "alert.battery": return alertBattery
-            case "alert.hearing": return alertHearing
             case "update.auto": return autoUpdate
             default: return nil
             }
@@ -250,7 +248,6 @@ final class TalkMode: ObservableObject {
             case "eq.mode": if let str, EqMode.all.contains(EqMode.normalize(str)) { eqMode = EqMode.normalize(str) }
             case "eq.music": if let str, Eq(rawValue: str) != nil { musicEq = str }
             case "alert.battery": if let b { alertBattery = b }
-            case "alert.hearing": if let b { alertHearing = b }
             case "update.auto": if let b { autoUpdate = b }
             default: break
             }
@@ -273,7 +270,7 @@ final class TalkMode: ObservableObject {
         status = s
         let now = s == "Connected"
         if now && !connected { spatialChosen = nil; timerStart = Date(); History.shared.log("C", 1) }
-        if !now && connected { History.shared.log("C", 0); Hearing.shared.flush() }
+        if !now && connected { History.shared.log("C", 0) }
         let fresh = now && !connected
         if !now {
             clearIdle(restored: false)
@@ -431,20 +428,6 @@ final class TalkMode: ObservableObject {
         }
     }
 
-    /// Adds listening time to the hearing dose while this Mac plays through the headphones.
-    private func hearingTick() {
-        let now = Date()
-        defer { lastHearTick = playing && connected ? now : nil }
-        guard playing, connected, let last = lastHearTick else { return }
-        let dt = min(6, now.timeIntervalSince(last))
-        if let msg = Hearing.shared.add(volume: Double(SystemVolume.get() ?? 0), seconds: dt, now: now), alertHearing {
-            Notify.show("hearing", "Hearing safety", msg)
-        }
-    }
-
-    /// This week's hearing dose from every device (1.0 = the whole safe amount).
-    var allDose: Double { Hearing.shared.week() + Sync.shared.othersDose() }
-
     /// The battery forecast, re-worked out every 10 minutes or when the level or mode changes.
     func batteryForecast(now: Date) -> BatteryPredict.Forecast? {
         guard let b = battery else { return nil }
@@ -489,9 +472,7 @@ final class TalkMode: ObservableObject {
     private func checkIdle() {
         let p = SystemVolume.isPlaying()
         let started = p && !playing
-        if !p && playing { Hearing.shared.flush() } // audio stopped: save the listening time
         if p != playing { playing = p }
-        hearingTick()
         if p {
             if quietSince != nil { quietSince = nil }
             restoreFromIdle()

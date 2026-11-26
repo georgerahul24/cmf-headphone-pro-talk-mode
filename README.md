@@ -28,7 +28,6 @@ Flagship headphones sell this as Speak-to-Chat, Conversation Awareness or Conver
 **Battery and history**
 - **Battery forecast.** Hours of listening left and when you'll need to charge next, learned from how fast each noise mode drains your battery and how much you really use them each day.
 - **Low battery reminder** below 10%.
-- **Hearing safety.** A weekly sound dose ring following the WHO guideline (80 dB for 40 hours a week), with reminders after loud listening. Estimated from your volume.
 - **Battery saver for noise cancelling.** If nothing plays for 10 minutes (pick 5 to 60), noise control turns Off so ANC stops draining the battery. Your old mode comes back when audio starts. A live countdown shows when it kicks in.
 - **Headphone history.** Time worn per day, a 24 hour strip of when you used Noise Cancelling, Transparency or Off, and a battery chart. Kept forever on your device. Export it as CSV (Android) or open the log file (Mac).
 - **Usage stats.** Times you talked, time talking, how often the battery saver turned ANC off and how long it rested.
@@ -83,7 +82,7 @@ The TV app is for Android TV and Fire TV (Android 11 or newer). It is a smaller 
 - **Talk mode.** The headphone button works the same as on the phone, or press Talk with the remote.
 - **Noise control:** Off, Transparency, Noise cancelling or Adaptive.
 - **Battery saver** with the same time limit for talk mode.
-- **Stats** for all your devices together, and the weekly hearing dose.
+- **Stats** for all your devices together.
 - **Sync with the Mac**, with an on-screen number pad for the code.
 - **EQ is always Movie.** There is no Auto EQ on the TV.
 

@@ -49,7 +49,6 @@ class TvActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Stats.init(this)
         History.init(this)
-        Hearing.init(this)
         Sync.init(this)
         EqRemote.load(this)
         val prefs = Prefs(this)
@@ -224,7 +223,7 @@ private fun StatsPanel(now: Long, modifier: Modifier) {
             "Times talked" to Stats.allTalkCount.toString(),
             "Time talking" to dur(Stats.allTalkMs + liveTalk),
             "Average talk" to if (Stats.allTalkCount == 0) "-" else dur((Stats.allTalkMs + liveTalk) / Stats.allTalkCount),
-            "Hearing this week" to "${(Stats.allDose * 100).toInt()}%",
+            "Restored by music" to Stats.allRestoreCount.toString(),
             "Saver turned ANC off" to Stats.allIdleOffCount.toString(),
             "ANC rested for" to dur(Stats.allIdleOffMs + liveIdle),
         )

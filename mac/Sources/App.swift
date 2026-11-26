@@ -35,10 +35,6 @@ struct TalkModeApp: App {
 
 /// Clicking the app in Applications, Launchpad or the Dock while it runs opens the window.
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationWillTerminate(_ notification: Notification) {
-        Hearing.shared.flush()
-    }
-
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         MainWindowController.shared.show()
         return true
@@ -279,7 +275,6 @@ struct MainWindow: View {
                 LazyVGrid(columns: grid, spacing: 16) {
                     c.saverCard(now)
                     c.eqSummary
-                    c.hearingCard
                 }
             case .sound:
                 LazyVGrid(columns: grid, spacing: 16) {
@@ -666,7 +661,6 @@ struct Cards {
                 }
             }
             Toggle("Low battery reminder (below 10%)", isOn: $talk.alertBattery)
-            Toggle("Hearing safety reminders", isOn: $talk.alertHearing)
             Toggle("Open at login", isOn: $talk.launchAtLogin)
             Button("Show history file") { NSWorkspace.shared.activateFileViewerSelecting([History.shared.url]) }
                 .buttonStyle(.plain).foregroundStyle(Pal.sub)
@@ -841,32 +835,6 @@ struct Cards {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 18).fill(Pal.card))
             .transition(.move(edge: .top).combined(with: .opacity))
-        }
-    }
-
-    /// This week's listening against the WHO safe amount, for both devices. Estimated from volume.
-    var hearingCard: some View {
-        let dose = talk.allDose
-        let t = Hearing.shared.today()
-        let color: Color = dose >= 1 ? Pal.pink : dose >= 0.6 ? Color(hex: 0xC0832B) : Pal.teal
-        return Card(title: "Hearing") {
-            HStack(spacing: 14) {
-                ZStack {
-                    Ring(p: min(1, dose), colors: [color, color], track: Pal.card2, line: 6)
-                    Text("\(Int(dose * 100))%").font(.system(size: 13, weight: .semibold)).monospacedDigit()
-                }
-                .frame(width: 58, height: 58)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(dose >= 1 ? "Give your ears a rest" : dose >= 0.6 ? "Getting close" : "Safe so far")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("of this week's safe listening (WHO: 80 dB for 40 h a week)")
-                        .font(.system(size: 10)).foregroundStyle(Pal.sub).fixedSize(horizontal: false, vertical: true)
-                    Text(t.secs > 0 ? "Today \(dur(t.secs)) at about \(Int(t.db)) dB" : "Nothing played today")
-                        .font(.system(size: 10)).foregroundStyle(Pal.sub).monospacedDigit()
-                    Text("Estimated from your volume, not measured.").font(.system(size: 9)).foregroundStyle(Pal.faint)
-                }
-                Spacer(minLength: 0)
-            }
         }
     }
 

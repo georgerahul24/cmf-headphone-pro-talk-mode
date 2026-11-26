@@ -4,6 +4,7 @@ All versions are on the [Releases page](https://github.com/georgerahul24/cmf-hea
 
 ## 2.13.8
 
+- **Hearing safety is removed** (the weekly sound dose ring and the loud listening notices). It guessed loudness from the volume slider, and that guess was often far off. The Fire TV's volume stays at maximum while you change it elsewhere, so every hour of TV counted as very loud, and the total synced to the phone and Mac too. The real loudness can't be measured: the headphones don't report it, and the apps can't hear what plays. Its saved data is deleted.
 - **Pop, Rock and Classical are now Nothing's own presets.** The app switches on the factory presets built into the headphones, so they sound exactly like in Nothing X. Nothing doesn't publish their curves, so the app says "Nothing preset" instead of drawing one.
 - **Movie is back to its fuller 2.13.6 sound** (rumble 30 Hz +6, boom 70 Hz +4.5, dialogue 2.5 kHz +5.5, sparkle 10.5 kHz +4.5). Nothing has no Movie preset, so Movie stays the app's own curve.
 - **`eq.json` is the only source of EQ values.** The apps no longer have any EQ values of their own. Each build ships a copy of `eq.json`, and the newer of that copy and the latest download is used. Preset descriptions and a note for every band are in `eq.json` too. CI checks the file before every build.

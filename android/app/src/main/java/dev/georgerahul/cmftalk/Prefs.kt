@@ -15,7 +15,7 @@ class Prefs(ctx: Context) {
         val SYNC_KEYS = linkedMapOf(
             "talk.enabled" to "enabled", "talk.volume" to "talkVolume", "talk.pause" to "talkPause",
             "saver.on" to "idleOff", "saver.minutes" to "idleMinutes", "update.auto" to "autoUpdate",
-            "alert.battery" to "alertBattery", "alert.hearing" to "alertHearing",
+            "alert.battery" to "alertBattery",
         )
         private val LOCAL_TO_SYNC = SYNC_KEYS.entries.associate { (k, v) -> v to k }
     }
@@ -64,10 +64,6 @@ class Prefs(ctx: Context) {
         get() = p.getBoolean("alertBattery", true)
         set(v) { p.edit().putBoolean("alertBattery", v).apply(); changed("alertBattery") }
 
-    /** Notify about loud listening and the weekly safe amount. */
-    var alertHearing: Boolean
-        get() = p.getBoolean("alertHearing", true)
-        set(v) { p.edit().putBoolean("alertHearing", v).apply(); changed("alertHearing") }
 
     /** Check GitHub for new versions and install them. */
     var autoUpdate: Boolean
@@ -85,7 +81,6 @@ class Prefs(ctx: Context) {
         "eq.mode" -> eqMode
         "eq.music" -> musicEq
         "alert.battery" -> alertBattery
-        "alert.hearing" -> alertHearing
         "update.auto" -> autoUpdate
         else -> null
     }
@@ -97,7 +92,7 @@ class Prefs(ctx: Context) {
         val local = SYNC_KEYS[key] ?: return false
         val e = p.edit()
         when (key) {
-            "talk.enabled", "talk.pause", "saver.on", "update.auto", "alert.battery", "alert.hearing" -> e.putBoolean(local, v as? Boolean ?: return false)
+            "talk.enabled", "talk.pause", "saver.on", "update.auto", "alert.battery" -> e.putBoolean(local, v as? Boolean ?: return false)
             "talk.volume" -> e.putInt(local, ((v as? Number)?.toInt() ?: return false).coerceIn(0, 100))
             "saver.minutes" -> e.putInt(local, ((v as? Number)?.toInt() ?: return false).coerceAtLeast(1))
             "eq.mode" -> e.putString(local, (v as? String)?.let { EqMode.normalize(it) }?.takeIf { it == EqMode.AUTO || Eq.of(it) != null } ?: return false)

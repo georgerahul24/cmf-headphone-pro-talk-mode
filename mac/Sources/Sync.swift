@@ -11,9 +11,8 @@ struct PeerInfo: Codable, Identifiable {
     var has = 0
     /// How many of the device's history lines this Mac has.
     var haveFrom = 0
-    /// The device's own counters and hearing dose, from its last sync.
+    /// The device's own counters, from its last sync.
     var stats: UsageStats?
-    var dose = 0.0
     var lastSync: Date?
     /// Settings ("eq.learned" for remembered picks) changed here and not yet sent to the device.
     var dirty: Set<String> = []
@@ -63,7 +62,7 @@ final class Sync: ObservableObject {
     /// The settings that sync, by their shared names. The EQ choice, noise control and Spatial
     /// Audio don't: each device keeps its own, since you may want different sound on each.
     static let keys = ["talk.enabled", "talk.volume", "talk.pause", "saver.on", "saver.minutes",
-                       "update.auto", "alert.battery", "alert.hearing"]
+                       "update.auto", "alert.battery"]
 
     private let d = UserDefaults.standard
     let deviceId: String
@@ -107,7 +106,6 @@ final class Sync: ObservableObject {
             // Before 2.13.0 the Mac kept one phone, under single keys: move it into the list.
             var p = PeerInfo(id: id, name: d.string(forKey: "sync.peerName") ?? "Phone", secret: s)
             p.has = d.integer(forKey: "sync.peerHas")
-            p.dose = d.double(forKey: "sync.peerDose")
             p.dirty = Set(d.stringArray(forKey: "sync.dirty") ?? [])
             p.statsDirty = d.bool(forKey: "sync.statsDirty")
             if let ms = d.object(forKey: "sync.lastSync") as? Double { p.lastSync = Date(timeIntervalSince1970: ms / 1000) }
@@ -160,10 +158,6 @@ final class Sync: ObservableObject {
         return s
     }
 
-    /// Every device's hearing dose this week, leaving out [except].
-    func othersDose(except: String? = nil) -> Double {
-        peers.filter { $0.id != except }.reduce(0) { $0 + $1.dose }
-    }
 
     // MARK: settings and stats changes from this Mac
 
@@ -214,7 +208,7 @@ final class Sync: ObservableObject {
     /// Reset pressed on this Mac: resets every device's counters too.
     func statsReset() {
         d.set(Date().timeIntervalSince1970 * 1000, forKey: "sync.statsReset")
-        for p in peers { update(p.id) { $0.stats = nil; $0.dose = 0 } }
+        for p in peers { update(p.id) { $0.stats = nil } }
         statsChanged()
     }
 
@@ -419,7 +413,7 @@ final class Sync: ObservableObject {
         return ["talkCount": s.talkCount, "talkMs": Int64(s.talkSeconds * 1000), "idleOffCount": s.idleOffCount,
                 "idleOffMs": Int64(s.idleOffSeconds * 1000), "restoreCount": s.restoreCount,
                 "since": Int64(s.since.timeIntervalSince1970 * 1000),
-                "dose7": Hearing.shared.week() + othersDose(except: id)]
+]
     }
 
     private var resetAt: Double { d.double(forKey: "sync.statsReset") }
@@ -493,7 +487,7 @@ final class Sync: ObservableObject {
         if let r = (m["reset"] as? NSNumber)?.doubleValue, r > resetAt {
             // Reset on that device: reset here, and the others through the reset time sent with their stats.
             d.set(r, forKey: "sync.statsReset")
-            for p in peers where p.id != id { update(p.id) { $0.stats = nil; $0.dose = 0 } }
+            for p in peers where p.id != id { update(p.id) { $0.stats = nil } }
             resetOwnStats(Date(timeIntervalSince1970: r / 1000))
             let me = id
             schedule { self.sendStats(me) }
@@ -505,7 +499,7 @@ final class Sync: ObservableObject {
         u.idleOffCount = Int(n("idleOffCount")); u.idleOffSeconds = n("idleOffMs") / 1000
         u.restoreCount = Int(n("restoreCount"))
         u.since = Date(timeIntervalSince1970: n("since") / 1000)
-        update(id) { $0.stats = u; $0.dose = n("dose7") }
+        update(id) { $0.stats = u }
         markStats(except: id) // the other devices' totals changed
     }
 }

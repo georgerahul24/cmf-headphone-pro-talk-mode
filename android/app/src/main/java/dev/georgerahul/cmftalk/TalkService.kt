@@ -146,7 +146,8 @@ class TalkService : Service() {
         prefs = Prefs(this)
         Stats.init(this)
         History.init(this)
-        Hearing.init(this)
+        // Hearing safety was removed in 2.13.8: its loudness guess from the volume slider was wrong.
+        deleteSharedPreferences("hearing")
         Learned.init(this)
         EqRemote.load(this)
         EqRemote.onApplied = {
@@ -196,7 +197,6 @@ class TalkService : Service() {
         main.removeCallbacks(updateTick)
         main.removeCallbacks(guardCheck)
         releaseFocus()
-        Hearing.flush()
         Sync.stop()
         audio.unregisterAudioPlaybackCallback(playbackCb)
         cancelIdle()
@@ -284,7 +284,7 @@ class TalkService : Service() {
                 cancelIdle()
                 activityChanged() // start the idle timer
             } else {
-                if (st.connected) { History.log(History.CONNECTED, 0); Hearing.flush() }
+                if (st.connected) History.log(History.CONNECTED, 0)
                 clearIdle()
                 st.clear()
                 cancelIdle()
@@ -709,7 +709,6 @@ class TalkService : Service() {
     // ---- alerts (main thread) ----
 
     private var lowWarned = false
-    private var lastHearTick = 0L
 
     /** One reminder when the battery drops below 10%; again only after it charged back up. */
     private fun checkLowBattery() {
@@ -719,18 +718,6 @@ class TalkService : Service() {
             lowWarned = true
             alert(4, "Headphone battery at $b%", "Time to charge your CMF Headphone Pro.")
         }
-    }
-
-    /** Adds listening time to the hearing dose while audio plays through the headphones. */
-    private fun hearingTick(playing: Boolean) {
-        val now = System.currentTimeMillis()
-        val dt = if (lastHearTick == 0L) 0L else (now - lastHearTick).coerceAtMost(15_000)
-        lastHearTick = if (playing && st.connected) now else 0L
-        if (!playing || !st.connected || dt <= 0) return
-        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-        val vol = audio.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble() / max
-        val msg = Hearing.add(vol, dt / 1000.0, now)
-        if (msg != null && prefs.alertHearing) alert(5, "Hearing safety", msg)
     }
 
     private fun alert(id: Int, title: String, text: String) {
@@ -744,8 +731,6 @@ class TalkService : Service() {
 
     private fun activityChanged() {
         val playing = isPlaying()
-        hearingTick(playing)
-        if (!playing && st.playing) Hearing.flush() // audio stopped: save the listening time
         st.playing = playing
         if (playing) {
             // Keep checking while playing, in case a stop is missed. The phone is awake anyway.

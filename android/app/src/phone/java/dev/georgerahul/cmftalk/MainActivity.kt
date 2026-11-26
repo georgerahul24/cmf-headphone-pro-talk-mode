@@ -120,14 +120,13 @@ private class UiPrefs(val p: Prefs) {
     var musicEq by mutableStateOf(p.musicEq)
     var autoUpdate by mutableStateOf(p.autoUpdate)
     var alertBattery by mutableStateOf(p.alertBattery)
-    var alertHearing by mutableStateOf(p.alertHearing)
 
     /** Settings came from the Mac: show them. */
     fun reload() {
         talkEnabled = p.enabled; talkVolume = p.talkVolume; talkPause = p.talkPause
         idleOff = p.idleOff; idleMinutes = p.idleMinutes
         eqMode = p.eqMode; musicEq = p.musicEq; autoUpdate = p.autoUpdate
-        alertBattery = p.alertBattery; alertHearing = p.alertHearing
+        alertBattery = p.alertBattery
     }
 }
 
@@ -367,8 +366,6 @@ private fun HomeTab(ui: UiPrefs, setup: Setup, onTab: (Int) -> Unit) {
     }
     Reveal(5) { Label("Battery saver") }
     Reveal(6) { SaverCard(ui, now) }
-    Reveal(7) { Label("Hearing") }
-    Reveal(8) { HearingCard() }
 }
 
 @Composable
@@ -602,38 +599,6 @@ private fun LogoMark(size: Dp, live: Boolean, fast: Boolean) {
             val sc = 1 - level * 0.55f + level * 0.55f * wave * 1.6f
             val bh = (h * sc).coerceIn(38f, 380f) * k
             drawRoundRect(Color(0xF5FFFFFF), Offset(p(x) - 19f * k, p(512f) - bh / 2), Size(38f * k, bh), CornerRadius(19f * k))
-        }
-    }
-}
-
-/**
- * This week's listening against the WHO safe amount (80 dB for 40 hours a week), for both
- * devices. Estimated from the volume, since the headphones can't measure loudness.
- */
-@Composable
-private fun HearingCard() {
-    Hearing.version
-    val dose = Stats.allDose
-    val (secs, db) = Hearing.today()
-    val pct = (dose * 100).toInt()
-    val color = when { dose >= 1.0 -> C.Pink; dose >= 0.6 -> Color(0xFFC0832B); else -> C.Teal }
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(C.Card).padding(18.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(78.dp), contentAlignment = Alignment.Center) {
-            Ring(dose.coerceAtMost(1.0).toFloat(), Modifier.fillMaxSize(), 8.dp, C.Card2, Brush.sweepGradient(listOf(color, color)))
-            Text("$pct%", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, style = tnum())
-        }
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.weight(1f)) {
-            Text(when { dose >= 1.0 -> "Give your ears a rest"; dose >= 0.6 -> "Getting close"; else -> "Safe so far" },
-                fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            Text("of this week's safe listening (WHO: 80 dB for 40 h a week)", color = C.Sub, fontSize = 12.sp, lineHeight = 16.sp)
-            Spacer(Modifier.height(6.dp))
-            Text(if (secs > 0) "Today ${dur((secs * 1000).toLong())} at about ${db.toInt()} dB" else "Nothing played today",
-                color = C.Sub, fontSize = 12.sp, style = tnum())
-            Text("Estimated from your volume, not measured.", color = C.Faint, fontSize = 11.sp)
         }
     }
 }
@@ -1080,10 +1045,6 @@ private fun SettingsTab(ui: UiPrefs, setup: Setup) {
             Label("Reminders")
             SwitchRow("Low battery", "A notification when the headphones drop below 10%. Syncs with the Mac.", ui.alertBattery) {
                 ui.alertBattery = it; ui.p.alertBattery = it
-            }
-            HorizontalDivider(color = C.Card2)
-            SwitchRow("Hearing safety", "A notice after 30 minutes of loud listening, and when you pass this week's safe amount.", ui.alertHearing) {
-                ui.alertHearing = it; ui.p.alertHearing = it
             }
         }
     }
