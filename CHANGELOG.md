@@ -2,6 +2,10 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.13.10
+
+- **Android: talk mode now pauses your music for real**, like pressing pause in the music app. Notifications and calls can't start it again. When talk mode ends, it tells the same app to play. This needs Notification access (the same one Auto EQ uses). Without it, or if the music app ignores the pause, talk mode uses the old way (taking over the audio for a while). This is a test: on newer Android, music resumed from the background could play with no sound before 2.13.1. If that happens again, this goes back.
+
 ## 2.13.9
 
 - **Talk mode no longer gets stuck on.** Before, it could stay on for hours after you took the headphones off, and the screen kept saying "talking". Now it ends when:

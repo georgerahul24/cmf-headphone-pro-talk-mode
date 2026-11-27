@@ -91,6 +91,19 @@ class TalkService : Service() {
     /** The music had to be paused with the pause key (focus refused or ignored), so ending talk presses play. */
     private var pausedByKey = false
     /**
+     * The music app talk mode paused for real, through its media session (needs Notification
+     * access). A real pause can't be undone by notifications or calls, so no audio focus and no
+     * guard are needed; ending talk mode sends "play" to the same app. Null = the focus way below.
+     */
+    private var pausedApp: String? = null
+    private val sessionPauseCheck = Runnable {
+        if (st.talkActive && pausedMusic && pausedApp != null && audio.isMusicActive) {
+            Log.i(TAG, "$pausedApp ignored the pause: taking the audio instead")
+            pausedApp = null
+            pauseForTalk()
+        }
+    }
+    /**
      * Keeps the music paused while talking. A call, a notification or an alarm can upset audio focus,
      * and some apps then start playing again by themselves. 0 = nothing pending, 1 = paused by focus
      * and checking it held, 2 = pressed pause and checking it held. If music still plays after
@@ -471,9 +484,21 @@ class TalkService : Service() {
             savedVolume = null
             pausedMusic = audio.isMusicActive
             pausedByKey = false
+            pausedApp = null
             guardStage = 0; guardGaveUp = false
-            if (pausedMusic) pauseForTalk()
-            Log.i(TAG, "talk ON (saved ${Proto.ancName(savedAnc)}, paused music: $pausedMusic, by focus: ${talkFocus != null})")
+            if (pausedMusic) {
+                // First choice: a real pause in the music app. Else take the audio (focus).
+                val ctrl = playingController()
+                if (ctrl != null && runCatching { ctrl.transportControls.pause() }.isSuccess) {
+                    pausedApp = ctrl.packageName
+                    // The app ignored the pause (Android says music plays for a few seconds after
+                    // a pause, so look after that): use the focus way instead.
+                    main.removeCallbacks(sessionPauseCheck)
+                    main.postDelayed(sessionPauseCheck, 6_500)
+                } else pauseForTalk()
+            }
+            Log.i(TAG, "talk ON (saved ${Proto.ancName(savedAnc)}, paused music: $pausedMusic, " +
+                "by session: ${pausedApp ?: "-"}, by focus: ${talkFocus != null})")
         } else {
             pausedMusic = false
             savedVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
@@ -520,6 +545,7 @@ class TalkService : Service() {
         savedVolume = null
         pausedMusic = false // stays paused
         pausedByKey = false
+        pausedApp = null
         if (connected) {
             if (prefs.idleOff) {
                 idleSavedAnc = savedAnc ?: st.anc
@@ -551,7 +577,15 @@ class TalkService : Service() {
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
         savedVolume = null
         stopGuard()
-        if (pausedMusic) {
+        val app = pausedApp
+        pausedApp = null
+        if (pausedMusic && app != null) {
+            // Paused for real in the music app: tell the same app to play.
+            releaseFocus()
+            val ctrl = sessionOf(app)
+            Log.i(TAG, "resume: play in $app${if (ctrl == null) " (session gone, play key)" else ""}")
+            if (ctrl == null || runCatching { ctrl.transportControls.play() }.isFailure) mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+        } else if (pausedMusic) {
             // Giving the audio back resumes the music app by itself; press play only if we had to pause by key.
             val byFocus = talkFocus != null && !pausedByKey
             releaseFocus()
@@ -585,7 +619,8 @@ class TalkService : Service() {
 
     /** Talk mode paused the music: if it plays again (after a call, a notification...), pause it again. */
     private fun guardTalkPause() {
-        if (!st.talkActive || !pausedMusic || guardGaveUp) return
+        // A real pause (pausedApp) can't be undone by notifications; music playing then is you.
+        if (!st.talkActive || !pausedMusic || guardGaveUp || pausedApp != null) return
         val now = SystemClock.elapsedRealtime()
         if (audio.mode != AudioManager.MODE_NORMAL) lastFocusEvent = now
         if (audio.mode != AudioManager.MODE_NORMAL || now < guardUntil) {
@@ -632,6 +667,7 @@ class TalkService : Service() {
         guardGaveUp = false
         guardRetries = 0
         focusLost = false
+        main.removeCallbacks(sessionPauseCheck)
     }
 
     /** Takes audio focus for talking, which pauses the music app. False if Android refuses. */
@@ -747,6 +783,13 @@ class TalkService : Service() {
         if (attrs.any { it.contentType == AudioAttributes.CONTENT_TYPE_MUSIC }) return false to label
         return if (pkg != null) false to label else null
     }
+
+    /** The media session of that app, playing or not, if Notification access is on. */
+    private fun sessionOf(pkg: String): android.media.session.MediaController? = runCatching {
+        getSystemService(MediaSessionManager::class.java)
+            .getActiveSessions(ComponentName(this, MediaListener::class.java))
+            .firstOrNull { it.packageName == pkg }
+    }.getOrNull()
 
     /** The media session that is playing, if Notification access is on for this app. */
     private fun playingController(): android.media.session.MediaController? = runCatching {
