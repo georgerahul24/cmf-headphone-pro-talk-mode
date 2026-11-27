@@ -94,11 +94,18 @@ class TalkService : Service() {
      * Keeps the music paused while talking. A call, a notification or an alarm can upset audio focus,
      * and some apps then start playing again by themselves. 0 = nothing pending, 1 = paused by focus
      * and checking it held, 2 = pressed pause and checking it held. If music still plays after
-     * that, you started it yourself, so it is left alone until talk mode ends.
+     * that with no call or notification just before, you started it yourself, so it is left alone
+     * until talk mode ends.
      */
     private var guardStage = 0
     private var guardUntil = 0L
     private var guardGaveUp = false
+    /** Last audio focus change or call (elapsed time): music starting soon after it wasn't you. */
+    private var lastFocusEvent = 0L
+    /** Another app took the audio for good (it asked to play), so asking again pauses it. */
+    private var focusLost = false
+    /** Pauses pressed in a row after calls or notifications; stops at 4 so it can't loop forever. */
+    private var guardRetries = 0
     private val guardCheck = Runnable { guardTalkPause() }
     private var lastPress = 0L
 
@@ -189,6 +196,7 @@ class TalkService : Service() {
     }
 
     override fun onDestroy() {
+        if (st.talkActive) endTalkPaused(reason = "service stopped", connected = st.connected)
         instance = null
         EqRemote.onApplied = null
         running = false
@@ -209,12 +217,19 @@ class TalkService : Service() {
     // ---- commands from the screen ----
 
     fun setAnc(mode: Int) {
+        // Picking another mode while talking ends talk mode on that mode, so the screen never
+        // says "talking" while the headphones aren't in Transparency.
+        if (st.talkActive && mode != Proto.ANC_TRANSPARENCY) {
+            savedAnc = mode
+            stopTalk() // sends the mode
+            clearIdle()
+            activityChanged()
+            return
+        }
         send(Proto.ANC_SET, 0x01, mode, 0x00)
         st.anc = mode; History.log(History.ANC, st.anc ?: 0)
         clearIdle()
         activityChanged()
-        // Picking a mode by hand while talking: keep it when talk mode ends.
-        if (st.talkActive && mode != Proto.ANC_TRANSPARENCY) savedAnc = mode
         refreshNotification()
     }
 
@@ -285,6 +300,8 @@ class TalkService : Service() {
                 activityChanged() // start the idle timer
             } else {
                 if (st.connected) History.log(History.CONNECTED, 0)
+                // Headphones gone (turned off, out of range): talk mode can't be on any more.
+                if (st.talkActive) endTalkPaused(reason = "headphones disconnected", connected = false)
                 clearIdle()
                 st.clear()
                 cancelIdle()
@@ -397,6 +414,14 @@ class TalkService : Service() {
         when (f.type) {
             Proto.ANC_NOTIFY, Proto.ANC_REPLY -> if (f.payload.size >= 2) {
                 st.anc = f.payload[1]; History.log(History.ANC, st.anc ?: 0)
+                // Noise mode changed on the headphones (or in Nothing X) while talking: talk mode is
+                // over, and the new mode stays. Skips the first seconds, when old reports can still arrive.
+                if (st.talkActive && st.anc != Proto.ANC_TRANSPARENCY &&
+                    System.currentTimeMillis() - (st.talkSince ?: 0L) > 3_000) {
+                    Log.i(TAG, "noise mode changed on the headphones: talk mode off")
+                    savedAnc = null
+                    stopTalk()
+                }
                 // Changed with the headphone button while idle-off: keep the new mode.
                 if (st.anc != Proto.ANC_OFF) { clearIdle(); activityChanged() }
                 refreshNotification()
@@ -437,6 +462,7 @@ class TalkService : Service() {
     }
 
     private fun startTalk() {
+        if (!st.connected) return // nothing to switch; it would stay "on" with no headphones
         // If the idle saver turned noise control off, talk mode ends on the real mode.
         savedAnc = idleSavedAnc ?: st.anc
         clearIdle()
@@ -460,34 +486,54 @@ class TalkService : Service() {
         st.talkActive = true
         st.talkSince = System.currentTimeMillis()
         Stats.talkStarted()
-        // Talking longer than the battery saver time: you probably took the headphones off.
-        if (prefs.idleOff) alarms.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-            SystemClock.elapsedRealtime() + idleMs, talkTimeoutIntent)
+        // Talking a long time: you probably took the headphones off (they can't tell if they're worn).
+        // The battery saver time, or 1 hour with the saver off, so talk mode never stays on for hours.
+        alarms.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            SystemClock.elapsedRealtime() + talkTimeoutMs, talkTimeoutIntent)
         refreshNotification()
     }
 
     /**
-     * Talk mode ran longer than the battery saver time: you most likely took the headphones off to
-     * talk. Ends talk mode with the music paused (never left playing) and noise control Off; your
-     * old noise mode comes back when audio plays again, like the battery saver.
+     * Talk mode ran longer than the battery saver time (1 hour with it off): you most likely took the headphones off to
+     * talk. Ends talk mode with the music paused (never left playing). With the battery saver on,
+     * noise control goes Off and your old mode comes back when audio plays again; with it off, your
+     * old mode comes back right away.
      */
     private fun talkTimedOut() {
-        if (!st.talkActive || !st.connected) return
-        Log.i(TAG, "talk mode timed out: music paused, noise control off")
+        if (!st.talkActive) return
+        endTalkPaused(reason = "talk mode timed out", connected = st.connected)
+    }
+
+    /**
+     * Ends talk mode and leaves the music paused: after the timeout, or when the headphones
+     * disconnect (music must not carry on from the phone speaker).
+     */
+    private fun endTalkPaused(reason: String, connected: Boolean) {
+        Log.i(TAG, "$reason: talk mode off, music stays paused")
+        alarms.cancel(talkTimeoutIntent)
         // Pause for good: while the music app is paused for us, a pause makes it a real pause, so it
         // doesn't start again when we give the audio back.
         if (talkFocus != null || (!pausedMusic && audio.isMusicActive)) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
-        main.postDelayed({ releaseFocus() }, 500)
+        main.postDelayed({ if (!st.talkActive) releaseFocus() }, 500)
         stopGuard()
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
         savedVolume = null
         pausedMusic = false // stays paused
-        idleSavedAnc = savedAnc ?: st.anc
-        send(Proto.ANC_SET, 0x01, Proto.ANC_OFF, 0x00)
-        st.anc = Proto.ANC_OFF; History.log(History.ANC, Proto.ANC_OFF)
-        st.idleOff = true
-        st.idleOffSince = System.currentTimeMillis()
-        Stats.idleTurnedOff()
+        pausedByKey = false
+        if (connected) {
+            if (prefs.idleOff) {
+                idleSavedAnc = savedAnc ?: st.anc
+                send(Proto.ANC_SET, 0x01, Proto.ANC_OFF, 0x00)
+                st.anc = Proto.ANC_OFF; History.log(History.ANC, Proto.ANC_OFF)
+                st.idleOff = true
+                st.idleOffSince = System.currentTimeMillis()
+                Stats.idleTurnedOff()
+            } else savedAnc?.let {
+                send(Proto.ANC_SET, 0x01, it, 0x00)
+                st.anc = it; History.log(History.ANC, it)
+            }
+        }
+        savedAnc = null
         st.talkActive = false
         st.talkSince?.let { Stats.talkEnded(System.currentTimeMillis() - it) }
         st.talkSince = null
@@ -497,8 +543,13 @@ class TalkService : Service() {
     private fun stopTalk() {
         alarms.cancel(talkTimeoutIntent)
         Log.i(TAG, "talk OFF (restore ${Proto.ancName(savedAnc)}, vol $savedVolume)")
-        savedAnc?.let { send(Proto.ANC_SET, 0x01, it, 0x00) }
+        savedAnc?.let {
+            send(Proto.ANC_SET, 0x01, it, 0x00)
+            if (st.connected) { st.anc = it; History.log(History.ANC, it) }
+        }
+        savedAnc = null
         savedVolume?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+        savedVolume = null
         stopGuard()
         if (pausedMusic) {
             // Giving the audio back resumes the music app by itself; press play only if we had to pause by key.
@@ -519,6 +570,7 @@ class TalkService : Service() {
         // Asking again (without letting go first) puts talk mode back on top of whatever took the audio.
         val again = talkFocus?.let { audio.requestAudioFocus(it) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED }
         if (again == true || (again == null && takeFocus())) {
+            focusLost = false
             guardStage = 1
         } else {
             mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
@@ -535,17 +587,21 @@ class TalkService : Service() {
     private fun guardTalkPause() {
         if (!st.talkActive || !pausedMusic || guardGaveUp) return
         val now = SystemClock.elapsedRealtime()
+        if (audio.mode != AudioManager.MODE_NORMAL) lastFocusEvent = now
         if (audio.mode != AudioManager.MODE_NORMAL || now < guardUntil) {
             // In a call, or still settling after the last pause: look again a bit later.
             main.removeCallbacks(guardCheck)
             main.postDelayed(guardCheck, maxOf(guardUntil - now + 500, 5_000L).coerceAtMost(15_000L))
             return
         }
-        if (!audio.isMusicActive) { guardStage = 0; return } // it held
+        if (!audio.isMusicActive) { guardStage = 0; guardRetries = 0; return } // it held
+        // A notification or call just upset the audio: the app restarted itself, not you.
+        val afterEvent = now - lastFocusEvent < 20_000
         when (guardStage) {
             0, 1 -> {
                 Log.i(TAG, "music playing during talk mode: pausing it again (stage $guardStage)")
-                if (guardStage == 0) pauseForTalk()
+                // Still holding the audio: asking for it again changes nothing, so press pause.
+                if (guardStage == 0 && (talkFocus == null || focusLost)) pauseForTalk()
                 else { // the app ignored losing the audio: press pause
                     mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
                     pausedByKey = true
@@ -555,7 +611,15 @@ class TalkService : Service() {
                     main.postDelayed(guardCheck, 6_500)
                 }
             }
-            else -> {
+            else -> if (afterEvent && guardRetries < 4) {
+                Log.i(TAG, "music started again after a notification or call: pausing again")
+                guardRetries++
+                mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+                pausedByKey = true
+                guardUntil = now + 6_000
+                main.removeCallbacks(guardCheck)
+                main.postDelayed(guardCheck, 6_500)
+            } else {
                 Log.i(TAG, "music started again right after pausing: leaving it on")
                 guardGaveUp = true
             }
@@ -566,6 +630,8 @@ class TalkService : Service() {
         main.removeCallbacks(guardCheck)
         guardStage = 0
         guardGaveUp = false
+        guardRetries = 0
+        focusLost = false
     }
 
     /** Takes audio focus for talking, which pauses the music app. False if Android refuses. */
@@ -573,9 +639,16 @@ class TalkService : Service() {
         val req = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-            // Focus came back after a call or notification: make sure the music didn't start again.
+            // Focus came back after a call or notification, or the music app took it: check the music.
             .setOnAudioFocusChangeListener({ change ->
-                if (change == AudioManager.AUDIOFOCUS_GAIN) { main.removeCallbacks(guardCheck); main.postDelayed(guardCheck, 1_500) }
+                lastFocusEvent = SystemClock.elapsedRealtime()
+                when (change) {
+                    AudioManager.AUDIOFOCUS_GAIN -> focusLost = false
+                    AudioManager.AUDIOFOCUS_LOSS -> focusLost = true
+                }
+                if (change == AudioManager.AUDIOFOCUS_GAIN || change == AudioManager.AUDIOFOCUS_LOSS) {
+                    main.removeCallbacks(guardCheck); main.postDelayed(guardCheck, 1_500)
+                }
             }, main)
             .build()
         val ok = audio.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
@@ -705,6 +778,7 @@ class TalkService : Service() {
     }
 
     private val idleMs get() = prefs.idleMinutes * 60_000L
+    private val talkTimeoutMs get() = if (prefs.idleOff) idleMs else 60 * 60_000L
 
     // ---- alerts (main thread) ----
 

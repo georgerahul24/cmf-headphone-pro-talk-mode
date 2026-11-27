@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Combine
 import ServiceManagement
@@ -133,6 +134,11 @@ final class TalkMode: ObservableObject {
         hookSync()
         eqTuning = EqRemote.version // the saved tuning, loaded above
         Notify.ask()
+        // Quitting (or installing an update) while talking: end talk mode first, so the headphones
+        // don't stay in Transparency with the music paused.
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            if self?.active == true { self?.stop() }
+        }
         DistributedNotificationCenter.default().addObserver(forName: Self.showWindow, object: nil, queue: .main) { _ in
             MainWindowController.shared.show()
         }
@@ -174,9 +180,16 @@ final class TalkMode: ObservableObject {
     // MARK: commands from the menu
 
     func setAnc(_ m: UInt8) {
+        // Picking another mode while talking ends talk mode on that mode, so the window never
+        // says "talking" while the headphones aren't in Transparency.
+        if active && m != Proto.ancTransparency {
+            savedAnc = m
+            stop() // sends the mode
+            clearIdle(restored: false)
+            return
+        }
         headset.send(Proto.ancSet, [0x01, m, 0x00])
         ancMode = m
-        if active && m != Proto.ancTransparency { savedAnc = m }
         clearIdle(restored: false)
         timerStart = Date()
     }
@@ -273,6 +286,8 @@ final class TalkMode: ObservableObject {
         if !now && connected { History.shared.log("C", 0) }
         let fresh = now && !connected
         if !now {
+            // Headphones gone (turned off, out of range): talk mode can't be on any more.
+            if active { endTalkPaused(reason: "headphones disconnected", connected: false) }
             clearIdle(restored: false)
             ancMode = nil; battery = nil; spatial = nil; charging = false; quietSince = nil; eqNow = nil
         }
@@ -287,6 +302,13 @@ final class TalkMode: ObservableObject {
             let m = f.payload[1]
             if m != ancMode && m != Proto.ancOff { clearIdle(restored: false); timerStart = Date() }
             ancMode = m
+            // Noise mode changed on the headphones (or in Nothing X) while talking: talk mode is
+            // over, and the new mode stays. Skips the first seconds, when old reports can still arrive.
+            if active, m != Proto.ancTransparency, let t = talkSince, Date().timeIntervalSince(t) > 3 {
+                log("noise mode changed on the headphones: talk mode off")
+                savedAnc = nil
+                stop()
+            }
         case Proto.batteryNotify, Proto.batteryReply:
             // payload: count, then (id, level) pairs; level bit 7 = charging
             if f.payload.count >= 3 {
@@ -318,6 +340,7 @@ final class TalkMode: ObservableObject {
     // MARK: talk mode
 
     private func start() {
+        guard connected else { return } // nothing to switch; it would stay "on" with no headphones
         savedAnc = idleSavedAnc ?? ancMode
         clearIdle(restored: false)
         headset.send(Proto.ancSet, [0x01, Proto.ancTransparency, 0x00])
@@ -340,8 +363,10 @@ final class TalkMode: ObservableObject {
 
     private func stop() {
         log("talk OFF (restoring mode \(savedAnc.map { String(format: "0x%02X", $0) } ?? "-"), volume \(savedVolume ?? -1))")
-        if let m = savedAnc { headset.send(Proto.ancSet, [0x01, m, 0x00]); ancMode = m }
+        if let m = savedAnc { headset.send(Proto.ancSet, [0x01, m, 0x00]); if connected { ancMode = m } }
         if let v = savedVolume { SystemVolume.set(v) }
+        savedAnc = nil
+        savedVolume = nil
         if pausedMusic { NowPlaying.play() }
         pausedMusic = false
         active = false
@@ -439,24 +464,43 @@ final class TalkMode: ObservableObject {
     }
     private var predictCache: (minute: Int, level: Int, anc: UInt8?, value: BatteryPredict.Forecast)?
 
-    /// Talk mode ran longer than the battery saver time: you most likely took the headphones off to
-    /// talk. Ends talk mode with the music paused (never left playing) and noise control Off; your
-    /// old noise mode comes back when audio plays again, like the battery saver.
+    /// How long talk mode may stay on: the battery saver time, or 1 hour with the saver off.
+    /// The headphones can't tell if they're worn, so this is how a forgotten talk mode ends.
+    private var talkTimeout: TimeInterval { idleSaver ? idleSeconds : 3600 }
+
+    /// Talk mode ran too long: you most likely took the headphones off to talk.
     private func talkTimedOut() {
-        guard active, connected else { return }
-        log("talk mode timed out: music paused, noise control off")
+        guard active else { return }
+        endTalkPaused(reason: "talk mode timed out", connected: connected)
+    }
+
+    /// Ends talk mode and leaves the music paused: after the timeout, or when the headphones
+    /// disconnect (music must not carry on from the Mac's speakers). With the battery saver on,
+    /// noise control goes Off and your old mode comes back when audio plays again; with it off,
+    /// your old mode comes back right away.
+    private func endTalkPaused(reason: String, connected: Bool) {
+        log("\(reason): talk mode off, music stays paused")
         if !pausedMusic && SystemVolume.isPlaying() { NowPlaying.pause() }
         if let v = savedVolume { SystemVolume.set(v) }
         savedVolume = nil
         pausedMusic = false // stays paused
-        idleSavedAnc = savedAnc ?? ancMode
-        headset.send(Proto.ancSet, [0x01, Proto.ancOff, 0x00])
-        ancMode = Proto.ancOff
-        idleOffSince = Date()
-        stats.idleOffCount += 1
+        if connected {
+            if idleSaver {
+                idleSavedAnc = savedAnc ?? ancMode
+                headset.send(Proto.ancSet, [0x01, Proto.ancOff, 0x00])
+                ancMode = Proto.ancOff
+                idleOffSince = Date()
+                stats.idleOffCount += 1
+            } else if let m = savedAnc {
+                headset.send(Proto.ancSet, [0x01, m, 0x00])
+                ancMode = m
+            }
+        }
+        savedAnc = nil
         active = false
         if let t = talkSince { stats.talkSeconds += Date().timeIntervalSince(t) }
         talkSince = nil
+        timerStart = Date()
         saveStats()
     }
 
@@ -470,6 +514,8 @@ final class TalkMode: ObservableObject {
     }
 
     private func checkIdle() {
+        // Talking a long time: you probably took the headphones off. Checked even while audio plays.
+        if active, let t = talkSince, Date().timeIntervalSince(t) >= talkTimeout { talkTimedOut() }
         let p = SystemVolume.isPlaying()
         let started = p && !playing
         if p != playing { playing = p }
@@ -480,8 +526,6 @@ final class TalkMode: ObservableObject {
             if started || Date().timeIntervalSince(lastAutoCheck) >= 6 { lastAutoCheck = Date(); autoEq() }
             return
         }
-        // Talking longer than the battery saver time: you probably took the headphones off.
-        if active, idleSaver, let t = talkSince, Date().timeIntervalSince(t) >= idleSeconds { talkTimedOut() }
         guard connected else { return }
         if quietSince == nil { quietSince = Date() }
         if let d = idleDeadline, Date() >= d, let m = ancMode {

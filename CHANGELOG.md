@@ -2,6 +2,18 @@
 
 All versions are on the [Releases page](https://github.com/georgerahul24/cmf-headphone-pro-talk-mode/releases). Android and Mac share version numbers.
 
+## 2.13.9
+
+- **Talk mode no longer gets stuck on.** Before, it could stay on for hours after you took the headphones off, and the screen kept saying "talking". Now it ends when:
+  - the headphones disconnect (turned off or out of range). The music stays paused, so it doesn't play from the speaker.
+  - it has been on for the battery saver time. With the battery saver off, this is now 1 hour (before, it never ended). The headphones can't tell if they are worn, so a timer is the only way.
+  - you change the noise mode with the headphone button or in Nothing X. The new mode stays.
+  - you pick another noise mode in the app. Before, the app kept talk mode on with the wrong mode.
+- **Android: music no longer starts again during talk mode after a notification or call.** Before, if the music app restarted twice in a row (a notification sound, then the audio coming back), the app thought you had pressed play yourself and let it play. Now a restart within 20 seconds of a notification or call is always paused again. If the music app takes the audio for itself, talk mode notices right away. If talk mode still holds the audio, it presses pause straight away instead of waiting.
+- Talk mode can't be turned on while the headphones aren't connected.
+- Quitting the Mac app, or the phone service stopping, ends talk mode first, so the headphones don't stay in Transparency.
+- On Mac, the talk timer now also runs while audio plays (with "lower the volume" talk mode).
+
 ## 2.13.8
 
 - **Hearing safety is removed** (the weekly sound dose ring and the loud listening notices). It guessed loudness from the volume slider, and that guess was often far off. The Fire TV's volume stays at maximum while you change it elsewhere, so every hour of TV counted as very loud, and the total synced to the phone and Mac too. The real loudness can't be measured: the headphones don't report it, and the apps can't hear what plays. Its saved data is deleted.
